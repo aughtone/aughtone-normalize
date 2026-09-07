@@ -21,13 +21,26 @@ These are credentials and are set by someone with repository admin access, in th
 
 ## Cutting a release
 
-1. **Bump the version** in `gradle/libs.versions.toml` — `versionName` under `[versions]`. Both modules read it, and the release workflow greps this exact line for the tag name, so nothing else needs editing.
+**Publishing is deliberate, not a side effect of merging.** The automatic push-to-`master` trigger in `.github/workflows/publish.yml` is commented out, and the workflow runs on a **published GitHub release** instead.
+
+1. **Bump the version** in `gradle/libs.versions.toml` — `versionName` under `[versions]`. Both modules read it, so nothing else needs editing.
 2. **Move the `CHANGELOG.md` entries** from `## [Unreleased]` into a new dated version heading.
-3. **Merge `develop` into `master`.** The push to `master` is what triggers publication.
+3. **Merge `develop` into `master`** and push. Nothing publishes at this point — this is just getting the release commit onto the release branch.
+4. **Create the release.** Tag the merge commit `v<versionName>` and publish a GitHub release from it, which is what triggers the workflow:
 
-The workflow then tags `v<versionName>`, creates a GitHub release with generated notes, and runs `./gradlew publishToMavenCentral` with `automaticRelease = true` — so the staging repository closes and releases without a manual step in the Central portal.
+```bash
+gh release create v0.0.1 --title "Release 0.0.1" --generate-notes
+```
 
-`.github/workflows/publish.yml` triggers on **`master`**. This repository has no `main` branch; if one is ever created, the trigger has to be revisited rather than assumed.
+The workflow's publish job then runs `./gradlew publishToMavenCentral` with `automaticRelease = true`, so the staging repository closes and releases without a manual step in the Central portal.
+
+## Why it is wired this way
+
+The automatic trigger creates the tag and a public, non-draft GitHub release **before** it attempts the upload. With the secrets missing that leaves a `v0.0.1` tag and a release advertising a version that never reached Central, and recovering means deleting both and re-cutting. Requiring an explicit release means the tag is only ever created by someone who meant to create it.
+
+To restore the automatic behaviour once the secrets are in place, uncomment the `push: branches: [ "master" ]` trigger. The `create-release` job exists only for that path and is skipped on a release event.
+
+This repository has no `main` branch. If one is ever created, the trigger has to be revisited rather than assumed.
 
 ## Verifying before you push
 

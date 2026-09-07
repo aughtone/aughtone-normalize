@@ -2,8 +2,17 @@
 
 name: Publish
 on:
-  push:
-    branches: [ "master" ]
+  # Publishing on a push to master is DISABLED. It tags and creates a public
+  # GitHub release BEFORE it attempts the upload, so with the Maven Central and
+  # signing secrets missing it would leave a v0.0.1 tag and release pointing at
+  # a version that never reached Central.
+  #
+  # To re-enable once the secrets are configured, restore:
+  #   push:
+  #     branches: [ "master" ]
+  #
+  # Until then, publishing is deliberate: tag the commit and create a GitHub
+  # release, and this workflow's publish job runs on that.
   release:
     types: [published]
 
@@ -42,9 +51,17 @@ jobs:
   publish:
     name: Release build and publish
     needs: create-release
+    # create-release is skipped on a `release` event, and a skipped dependency
+    # would skip this job too - hence the explicit !cancelled() guard, which
+    # lets publish run on a release while still refusing to run if the push
+    # path's release creation actually failed.
     if: |
-      github.event_name == 'release' || 
-      (github.event_name == 'push' && needs.create-release.outputs.release_id != '')
+      !cancelled()
+      && needs.create-release.result != 'failure'
+      && (
+        github.event_name == 'release'
+        || (github.event_name == 'push' && needs.create-release.outputs.release_id != '')
+      )
     runs-on: macOS-latest
     steps:
       - name: Check out code
