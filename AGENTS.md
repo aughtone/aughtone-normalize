@@ -58,7 +58,6 @@ The documentation layout is described in [docs/README.md](docs/README.md); read 
 
 - **[Normalization Suite Structure](docs/knowledge/specifications/SPEC-0001-normalization-suite.md)** — the module boundaries, the shared contract, and the policy-versioning rules. Binding on anything that can reach a canonical string.
 - **[Kotlin Multiplatform Conventions](docs/knowledge/specifications/SPEC-0002-kmp-conventions.md)** — the multiplatform constraints that are not obvious from a single-target build.
-- **[Quality Engineering](docs/knowledge/specifications/SPEC-0003-quality-engineering.md)** — the eight pillars as they apply to a headless library, and what a change must clear before it merges.
 
 ## 3. Core Development Principles
 - **Test-Driven Development (TDD)**: Whenever feasible, write a failing test before implementation.

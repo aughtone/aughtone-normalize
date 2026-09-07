@@ -41,6 +41,6 @@ Each module is a Kotlin Multiplatform library targeting jvm, android, iosX64, io
 
 The whole project exists to make one property true: **the same input produces the same canonical bytes, on any platform, at any time.** A consumer hashes the canonical output and throws the original away, so an innocuous-looking improvement to a published policy silently breaks every token already derived from it.
 
-Read [Normalization Suite Structure](../specifications/SPEC-0001-normalization-suite.md) before touching anything that can reach a canonical string, and [Quality Engineering](../specifications/SPEC-0003-quality-engineering.md) for the bar a change has to clear. [Kotlin Multiplatform Conventions](../specifications/SPEC-0002-kmp-conventions.md) covers the multiplatform traps that are not obvious from a single-target build.
+Read [Normalization Suite Structure](../specifications/SPEC-0001-normalization-suite.md) before touching anything that can reach a canonical string. [Kotlin Multiplatform Conventions](../specifications/SPEC-0002-kmp-conventions.md) covers the multiplatform traps that are not obvious from a single-target build.
 
 Work is tracked as issues, not files — [WORKFLOW.md](../../../WORKFLOW.md) explains how it moves.

@@ -41,7 +41,7 @@ Then add `include(":yourmodule")` to `settings.gradle.kts`. Depend on `api(proje
 
 ## 4. Test it
 
-The permutation matrix is the specification — see [Quality Engineering](../specifications/SPEC-0003-quality-engineering.md) for what it has to cover. At minimum: each failure mode with its typed error identity, idempotence, and the fact that the same input yields byte-identical output. Use plain camelCase test names.
+The permutation matrix is the specification. At minimum: each failure mode with its typed error identity, idempotence, and the fact that the same input yields byte-identical output. Use plain camelCase test names.
 
 ```bash
 ./gradlew check
