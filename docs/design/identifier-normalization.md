@@ -1,6 +1,6 @@
 # Identifier & Text Normalization — Design
 
-Status: working design (not yet an ADR). Captures the decisions made while designing the normalization modules so we can see the whole shape before building.
+Status: working design (not yet an ADR). Captures the decisions made while designing the normalization suite so the whole shape is visible before building. A **Current state, consumers & next steps** section at the end is the handoff starting point for whoever picks this up.
 
 ## Purpose
 
@@ -18,22 +18,25 @@ Two consequences drive the whole design:
 
 ## Module structure
 
-Three modules, split so the lean core carries no heavy dependency and each satellite is opt-in. The rule is strict: **satellites depend on the core, never the reverse, and never on each other in a cycle.**
+The suite is the repo `aughtone-normalize`, group `io.github.aughtone.normalize`. It is organized as a family of modules (like the format suite): a shared base plus functional modules. The rule is strict: **functional modules depend on the base, never the reverse, and never on each other in a cycle.** Each opt-in module pulls only its own weight, keeping the base tiny.
 
-| Module | Contains | Depends on | Ships a table? |
-| :--- | :--- | :--- | :--- |
-| `:normalize` | the common contract + byte-stable **identifier** normalizers (email, and other no-table normalizers) | `aughtone-types` only | No — permanent, zero data |
-| `:normalize-unicode` | Unicode string forms (NFC/NFD/NFKC/NFKD) + domain/URL/punycode + confusables | `api(:normalize)` + frozen Unicode tables | Yes — pinned, delta-packaged |
-| `:normalize-phone` | phone → E.164 | `api(:normalize)` + `aughtone-phonenumber` | No (region metadata, not Unicode) |
+| Module | Coordinate | Contains | Depends on | Ships a table? |
+| :--- | :--- | :--- | :--- | :--- |
+| `:common` | `io.github.aughtone.normalize:common` | the shared contract — `Normalized`, `NormalizationStep`, policy + version base | `aughtone-types` | No |
+| `:email` | `io.github.aughtone.normalize:email` | byte-stable email normalizer (and, over time, other no-table identifier normalizers) | `api(:common)` | No — permanent, zero data |
+| `:unicode` | `io.github.aughtone.normalize:unicode` | Unicode string forms (NFC/NFD/NFKC/NFKD) + domain/URL/punycode + confusables | `api(:common)` + frozen Unicode tables | Yes — pinned, delta-packaged |
+| `:phone` | `io.github.aughtone.normalize:phone` | phone → E.164 | `api(:common)` + `aughtone-phonenumber` | No (region metadata, not Unicode) |
+
+A future usable-standalone convenience form would be named `:core`/`:basic`/`:simple` and depend on `:common` — `:common` is pure foundation with no concrete normalizer of its own, which is why it is `common` and not `core`.
 
 Inclusion criterion for a normalizer: **general, reusable, and it fits the versioned-policy contract.** App-coupled or different-concern code stays where it is.
 
-## The common contract
+## The common contract (`:common`)
 
-Every normalizer in the suite shares one shape, defined in `:normalize`, so the API reads uniformly across email, phone, domain, and the rest:
+Every normalizer in the suite shares one shape, defined in `:common`, so the API reads uniformly across email, phone, domain, and the rest:
 
 - `normalizeX(value, policy): Outcome<NormalizedX>` — returns the aughtone-types `Outcome`; no default policy (the caller must name one, so output is never produced under rules nobody chose).
-- The success value carries the **canonical string plus the policy `id` + `version`** to store beside any derived hash.
+- The success value implements **`Normalized`** — the canonical string plus the policy `id` + `version`, to store beside any derived hash.
 - Failure is **explicit and value-free**: a typed error that never echoes the input (so a rejected identifier cannot leak into a log), never a best-effort result.
 
 ## Policies and versioning
@@ -62,15 +65,16 @@ Supporting multiple Unicode epochs must not cost a full table per version. Becau
 
 ## Composition and dependency inversion
 
-The email normalizer lives in `:normalize`, but may optionally apply steps that need the Unicode table (e.g. punycode the domain), which live in `:normalize-unicode`. To let the core use an extension without depending on it:
+The email normalizer lives in `:email`, but may optionally apply steps that need the Unicode table (e.g. punycode the domain), which live in `:unicode`. To let email use an extension without a dependency cycle:
 
-- `:normalize` defines an **open `interface NormalizationStep`** (the extension point). Sealed types cannot be extended across modules, so the extensibility comes from an interface, not from adding sealed subtypes.
-- `:normalize-unicode` provides implementations — `NfcPolicyV17`, `PunycodeV17`, … — and depends on `:normalize` via `api(...)`.
-- Policies compose via `EmailPolicy.byteStableWith([NfcPolicyV17, PunycodeV17])` rather than a combinatorial explosion of named constants. The composed policy derives a **deterministic id from the ordered step ids** (e.g. `email.byte-stable+nfc.v17+punycode.v17`), so it is self-identifying and reproducible — no anonymous composition.
+- `:common` defines an **open `interface NormalizationStep`** (the extension point). Sealed types cannot be extended across modules, so the extensibility comes from an interface, not from adding sealed subtypes.
+- `:unicode` provides implementations — `NfcPolicyV17`, `PunycodeV17`, … — and depends on `:common` via `api(...)`.
+- `:email` accepts steps by the `:common` interface, so a caller who wants email+punycode depends on both `:email` and `:unicode` and composes via `EmailPolicy.byteStableWith([NfcPolicyV17, PunycodeV17])`. `:email` never depends on `:unicode`.
+- The composed policy derives a **deterministic id from the ordered step ids** (e.g. `email.byte-stable+nfc.v17+punycode.v17`), so it is self-identifying and reproducible — no anonymous composition.
 - **Order is validated.** Each step declares a phase (map → normalize → encode); `byteStableWith(...)` enforces canonical order, because there is one correct order and reordering is not useful (punycode→NFC is degenerate — NFC over ASCII is a no-op). If a genuinely useful custom-order case ever appears, an explicit `unsafeOrdered(...)` escape hatch is added then, not preemptively.
 - A few named defaults are provided for the common combinations; the builder is the general path.
 
-## The email normalizer (built, in `:normalize`)
+## The email normalizer (built, in `:email`)
 
 The shared byte-stable canonical form (`EmailPolicy.ByteStableV1`, id `email.byte-stable`) and a looser `EmailPolicy.Lenient`.
 
@@ -91,25 +95,50 @@ It collapses **no** Unicode variants and encodes **no** provider-specific behavi
 
 | Normalizer | Module | Needs table | Status |
 | :--- | :--- | :--- | :--- |
-| Email | `:normalize` | no | built |
-| Phone → E.164 | `:normalize-phone` | no (region metadata) | planned (on `aughtone-phonenumber`) |
-| Domain / punycode (IDN) | `:normalize-unicode` | yes | planned |
-| URL | `:normalize-unicode` | yes (host is IDN) | planned — reuse the URL types just released in `aughtone-types` |
-| NFC / NFD / NFKC / NFKD | `:normalize-unicode` | yes | planned |
-| Confusables / skeleton (UTS-39) | `:normalize-unicode` | yes | planned — anti-spoofing; reuses the vendored table |
-| Credit-card / PAN (strip separators, Luhn) | `:normalize` | no | planned — same blind-tokenization pattern |
-| Username / handle | `:normalize` (+ optional unicode confusable-fold) | optional | planned |
-| IBAN / bank account | `:normalize` | no | planned |
-| IPv6 / hostname (zero-compression canonical) | `:normalize` | no | planned |
-| Slug | `:normalize` | no | planned — adopt an existing implementation; note slugging often transliterates (lossy), so treat as its own policy family |
+| Email | `:email` | no | built |
+| Phone → E.164 | `:phone` | no (region metadata) | planned (on `aughtone-phonenumber`) |
+| Domain / punycode (IDN) | `:unicode` | yes | planned |
+| URL | `:unicode` | yes (host is IDN) | planned — reuse the URL types released in `aughtone-types` |
+| NFC / NFD / NFKC / NFKD | `:unicode` | yes | planned |
+| Confusables / skeleton (UTS-39) | `:unicode` | yes | planned — anti-spoofing; reuses the vendored table |
+| Credit-card / PAN (strip separators, Luhn) | a no-table module | no | planned — same blind-tokenization pattern |
+| Username / handle | base + optional unicode confusable-fold | optional | planned |
+| IBAN / bank account | a no-table module | no | planned |
+| IPv6 / hostname (zero-compression canonical) | a no-table module | no | planned |
+| Slug | a no-table module | no | planned — adopt an existing implementation; note slugging often transliterates (lossy), so treat as its own policy family |
+
+The no-table identifier normalizers can grow as their own suite modules (e.g. `:financial` for credit-card/IBAN, `:net` for IPv6/hostname, `:slug`), each depending only on `:common`.
 
 ## Scope boundaries
 
-- **Geo encodings** (Open Location Code, geohash, GeoJson) are a different concern — coordinate *encoding*, not identity normalization. They keep their own homes (`aughtone-openlocationcode`, `aughtone-geohash`, the types GeoJson model); they are not forced into `:normalize`.
+- **Geo encodings** (Open Location Code, geohash, GeoJson) are a different concern — coordinate *encoding*, not identity normalization. They keep their own homes (`aughtone-openlocationcode`, `aughtone-geohash`, the types GeoJson model); they are not pulled into this suite.
 - **An application's own capability formatters** (address input, geo formatting) are app-coupled and stay put. The address-input one is a port of Google's libaddressinput and is a future extraction candidate (like `libphonenumber` → `aughtone-phonenumber`), but out of scope here.
 - A deliberate inventory-and-consolidation pass over scattered formatters is worthwhile later, gated by the inclusion criterion above — not a boil-the-ocean sweep now.
 
 ## Open questions
 
-- Whether `:normalize-unicode` **vendors** a frozen NFC/UTS-46 implementation (e.g. from kuri, MIT) or **generates its own** tables from the public UCD. Deferred to when that module is built; the module boundary makes it an easy, opt-in decision.
-- An ADR will be written once these questions are fully settled.
+- Whether `:unicode` **vendors** a frozen NFC/UTS-46 implementation (e.g. from kuri, MIT) or **generates its own** tables from the public UCD. Deferred to when that module is built; the module boundary makes it an opt-in decision. If vendoring, retain the source's licence + attribution (as the format repo does for CLDR).
+- Whether NFKC/NFKD ship in the first `:unicode` cut or a follow-up. They are lossy compatibility forms (ligatures, width, superscripts) — offer all four for completeness, but label the lossiness loudly so no one uses NFKC as if it were canonical.
+- Major-vs-major.minor Unicode version naming (`V17` vs `V170`). The full version is recorded in the `id` regardless.
+- An ADR will be written once these settle.
+
+## Current state, consumers & next steps (handoff)
+
+**Built and committed** (repo `aughtone-normalize`, branch `develop`, version `0.0.1`):
+- `:common` — the `Normalized` interface.
+- `:email` — `normalizeEmail(value, policy): Outcome<NormalizedEmail>`, `EmailPolicy.ByteStableV1` (id `email.byte-stable`) and `EmailPolicy.Lenient`, `NormalizedEmail : Normalized`, typed value-free `EmailNormalizationError` (`MissingAtSign`/`EmptyLocalPart`/`EmptyDomain`/`UnpairedSurrogate`). 17 tests green on jvm/iOS/js/wasmJs.
+- Depends on `io.github.aughtone:types:3.3.0`, which exposes `Outcome.Success` / `Outcome.Error(exception: Throwable)`, built via `runOutcome { }` (throw to fail). Types `3.4.0` renames `Error` → `Failure`; stay on `3.3.0`/`Error` until the dependency is bumped, then migrate. Watch Maven Central for `3.4.0` rather than waiting on a ping.
+- Release/CI/convention infrastructure mirrors `aughtone-format`: `.github/workflows` (test on `develop`, publish on push to `main`), `CHANGELOG.md`, `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`/`WORKFLOW.md`, `docs/` system.
+
+**Not yet published.** To publish `0.0.1`: configure the repo's GitHub secrets (`MAVEN_CENTRAL_USERNAME`/`PASSWORD`, `SIGNING_KEY_ID`, `SIGNING_PASSWORD`, `GPG_KEY_CONTENTS`), then merge `develop` → a release branch → `main`; the workflow tags `v0.0.1`, creates the release, and runs `publishToMavenCentral`.
+
+**Consumers (coordinate before ever changing the canonical form):**
+- **A blind-tokenization consumer** — hashes the canonical email into a breach-safe token.
+- **A client-side contact-discovery consumer** — hashes address books on the **client** (Android/iOS/web), which is why byte-identical output across platforms and app versions is non-negotiable (this ruled out platform NFC and any frozen provider list).
+- Both need the *same* canonical bytes. The settled contract is `ByteStableV1` / id `email.byte-stable`. An earlier draft used the id `email.canonical`; it was changed to `email.byte-stable` before publication, so a consumer still holding the old id adopts the final one at publish. **After publishing, confirm the final coordinate `io.github.aughtone.normalize:email:0.0.1`, policy `ByteStableV1`, id `email.byte-stable` with every consumer.**
+
+**Immediate next steps:**
+1. Publish `0.0.1` and notify the consumers of the final coordinate/id.
+2. Build `:unicode` — NFC/NFD/NFKC/NFKD + domain/punycode + confusables. This is where the vendor-vs-generate table decision and the delta-table design are realized.
+3. Build `:phone` on `aughtone-phonenumber` (published as `io.github.aughtone:phonenumber`, epoch 9.0.38).
+4. Add the remaining no-table normalizers per the roster.
