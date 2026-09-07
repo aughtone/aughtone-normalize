@@ -128,9 +128,9 @@ The no-table identifier normalizers can grow as their own suite modules (e.g. `:
 - `:common` — the `Normalized` interface.
 - `:email` — `normalizeEmail(value, policy): Outcome<NormalizedEmail>`, `EmailPolicy.ByteStableV1` (id `email.byte-stable`) and `EmailPolicy.Lenient`, `NormalizedEmail : Normalized`, typed value-free `EmailNormalizationError` (`MissingAtSign`/`EmptyLocalPart`/`EmptyDomain`/`UnpairedSurrogate`). 17 tests green on jvm/iOS/js/wasmJs.
 - Depends on `io.github.aughtone:types:3.3.0`, which exposes `Outcome.Success` / `Outcome.Error(exception: Throwable)`, built via `runOutcome { }` (throw to fail). Types `3.4.0` renames `Error` → `Failure`; stay on `3.3.0`/`Error` until the dependency is bumped, then migrate. Watch Maven Central for `3.4.0` rather than waiting on a ping.
-- Release/CI/convention infrastructure mirrors `aughtone-format`: `.github/workflows` (test on `develop`, publish on push to `main`), `CHANGELOG.md`, `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`/`WORKFLOW.md`, `docs/` system.
+- Release/CI/convention infrastructure mirrors `aughtone-format`: `.github/workflows` (test on `develop`, publish on push to `master`), `CHANGELOG.md`, `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`/`WORKFLOW.md`, `docs/` system.
 
-**Not yet published.** To publish `0.0.1`: configure the repo's GitHub secrets (`MAVEN_CENTRAL_USERNAME`/`PASSWORD`, `SIGNING_KEY_ID`, `SIGNING_PASSWORD`, `GPG_KEY_CONTENTS`), then merge `develop` → a release branch → `main`; the workflow tags `v0.0.1`, creates the release, and runs `publishToMavenCentral`.
+**Not yet published.** To publish `0.0.1`: configure the repo's GitHub secrets (`MAVEN_CENTRAL_USERNAME`/`PASSWORD`, `SIGNING_KEY_ID`, `SIGNING_PASSWORD`, `GPG_KEY_CONTENTS`), then merge `develop` → a release branch → `master`; the workflow tags `v0.0.1`, creates the release, and runs `publishToMavenCentral`.
 
 **Consumers (coordinate before ever changing the canonical form):**
 - **A blind-tokenization consumer** — hashes the canonical email into a breach-safe token.
