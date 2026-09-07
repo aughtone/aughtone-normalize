@@ -7,15 +7,17 @@ Kotlin Multiplatform normalization suite — deterministic, byte-stable canonica
 - **`:common`** (`io.github.aughtone.normalize:common`): the shared `Normalized` contract — the canonical string plus the identity of the policy that produced it — reported by every normalizer's result.
 - **`:email`** (`io.github.aughtone.normalize:email`): the byte-stable email normalizer, with named frozen policies and typed, value-free errors.
 
-This project follows a specialized 5-sector documentation hierarchy.
+## 📚 Documentation
 
-## 📚 Documentation Sectors
-- 📐 [Architecture](docs/ARCH.md): Engineering rules and design patterns.
-- 🧠 [Functional Specifications](docs/SPEC.md): Business logic and domain constraints.
-- 🎨 [Design & UI](docs/DESIGN.md): Presentation layer and user stories.
-- 📋 [Acceptance Criteria](docs/ACs/README.md): Success outcomes and verification.
-- 📖 [Developer Guide](docs/DEVELOPER.md): Environment setup and onboarding.
-- 📜 [Changelog](CHANGELOG.md): History of changes and release notes.
+Start at [docs/README.md](docs/README.md), which explains how the documentation is organized. The knowledge base itself lives in [docs/knowledge/](docs/knowledge/):
+
+- 📐 [Specifications](docs/knowledge/specifications/): how the suite is built and the standards it is held to.
+- 🧭 [Architecture Decision Records](docs/knowledge/decisions/): hard-to-reverse choices and why the alternatives lost.
+- 🔬 [Research](docs/knowledge/research/): investigations and designs still being worked out.
+- 📖 [Developer Guides](docs/knowledge/guides/): building, extending and releasing this project.
+- 📜 [Changelog](CHANGELOG.md): history of changes and release notes.
+
+Work is tracked as issues rather than documents — see [WORKFLOW.md](WORKFLOW.md).
 
 ## 🚀 Quick Usage
 
@@ -36,3 +38,7 @@ when (val outcome = normalizeEmail(value, EmailPolicy.ByteStableV1)) {
     }
 }
 ```
+
+## 🛠️ Contributing
+
+Read [Getting Started](docs/knowledge/guides/GUIDE-0001-getting-started.md) first, then [AGENTS.md](AGENTS.md) if you are an agent. The one rule that matters more than the rest: **a published policy's canonical output never changes in place** — see [Normalization Suite Structure](docs/knowledge/specifications/SPEC-0001-normalization-suite.md).

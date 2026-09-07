@@ -52,16 +52,24 @@ borderline, leave it out and say so — it is far cheaper to add a detail
 later than to remove one from a public history.
 
 
-## 2. Core Development Principles
+## 2. Governance Standards
+
+The documentation layout is described in [docs/README.md](docs/README.md); read it before filing or looking for a document. All agents MUST adhere to these specifications:
+
+- **[Normalization Suite Structure](docs/knowledge/specifications/SPEC-0001-normalization-suite.md)** — the module boundaries, the shared contract, and the policy-versioning rules. Binding on anything that can reach a canonical string.
+- **[Kotlin Multiplatform Conventions](docs/knowledge/specifications/SPEC-0002-kmp-conventions.md)** — the multiplatform constraints that are not obvious from a single-target build.
+- **[Quality Engineering](docs/knowledge/specifications/SPEC-0003-quality-engineering.md)** — the eight pillars as they apply to a headless library, and what a change must clear before it merges.
+
+## 3. Core Development Principles
 - **Test-Driven Development (TDD)**: Whenever feasible, write a failing test before implementation.
 - **Kotlin Multiplatform**: All code must be multiplatform-first. Be mindful of source set placement (`commonMain`, `androidMain`, etc.).
 - **Immutability & Safety**: Maintain data structure immutability and handle serialization (`kotlinx.serialization`) correctly.
 - **Consistency**: Adhere to existing patterns; consistency outweighs personal preference.
 
-## 3. AI Interaction Guidelines
-- **Verification First**: Check the corresponding AcceptanceCriteria.md before implementation.
+## 4. AI Interaction Guidelines
+- **Verification First**: Acceptance criteria live on the tracker story, not in a file. Read the story's `## Acceptance Criteria` checklist before implementing — it IS the scope. See [WORKFLOW.md](WORKFLOW.md).
 - **Mandatory Approval**: ALWAYS present a detailed implementation plan and WAIT for explicit user approval before executing any code changes or tool calls that modify the repository state.
 - **No embedded skill files.** Do not add `*.ai-skill.md`,
   `META-INF/ai-skills/` or `META-INF/agents/skills/` to this repo, and do
   not scan dependencies for them.
-- **Update Docs**: Intelligently disperse context into the appropriate sector.
+- **Update Docs**: File knowledge in the right section of `docs/knowledge/` — each section's `README.md` says what belongs there, and [docs/README.md](docs/README.md) explains the model. Never record work status in a document.
