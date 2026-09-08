@@ -2,7 +2,7 @@
 
 RAD-0001 · 2026-09-07 · status: recommended
 Keywords: same email hashes differently on iOS and Android, blind tokenization, breach-safe token, why not NFC, why not java.text.Normalizer, Gmail dots and plus addressing, IDNA ToASCII, Unicode version drift, canonical email, hash mismatch across app versions, why not libphonenumber for this
-Measured against: Kotlin 2.4.0, `io.github.aughtone:types` 3.3.0, targets jvm / android / iosX64 / iosArm64 / iosSimulatorArm64 / js / wasmJs / linuxX64, 2026-09-07. The email module's 17 tests run green on jvm, js, wasmJs and iosSimulatorArm64.
+Measured against: Kotlin 2.4.0, `io.github.aughtone:types` 3.4.0, targets jvm / android / iosX64 / iosArm64 / iosSimulatorArm64 / js / wasmJs / linuxX64, 2026-09-08. The email module's 17 tests run green on jvm, js, wasmJs, iosSimulatorArm64 and linuxX64 — 85 executions of the same suite across five runtimes. `iosX64` is compiled and linked but not executed, for want of an Intel runner.
 
 The settled rules that came out of this are written up as [Normalization Suite Structure](../specifications/SPEC-0001-normalization-suite.md); this record is the reasoning behind them and the questions still open.
 
@@ -61,6 +61,6 @@ Build the suite as the family of modules described in [SPEC-0001](../specificati
 
 `:common` and `:email` are built, tested and committed at version `0.0.1`, and are **not yet published**. Publishing requires the repository's Maven Central and signing secrets to be configured; the release workflow then tags, releases and publishes on a push to `master`.
 
-The suite depends on `io.github.aughtone:types` `3.3.0`, which exposes `Outcome.Success` and `Outcome.Error(exception: Throwable)`, built via `runOutcome { }`. Types `3.4.0` renames `Error` to `Failure`; stay on `3.3.0` until the dependency is deliberately bumped, then migrate.
+The suite depends on `io.github.aughtone:types` `3.4.0`, which exposes `Outcome.Success` and `Outcome.Failure(exception: Throwable)`, built via `runOutcome { }` (throw to fail). `Outcome.Error` survives there only as a deprecated typealias to `Failure`; this suite uses `Failure` throughout and should not reintroduce the old name.
 
 **Coordinate with consumers before ever changing the canonical form.** Both known consumers need identical bytes, and the settled contract is `ByteStableV1`, id `email.byte-stable`. An earlier draft used the id `email.canonical`; it changed before publication, so a consumer still holding the old id adopts the final one at publish. Once published, confirm the coordinate `io.github.aughtone.normalize:email:0.0.1`, policy `ByteStableV1`, id `email.byte-stable` with each of them.

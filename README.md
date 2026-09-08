@@ -79,7 +79,7 @@ when (val outcome = normalizeEmail(value, EmailPolicy.ByteStableV1)) {
         hash(normalized.canonical)             // stable across platforms and builds
         // persist normalized.policyId + normalized.policyVersion beside the hash
     }
-    is Outcome.Error -> {
+    is Outcome.Failure -> {
         val reason = outcome.exception         // a typed, value-free EmailNormalizationError
     }
 }
