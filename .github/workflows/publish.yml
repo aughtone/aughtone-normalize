@@ -2,10 +2,9 @@
 
 name: Publish
 on:
-  # gitflow: finishing a release merges into master, and that push publishes.
-  # The create-release job derives the tag from versionName in
-  # gradle/libs.versions.toml, so the version must be bumped on the release
-  # branch BEFORE it is finished.
+  # A push to master publishes. The create-release job derives the tag from
+  # versionName in gradle/libs.versions.toml, so the version must be bumped
+  # before the release branch reaches master.
   push:
     branches: [ "master" ]
   # Manual path: publishing an existing GitHub release republishes it.
