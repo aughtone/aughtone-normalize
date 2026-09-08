@@ -3,8 +3,8 @@ package io.github.aughtone.normalize.email
 /**
  * Why a value could not be normalized under the named policy.
  *
- * A Throwable subclass, because aughtone-types `Outcome.Error` carries a `Throwable`: it rides on
- * `Outcome.Error(exception)`, and `(o.exception as? EmailNormalizationError)` recovers the typed reason.
+ * A Throwable subclass, because aughtone-types `Outcome.Failure` carries a `Throwable`: it rides on
+ * `Outcome.Failure(exception)`, and `(o.exception as? EmailNormalizationError)` recovers the typed reason.
  * The messages are **value-free** — they never echo the input, so a rejected address cannot leak into a
  * log. Rejection is routine per-record flow, not an exceptional event.
  */

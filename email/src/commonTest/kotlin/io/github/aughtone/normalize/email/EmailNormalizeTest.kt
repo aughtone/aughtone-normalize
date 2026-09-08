@@ -13,13 +13,13 @@ class EmailNormalizeTest {
     private fun canonical(value: String, policy: EmailPolicy): String =
         when (val o = normalizeEmail(value, policy)) {
             is Outcome.Success -> o.data.canonical
-            is Outcome.Error -> throw AssertionError("expected Success, got Error: ${o.exception::class.simpleName}")
+            is Outcome.Failure -> throw AssertionError("expected Success, got Failure: ${o.exception::class.simpleName}")
         }
 
     private inline fun <reified E : EmailNormalizationError> assertError(value: String, policy: EmailPolicy) {
         when (val o = normalizeEmail(value, policy)) {
-            is Outcome.Success -> throw AssertionError("expected Error, got Success: ${o.data.canonical}")
-            is Outcome.Error -> assertTrue(
+            is Outcome.Success -> throw AssertionError("expected Failure, got Success: ${o.data.canonical}")
+            is Outcome.Failure -> assertTrue(
                 o.exception is E,
                 "expected ${E::class.simpleName}, got ${o.exception::class.simpleName}",
             )

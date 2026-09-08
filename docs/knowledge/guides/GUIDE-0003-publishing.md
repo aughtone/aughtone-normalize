@@ -21,36 +21,23 @@ These are credentials and are set by someone with repository admin access, in th
 
 ## Cutting a release
 
-**Publishing is deliberate, not a side effect of merging.** The automatic push-to-`master` trigger in `.github/workflows/publish.yml` is commented out, and the workflow runs on a **published GitHub release** instead.
+**Pushing to `master` is what publishes.** Nothing else does. That push triggers `.github/workflows/publish.yml`, which tags the commit, creates a GitHub release, and uploads to Maven Central — so `master` should only ever receive a finished, version-bumped release.
 
-1. **Bump the version** in `gradle/libs.versions.toml` — `versionName` under `[versions]`. Both modules read it, so nothing else needs editing.
-2. **Move the `CHANGELOG.md` entries** from `## [Unreleased]` into a new dated version heading.
-3. **Merge `develop` into `master`** and push. Nothing publishes at this point — this is just getting the release commit onto the release branch.
-4. **Create the release.** Tag the merge commit `v<versionName>` and publish a GitHub release from it, which is what triggers the workflow:
+1. **Start the release branch** from `develop` — `release/v<version>`.
+2. **Bump the version** in `gradle/libs.versions.toml` — `versionName` under `[versions]`. Both modules read it. **Do this before `master` sees the merge**: the workflow greps that exact line to derive the tag name, so whatever the file says is what gets tagged and published.
+3. **Move the `CHANGELOG.md` entries** from `## [Unreleased]` into a new dated version heading, and update the link definitions at the bottom of the file.
+4. **Merge the release branch into `master`**, and back into `develop` so the version bump and changelog are not stranded on a branch.
+5. **Push `master`.** That push is the trigger. Push `develop` and any tags too.
 
-```bash
-gh release create v0.0.1 --title "Release 0.0.1" --generate-notes
-```
+The workflow then creates the GitHub release with generated notes and runs `./gradlew publishToMavenCentral` with `automaticRelease = true`, so the staging repository closes and releases without a manual step in the Central portal.
 
-The workflow's publish job then runs `./gradlew publishToMavenCentral` with `automaticRelease = true`, so the staging repository closes and releases without a manual step in the Central portal.
+Publishing a GitHub release by hand also works and runs the publish job on its own — useful for re-running a failed upload without another merge.
 
-## Why it is wired this way
+## Before you merge to master
 
-The automatic trigger creates the tag and a public, non-draft GitHub release **before** it attempts the upload. With the secrets missing that leaves a `v0.0.1` tag and a release advertising a version that never reached Central, and recovering means deleting both and re-cutting. Requiring an explicit release means the tag is only ever created by someone who meant to create it.
+**The secrets must already exist.** The workflow creates the tag and a public, non-draft GitHub release *before* it attempts the upload. If the credentials are missing the upload fails but the tag and release remain, advertising a version that never reached Central — recovering means deleting both and re-cutting. `gh secret list -R aughtone/aughtone-normalize` confirms them without revealing values.
 
-To restore the automatic behaviour once the secrets are in place, uncomment the `push: branches: [ "master" ]` trigger. The `create-release` job exists only for that path and is skipped on a release event.
-
-This repository has no `main` branch. If one is ever created, the trigger has to be revisited rather than assumed.
-
-## Verifying before you push
-
-A full publish can be rehearsed locally without credentials:
-
-```bash
-./gradlew publishToMavenLocal -Pskip-signing
-```
-
-The `skip-signing` property is checked in each module's `mavenPublishing` block and skips `signAllPublications()`. The artifacts land in `~/.m2/repository/io/github/aughtone/normalize/` where a consuming project can resolve them via `mavenLocal()` — which is the honest way to check that a coordinate, a POM and an artifact set are what you meant them to be.
+**The release branch gets no CI.** `test.yml` runs on `develop` only, matching the other projects in the family, so nothing validates a release branch between leaving `develop` and publishing from `master`. Run `./gradlew check` locally before merging, or add `release/**` to the test workflow's triggers.
 
 ## After publishing
 

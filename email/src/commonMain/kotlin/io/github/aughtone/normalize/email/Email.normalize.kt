@@ -7,7 +7,7 @@ import io.github.aughtone.types.outcome.runOutcome
  * Normalize [value] under [policy] into a byte-stable canonical string.
  *
  * - **No default policy:** the caller must name one, so output is never produced under rules nobody chose.
- * - **Total or explicitly failing:** malformed input yields `Outcome.Error(EmailNormalizationError)`,
+ * - **Total or explicitly failing:** malformed input yields `Outcome.Failure(EmailNormalizationError)`,
  *   never a best-effort token. It never rejects a valid address, and never fails when Unicode changes.
  * - **Idempotent:** `normalizeEmail(normalizeEmail(v, p).data.canonical, p)` yields the same canonical.
  *
@@ -15,7 +15,7 @@ import io.github.aughtone.types.outcome.runOutcome
  * ```
  * when (val o = normalizeEmail(value, EmailPolicy.ByteStableV1)) {
  *     is Outcome.Success -> o.data               // NormalizedEmail; hash o.data.canonical
- *     is Outcome.Error   -> o.exception          // an EmailNormalizationError
+ *     is Outcome.Failure -> o.exception          // an EmailNormalizationError
  * }
  * ```
  */
@@ -46,7 +46,7 @@ fun normalizeEmail(value: String, policy: EmailPolicy): Outcome<NormalizedEmail>
 fun String.normalizeEmailOrNull(policy: EmailPolicy): String? =
     when (val outcome = normalizeEmail(this, policy)) {
         is Outcome.Success -> outcome.data.canonical
-        is Outcome.Error -> null
+        is Outcome.Failure -> null
     }
 
 // --- byte-level helpers: ASCII only, Unicode-version-independent ---
