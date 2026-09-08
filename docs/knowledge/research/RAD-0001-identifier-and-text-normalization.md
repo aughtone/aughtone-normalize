@@ -40,11 +40,13 @@ The wider question is whether that constraint generalizes: phone, domain and URL
 
 ## Open questions
 
-- Whether `:unicode` **vendors** a frozen NFC/UTS-46 implementation or **generates its own** tables from the public UCD. Deferred until that module is built; the module boundary keeps it an opt-in decision. If vendoring, the source's licence and attribution must be retained.
+- ~~Whether `:unicode` **vendors** a frozen NFC/UTS-46 implementation or **generates its own** tables from the public UCD.~~ **Settled** — generate from the UCD, see [ADR-0002](../decisions/ADR-0002-generating-the-unicode-tables.md). The delta packaging and the material-change check both depend on it.
 - Whether NFKC/NFKD ship in the first `:unicode` cut or a follow-up. They are lossy compatibility forms — ligatures, width, superscripts — and the risk is someone reaching for NFKC as though it were canonical, so the lossiness needs labelling loudly wherever they appear.
 - Major versus major.minor Unicode version naming (`V17` against `V170`). The full version is recorded in the policy `id` either way.
 
-An ADR is owed once these settle.
+The phone region question that came out of building the roster is also settled — two policies, `E164` and `e164For(region)`, neither ever defaulting: [ADR-0001](../decisions/ADR-0001-supplying-a-region-to-the-phone-normalizer.md).
+
+An ADR is owed on each remaining question above once it settles.
 
 ## Recommendation
 
