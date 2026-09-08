@@ -29,6 +29,12 @@ class EmailPolicy internal constructor(
          * Loose, non-canonical: trim + ASCII-lowercase only. For callers that just want a reasonable
          * key (display, dedupe) and do not need cross-platform byte-stable hashing. Two addresses
          * collide only if they differ by ASCII case or surrounding ASCII whitespace.
+         *
+         * **NOT for blind tokenization or blind indexing — use [ByteStableV1] for those.** This
+         * policy does not strip the `+`-subaddress, so it produces a different canonical string from
+         * the shared byte-stable form. A hash derived under it will silently never match one derived
+         * under [ByteStableV1], and because a blind tokenizer discards the input, that mismatch is
+         * both undetectable and unrecoverable.
          */
         val Lenient: EmailPolicy = EmailPolicy(
             id = "email.lenient", version = 1,
