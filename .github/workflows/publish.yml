@@ -1,0 +1,76 @@
+# .github/workflows/publish.yml
+
+name: Publish
+on:
+  # A push to master publishes. The create-release job derives the tag from
+  # versionName in gradle/libs.versions.toml, so the version must be bumped
+  # before the release branch reaches master.
+  push:
+    branches: [ "master" ]
+  # Manual path: publishing an existing GitHub release republishes it.
+  release:
+    types: [published]
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC"
+
+jobs:
+  create-release:
+    name: Create GitHub Release
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      release_id: ${{ steps.release.outputs.id }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Get version
+        id: get_version
+        run: |
+          VERSION=$(grep "versionName =" gradle/libs.versions.toml | cut -d'"' -f2)
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+      - name: Create Release
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.get_version.outputs.VERSION }}
+          name: Release ${{ steps.get_version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    name: Release build and publish
+    needs: create-release
+    # create-release is skipped on a `release` event, and a skipped dependency
+    # would skip this job too - hence the explicit !cancelled() guard, which
+    # lets publish run on a release while still refusing to run if the push
+    # path's release creation actually failed.
+    if: |
+      !cancelled()
+      && needs.create-release.result != 'failure'
+      && (
+        github.event_name == 'release'
+        || (github.event_name == 'push' && needs.create-release.outputs.release_id != '')
+      )
+    runs-on: macOS-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: 21
+      - name: Publish to MavenCentral
+        run: ./gradlew publishToMavenCentral --no-configuration-cache
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_KEY_ID }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_KEY_CONTENTS }}

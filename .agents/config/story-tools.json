@@ -1,0 +1,15 @@
+{
+  "tracker": {
+    "type": "github",
+    "connection": "github-aughtone-normalize",
+    "mcpServer": "github-aughtone-normalize",
+    "repo": "aughtone/aughtone-normalize",
+    "prefix": "AON"
+  },
+  "snapshot": "synced",
+  "updates": {
+    "check": true,
+    "skillsRepo": "bpappin/skills",
+    "skillsBranch": "master"
+  }
+}
