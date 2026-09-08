@@ -27,6 +27,6 @@ dependencyResolutionManagement {
 }
 
 
-rootProject.name = "aughtone-normalize"
+rootProject.name = "AONormalize"
 include(":common")
 include(":email")

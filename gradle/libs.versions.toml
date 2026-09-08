@@ -12,7 +12,7 @@ kotlinx-datetime = "0.8.0"
 vanniktech = "0.37.0"
 kotlinBrowser = "2026.7.1"
 
-aughtone-types = "3.3.0"
+aughtone-types = "3.4.0"
 
 [libraries]
 kotlin-browser = { module = "org.jetbrains.kotlin-wrappers:kotlin-browser", version.ref = "kotlinBrowser" }
