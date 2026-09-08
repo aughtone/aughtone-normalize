@@ -2,17 +2,13 @@
 
 name: Publish
 on:
-  # Publishing on a push to master is DISABLED. It tags and creates a public
-  # GitHub release BEFORE it attempts the upload, so with the Maven Central and
-  # signing secrets missing it would leave a v0.0.1 tag and release pointing at
-  # a version that never reached Central.
-  #
-  # To re-enable once the secrets are configured, restore:
-  #   push:
-  #     branches: [ "master" ]
-  #
-  # Until then, publishing is deliberate: tag the commit and create a GitHub
-  # release, and this workflow's publish job runs on that.
+  # gitflow: finishing a release merges into master, and that push publishes.
+  # The create-release job derives the tag from versionName in
+  # gradle/libs.versions.toml, so the version must be bumped on the release
+  # branch BEFORE it is finished.
+  push:
+    branches: [ "master" ]
+  # Manual path: publishing an existing GitHub release republishes it.
   release:
     types: [published]
 
