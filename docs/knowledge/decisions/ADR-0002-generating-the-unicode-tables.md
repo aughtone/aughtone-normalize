@@ -1,4 +1,4 @@
-# Generating the Unicode tables rather than vendoring them
+# Generating the Unicode tables
 
 ADR-0002 · 2026-09-08 · Status: accepted
 Keywords: NFC implementation, where do the Unicode tables come from, why not use an existing normalization library, UCD, NormalizationTest.txt, delta packaging, Unicode version drift, bundle size wasmJs, ICU4J, kuri
@@ -13,7 +13,7 @@ The `:unicode` module needs NFC/NFD/NFKC/NFKD, and it cannot read the platform's
 
 **Generate the tables from the public UCD, as part of the build.**
 
-The generator regenerates from a named Unicode release, diffs against the frozen baseline, and validates against that release's official `NormalizationTest.txt`. Per [SPEC-0001](../specifications/SPEC-0001-normalization-suite.md), the new base+delta normalizer must pass the suite completely, and the *old* frozen normalizer must pass everything except the new-character cases — which is what proves a delta is exactly the additions and nothing else moved.
+The generator regenerates from a named Unicode release, diffs against the frozen baseline, and validates against that release's official `NormalizationTest.txt`. Per [DOC-0001](../specifications/DOC-0001-normalization-suite.md), the new base+delta normalizer must pass the suite completely, and the *old* frozen normalizer must pass everything except the new-character cases — which is what proves a delta is exactly the additions and nothing else moved.
 
 **Rejected: vendoring a frozen implementation.** Faster to a shipping `:unicode` and less code to own, but it defeats both mechanisms above. A vendored normalizer is not structured as a base snapshot plus separately-loadable deltas, so a consumer pinned to an old epoch would carry every later version's data — and that consumer is precisely the wasmJs and iOS client this suite exists for. It also means inheriting someone else's correctness as an article of faith on the one property the library sells.
 

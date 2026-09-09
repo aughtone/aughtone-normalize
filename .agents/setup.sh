@@ -1455,6 +1455,12 @@ attach_project_github() {  # $1 dir, $2 owner/repo, $3 project number|"", $4 rea
   srv="$(gh_server_name "$conn")"
   copy_skills "$dir" "$mode"
   warn_user_level_overlap
+  # Read the prior choice BEFORE the pointer is deleted below. write_updates_config
+  # says it preserves what was chosen, and could not: every attach path regenerates
+  # the pointer from scratch, so by the time it reads, there is nothing to read.
+  # Harmless while the default matched the common value; silently flips everyone
+  # the moment it does not.
+  PRIOR_UPDATES_CHECK="$(read_pointer "$dir" check)"
   rm -f "$dir/.agents/youtrack.json" "$dir/.agents/config/youtrack.json" "$dir/.agents/config/story-tools.json"
   merge_json "$dir/.agents/config/story-tools.json" "tracker" '{
     "type": "github",
@@ -1511,6 +1517,12 @@ attach_project() {  # $1 dir, $2 yt_project, $3 readonly(true|""), $4 mode
   copy_skills "$dir" "$mode"
   warn_user_level_overlap
 
+  # Read the prior choice BEFORE the pointer is deleted below. write_updates_config
+  # says it preserves what was chosen, and could not: every attach path regenerates
+  # the pointer from scratch, so by the time it reads, there is nothing to read.
+  # Harmless while the default matched the common value; silently flips everyone
+  # the moment it does not.
+  PRIOR_UPDATES_CHECK="$(read_pointer "$dir" check)"
   rm -f "$dir/.agents/youtrack.json" "$dir/.agents/config/youtrack.json" "$dir/.agents/config/story-tools.json"   # regenerate cleanly
   merge_json "$dir/.agents/config/story-tools.json" "tracker" '{
     "type": "youtrack",
@@ -1684,6 +1696,12 @@ attach_project_none() {  # $1 dir, $2 mode (link|copy)
   # legacy pointers from before story-tools.json existed. The pointer itself
   # is merged, not replaced: it also carries snapshot, updates and roles, and
   # a refresh must not throw those away.
+  # Read the prior choice BEFORE the pointer is deleted below. write_updates_config
+  # says it preserves what was chosen, and could not: every attach path regenerates
+  # the pointer from scratch, so by the time it reads, there is nothing to read.
+  # Harmless while the default matched the common value; silently flips everyone
+  # the moment it does not.
+  PRIOR_UPDATES_CHECK="$(read_pointer "$dir" check)"
   rm -f "$dir/.agents/youtrack.json" "$dir/.agents/config/youtrack.json"
   merge_json "$dir/.agents/config/story-tools.json" "tracker" '{"type":"none"}'
   ok "pointer: tracker type 'none' - skills run tracker-less (offline mode)"
@@ -1829,9 +1847,32 @@ check_skill_updates() {  # $1 dir; honours the project's updates.check setting
   warn "newer skills published in $repo:"
   printf '%s\n' "$behind"
   [[ -t 0 ]] || { say "  run interactively to update"; return 0; }
-  local yn; read -rp "  Update this project's skills from $repo? [y/N] " yn
-  [[ "$yn" =~ ^[Yy] ]] || { say "  left as-is."; return 0; }
-  update_skills_from_repo "$dir" "$repo" "$branch"
+  # Turning the check off is offered HERE, as a keypress, because this is the
+  # moment somebody decides they do not want it - and the alternative was
+  # telling them to go and hand-edit a JSON file, which nobody does. A plain
+  # yes/no only defers: answer no and the same prompt returns next time.
+  blank
+  note "On a team, updating on each developer's own schedule puts different"
+  note "revisions in the tracked .agents/ tree and they conflict. One person"
+  note "updating for the repo avoids that."
+  blank
+  choice y "update now" "take these versions into this project"
+  choice n "not now"    "leave them; ask again next time"
+  choice d "disable"    "stop checking for this project"
+  blank
+  local yn; read -rp "  [y/n/d] " yn
+  case "${yn:-n}" in
+    [Yy]*) update_skills_from_repo "$dir" "$repo" "$branch";;
+    [Dd]*)
+      merge_json "$dir/.agents/config/story-tools.json" "updates" '{
+        "check": false,
+        "skillsRepo": "'"$repo"'",
+        "skillsBranch": "'"$branch"'"
+      }'
+      ok "update check: off for this project (set updates.check true to re-enable)"
+      ;;
+    *) say "  left as-is.";;
+  esac
 }
 
 update_skills_from_repo() {  # $1 dir, $2 owner/repo, $3 branch
@@ -1903,13 +1944,26 @@ TTEOF
 write_updates_config() {  # $1 dir - ask once, preserve thereafter
   local dir="$1" cur want
   cur="$(read_pointer "$dir" check)"
+  [[ -z "$cur" ]] && cur="${PRIOR_UPDATES_CHECK:-}"   # pointer already regenerated
   if [[ -n "$cur" ]]; then
     want="$cur"                                  # already decided; keep it
   elif [[ -t 0 ]]; then
-    local yn; read -rp "  Check for skill updates from $SKILLS_REPO on setup? [Y/n] " yn
-    [[ "${yn:-y}" =~ ^[Nn] ]] && want="false" || want="true"
+    # Asked, not assumed - the right answer depends on how many people work
+    # here, which the installer cannot see. The recommendation is stated with
+    # its reason, so the choice survives being made by whoever runs setup next.
+    blank
+    printf '  %sCheck for skill updates on setup?%s\n' "$C_B" "$C_0"
+    note "Working solo: yes. Fixes reach you as they land."
+    note "On a team: no, and this is the recommendation. Every developer's"
+    note "setup pulling independently lands a different revision at a different"
+    note "time, and those conflict in the tracked .agents/ tree. Let one person"
+    note "update the repo for everyone."
+    blank
+    local yn; read -rp "  Check for updates from $SKILLS_REPO? [y/N] " yn
+    [[ "${yn:-n}" =~ ^[Yy] ]] && want="true" || want="false"
+    blank
   else
-    want="true"
+    want="false"
   fi
   merge_json "$dir/.agents/config/story-tools.json" "updates" '{
     "check": '"$want"',
@@ -1918,7 +1972,7 @@ write_updates_config() {  # $1 dir - ask once, preserve thereafter
   }'
   [[ "$want" == "true" ]] \
     && ok "update check: on (set updates.check false in the pointer to disable)" \
-    || ok "update check: off"
+    || ok "update check: off (set updates.check true in the pointer to enable)"
 }
 
 ship_setup() {  # copy this installer into the project as .agents/setup.sh

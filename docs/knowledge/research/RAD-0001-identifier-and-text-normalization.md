@@ -1,10 +1,10 @@
-# Normalizing identifiers for blind matching
+# Normalizing for blind matching
 
 RAD-0001 · 2026-09-07 · status: recommended
 Keywords: same email hashes differently on iOS and Android, blind tokenization, breach-safe token, why not NFC, why not java.text.Normalizer, Gmail dots and plus addressing, IDNA ToASCII, Unicode version drift, canonical email, hash mismatch across app versions, why not libphonenumber for this
 Measured against: Kotlin 2.4.0, `io.github.aughtone:types` 3.4.0, targets jvm / android / iosX64 / iosArm64 / iosSimulatorArm64 / js / wasmJs / linuxX64, 2026-09-08. The email module's 17 tests run green on jvm, js, wasmJs, iosSimulatorArm64 and linuxX64 — 85 executions of the same suite across five runtimes. `iosX64` is compiled and linked but not executed, for want of an Intel runner.
 
-The settled rules that came out of this are written up as [Normalization Suite Structure](../specifications/SPEC-0001-normalization-suite.md); this record is the reasoning behind them and the questions still open.
+The settled rules that came out of this are written up as [Normalization Suite Structure](../specifications/DOC-0001-normalization-suite.md); this record is the reasoning behind them and the questions still open.
 
 ## Question
 
@@ -50,19 +50,21 @@ An ADR is owed on each remaining question above once it settles.
 
 ## Recommendation
 
-Build the suite as the family of modules described in [SPEC-0001](../specifications/SPEC-0001-normalization-suite.md), in this order:
+Build the suite as the family of modules described in [DOC-0001](../specifications/DOC-0001-normalization-suite.md), in this order:
 
-1. **Publish `0.0.1`** — `:common` and `:email` are built and tested. Publication is blocked on repository secrets, and the repository going public is gated on that too.
+1. ~~**Publish `0.0.1`**~~ — **done, 2026-09-08.** `io.github.aughtone.normalize:email:0.0.1` and `:common:0.0.1` are on Maven Central.
 2. **Build `:unicode`** — NFC/NFD/NFKC/NFKD, domain and punycode, confusables. This is where the vendor-versus-generate question and the delta-table design get realized, and it is the largest single piece of work remaining.
 3. **Build `:phone`** on `aughtone-phonenumber`, which is already published.
-4. **Add the remaining no-table normalizers** as their own modules — credit-card/PAN and IBAN, IPv6 and hostname, slug, username/handle. Slug is the odd one: slugging usually transliterates, which is lossy, so it wants its own policy family rather than sitting beside the byte-stable ones.
+4. **Add the remaining normalizers** — the full list, with the issue tracking each, is the roster in [DOC-0001](../specifications/DOC-0001-normalization-suite.md#normalizer-roster). Slug is the odd one: slugging usually transliterates, which is lossy and table-driven, so it may not be a no-table module at all and may not belong in an identity suite.
 
 **What would change the answer:** a Unicode release that modifies rather than adds a mapping would break the additive-delta assumption and force a rethink of the packaging. A standards-track specification for provider-level address equivalence would reopen the provider-rules question — but only a standard would, not a provider's own documentation.
 
 ## Current state
 
-`:common` and `:email` are built, tested and committed at version `0.0.1`, and are **not yet published**. Publishing requires the repository's Maven Central and signing secrets to be configured; the release workflow then tags, releases and publishes on a push to `master`.
+`:common` and `:email` are **published at `0.0.1`** (2026-09-08) — `io.github.aughtone.normalize:email:0.0.1` and `io.github.aughtone.normalize:common:0.0.1`, both on Maven Central, tagged `v0.0.1`. `:email` exposes `:common` transitively, so depending on it alone is enough.
+
+Releases are cut by pushing to `master`, which triggers the publish workflow; see [Publishing a Release](../guides/DOC-0005-publishing.md). The Maven Central and signing credentials are **organization** secrets on the GitHub org rather than repository secrets, and on a Free plan those resolve only for **public** repositories — which is why this repository had to be made public before the first publish would work.
 
 The suite depends on `io.github.aughtone:types` `3.4.0`, which exposes `Outcome.Success` and `Outcome.Failure(exception: Throwable)`, built via `runOutcome { }` (throw to fail). `Outcome.Error` survives there only as a deprecated typealias to `Failure`; this suite uses `Failure` throughout and should not reintroduce the old name.
 
-**Coordinate with consumers before ever changing the canonical form.** Both known consumers need identical bytes, and the settled contract is `ByteStableV1`, id `email.byte-stable`. An earlier draft used the id `email.canonical`; it changed before publication, so a consumer still holding the old id adopts the final one at publish. Once published, confirm the coordinate `io.github.aughtone.normalize:email:0.0.1`, policy `ByteStableV1`, id `email.byte-stable` with each of them.
+**Coordinate with consumers before ever changing the canonical form.** Both known consumers need identical bytes, and the settled contract is `ByteStableV1`, id `email.byte-stable`. An earlier draft used the id `email.canonical`; it changed before publication. **Both known consumers were carrying the draft id and were corrected at publish** — neither had minted tokens under it, so nothing was orphaned, but it was caught by asking rather than by anything failing. Any future guidance to a consumer must name the policy constant and its id explicitly, never just "the canonical form".

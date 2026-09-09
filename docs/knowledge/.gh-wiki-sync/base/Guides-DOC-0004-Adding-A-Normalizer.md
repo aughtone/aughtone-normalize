@@ -1,9 +1,9 @@
 # Adding a Normalizer
 
-GUIDE-0002 · 2026-09-07
+DOC-0004 · 2026-09-07
 Keywords: new normalizer, new module, phone normalizer, slug normalizer, how do I add to the suite, what does my result type need, naming a policy, new gradle module KMP
 
-How to add a normalizer that fits the suite's contract. Read [Normalization Suite Structure](Specifications-SPEC-0001-Normalization-Suite) first — this guide is the mechanics, that document is the rules.
+How to add a normalizer that fits the suite's contract. Read [Normalization Suite Structure](Specifications-DOC-0001-Normalization-Suite) first — this guide is the mechanics, that document is the rules.
 
 ## 1. Decide where it goes
 
@@ -51,7 +51,7 @@ Green on every target, not just JVM. A normalizer that passes only on JVM has no
 
 ## 5. Record it
 
-Add a `CHANGELOG.md` entry under `## [Unreleased]`, and update [SPEC-0001](Specifications-SPEC-0001-Normalization-Suite)'s module table — it is a specification, so it is corrected in place to match reality.
+Add a `CHANGELOG.md` entry under `## [Unreleased]`, and update [DOC-0001](Specifications-DOC-0001-Normalization-Suite)'s module table — it is a specification, so it is corrected in place to match reality.
 
 ## Never do this
 

@@ -1,6 +1,6 @@
 # Kotlin Multiplatform Conventions
 
-SPEC-0002 · 2026-09-07
+DOC-0002 · 2026-09-07
 Keywords: Dispatchers.IO not available in commonMain, iOS test compilation fails, backtick test names native, expect has no actual declaration, dependsOn broke my source sets, KLIB resolver duplicate uniquename, KT-66568
 
 Constraints that bite in a multiplatform library and are not obvious from a single-target build. Each one here has a failure mode this project either hit or would hit; general Kotlin style is not in scope.

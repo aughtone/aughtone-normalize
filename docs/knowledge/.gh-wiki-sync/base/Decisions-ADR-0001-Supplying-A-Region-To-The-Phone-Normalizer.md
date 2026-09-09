@@ -1,4 +1,4 @@
-# Supplying a region to the phone normalizer
+# Phone region policies
 
 ADR-0001 · 2026-09-08 · Status: accepted
 Keywords: E.164 needs a country code, national format phone number, default region, which country does 555-1234 belong to, why not a third parameter, phone policy identity, guessed country code, normalizePhone signature
@@ -7,7 +7,7 @@ Keywords: E.164 needs a country code, national format phone number, default regi
 
 E.164 output requires a region for any number given in national format — `555-1234` has no meaning without one — but the suite's contract is `normalizeX(value, policy)` and has no slot for side input. A consumer of the email normalizer raised the requirement that a **missing region must be refused, never defaulted**: a guessed country code does not fail loudly, it produces a valid-looking token for a *different number*, and once the value is a token the input has been discarded, so there is nothing left to check it against.
 
-The wider constraint is [SPEC-0001](Specifications-SPEC-0001-Normalization-Suite)'s central promise: the policy identity stored beside a derived value must fully determine the canonical bytes. Anything that changes the output and is not part of the identity breaks that.
+The wider constraint is [DOC-0001](Specifications-DOC-0001-Normalization-Suite)'s central promise: the policy identity stored beside a derived value must fully determine the canonical bytes. Anything that changes the output and is not part of the identity breaks that.
 
 Feeds from [RAD-0001](Research-RAD-0001-Identifier-And-Text-Normalization), which left this open.
 

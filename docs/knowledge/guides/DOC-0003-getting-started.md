@@ -1,6 +1,6 @@
 # Getting Started
 
-GUIDE-0001 · 2026-09-07
+DOC-0003 · 2026-09-07
 Keywords: clone and build, what JDK, run the tests, gradle check, project layout, first day, where is the code
 
 What you need to build this project and where things are.
@@ -41,6 +41,6 @@ Each module is a Kotlin Multiplatform library targeting jvm, android, iosX64, io
 
 The whole project exists to make one property true: **the same input produces the same canonical bytes, on any platform, at any time.** A consumer hashes the canonical output and throws the original away, so an innocuous-looking improvement to a published policy silently breaks every token already derived from it.
 
-Read [Normalization Suite Structure](Specifications-SPEC-0001-Normalization-Suite) before touching anything that can reach a canonical string. [Kotlin Multiplatform Conventions](Specifications-SPEC-0002-Kmp-Conventions) covers the multiplatform traps that are not obvious from a single-target build.
+Read [Normalization Suite Structure](../specifications/DOC-0001-normalization-suite.md) before touching anything that can reach a canonical string. [Kotlin Multiplatform Conventions](../specifications/DOC-0002-kmp-conventions.md) covers the multiplatform traps that are not obvious from a single-target build.
 
-Work is tracked as issues, not files — [WORKFLOW.md](https://github.com/aughtone/aughtone-normalize/blob/HEAD/WORKFLOW.md) explains how it moves.
+Work is tracked as issues, not files — [WORKFLOW.md](../../../WORKFLOW.md) explains how it moves.

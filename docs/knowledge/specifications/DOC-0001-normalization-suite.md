@@ -1,9 +1,9 @@
 # Normalization Suite Structure
 
-SPEC-0001 · 2026-09-07
+DOC-0001 · 2026-09-07
 Keywords: canonical form, byte stability, blind matching, hash the same value twice, module layout, which module do I depend on, policy id and version, what breaks a stored hash, adding a normalizer, Unicode table versions
 
-How the suite is put together and what each part promises. The reasoning behind these rules, the options rejected on the way, and the questions still open are in [Normalizing identifiers for blind matching](Research-RAD-0001-Identifier-And-Text-Normalization).
+How the suite is put together and what each part promises. The reasoning behind these rules, the options rejected on the way, and the questions still open are in [Normalizing identifiers for blind matching](../research/RAD-0001-identifier-and-text-normalization.md).
 
 ## The governing property
 
@@ -30,6 +30,28 @@ Group `io.github.aughtone.normalize`. A shared base plus functional modules: **f
 **Only `:common` and `:email` are built today.** The rest of the table is the intended shape, not shipped code.
 
 A normalizer belongs in this suite when it is **general, reusable, and fits the versioned-policy contract**. Application-coupled code stays where it is.
+
+## Normalizer roster
+
+What this suite intends to normalize. **This table is the canonical list** — a normalizer that is not here is not planned, and every planned entry carries the issue tracking it, so the roster and the backlog cannot quietly diverge. Adding an entry means filing its issue at the same time.
+
+| Normalizer | Module | Needs a table | Tracked by |
+| :--- | :--- | :--- | :--- |
+| Email | `:email` | no | **built — published `0.0.1`** |
+| Phone → E.164 | `:phone` | no (region metadata, not Unicode) | [#1](https://github.com/aughtone/aughtone-normalize/issues/1) |
+| NFC / NFD / NFKC / NFKD | `:unicode` | yes | [#2](https://github.com/aughtone/aughtone-normalize/issues/2) |
+| Domain / punycode (IDN) | `:unicode` | yes | [#2](https://github.com/aughtone/aughtone-normalize/issues/2) |
+| Confusables / skeleton (UTS-39) | `:unicode` | yes | [#2](https://github.com/aughtone/aughtone-normalize/issues/2) |
+| URL | `:unicode` | yes (the host is an IDN) | [#7](https://github.com/aughtone/aughtone-normalize/issues/7) |
+| Credit-card / PAN | `:financial` | no | [#3](https://github.com/aughtone/aughtone-normalize/issues/3) |
+| IBAN / bank account | `:financial` | no | [#3](https://github.com/aughtone/aughtone-normalize/issues/3) |
+| IPv6 / hostname | `:net` | no | [#4](https://github.com/aughtone/aughtone-normalize/issues/4) |
+| Username / handle | base + optional confusable-fold from `:unicode` | optional | [#8](https://github.com/aughtone/aughtone-normalize/issues/8) |
+| Slug | undecided — see the issue | **contested** | [#5](https://github.com/aughtone/aughtone-normalize/issues/5) |
+
+Two entries carry a question about whether they belong here at all, and both are recorded on their issues rather than settled here. **Slug** is deliberately lossy and transliterating, which is table-driven — so it is neither clearly no-table nor clearly an identity. **URL** has more optional structure than an identity normally does, and some plausible normalizations of it change meaning rather than spelling.
+
+The no-table normalizers grow as their own modules so that a caller pulling in one does not carry the others. Nothing outside `:unicode` ever ships a Unicode table.
 
 ## The common contract
 
@@ -87,4 +109,4 @@ Errors are `MissingAtSign`, `EmptyLocalPart`, `EmptyDomain`, `UnpairedSurrogate`
 
 ## Changing any of this
 
-Adding NFC, IDNA/`ToASCII`, or any provider rule to a published policy changes the canonical bytes and orphans every token already derived under it. Such a change is **always** a new policy version and **never** an in-place edit, and it needs an [Architecture Decision Record](Decisions) before it is written.
+Adding NFC, IDNA/`ToASCII`, or any provider rule to a published policy changes the canonical bytes and orphans every token already derived under it. Such a change is **always** a new policy version and **never** an in-place edit, and it needs an [Architecture Decision Record](../decisions/README.md) before it is written.

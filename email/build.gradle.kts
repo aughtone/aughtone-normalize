@@ -113,8 +113,8 @@ mavenPublishing {
     coordinates("io.github.aughtone.normalize", "email", version.toString())
 
     pom {
-        name = "Aughtone Normalize Email"
-        description = "Deterministic, byte-stable email address normalization for the Aughtone Normalize suite."
+        name = "Aught One Normalize Email"
+        description = "Deterministic, byte-stable email address normalization for the Aught One Normalize suite."
         inceptionYear = "2026"
         url = "https://github.com/aughtone/aughtone-normalize"
         licenses {

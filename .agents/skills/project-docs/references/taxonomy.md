@@ -21,10 +21,9 @@ Pure agent instructions stay at the repo root (`AGENTS.md`,
 `WIRING.md`). Indexes and doc-system notes the agent maintains live at
 the `docs/` root. None of that syncs.
 
-**Everything under `docs/knowledge/` is published.** On a synced project
-that is a public wiki page or a KB article, on the next sync, without
-anyone approving it. Nothing else under `docs/` is - that distinction is
-what the directory is for.
+**Everything under `docs/knowledge/` is published.** On a synced project that is a wiki page or a KB article, on the next sync, without anyone approving it. Nothing else under `docs/` is - that distinction is what the directory is for.
+
+**Who can then read it is not the same question, and the tracker does not answer it.** A YouTrack KB is behind auth; a GitHub wiki inherits the repo's visibility, so on a public repo the same sentence means the open web. Publishing there is not reversible - a page deleted later was still readable, and anything cloned in between stays out. The binding says which model a project is in, and the GitHub sync states it on every run.
 
 An image a document needs lives **beside that document**, and is embedded by filename (`![Flow](checkout-flow.png)`). Both bindings carry it; how differs enough to matter, so read the binding before replacing one.
 
@@ -65,6 +64,22 @@ never a fresh `RAD-0001`. The identifier is the identity; the directory is
 only organisation. Wiki page names are flat and globally unique, so a
 restarted sequence collides.
 
+**The record types, and their prefixes.** These were convention rather than documentation for a long time, which meant a project filing its first specification had nothing to follow and coined its own - so the list is written down now.
+
+| Prefix | For | Authored by |
+|---|---|---|
+| `ADR-` | Decisions | `to-adr` |
+| `PRD-` | Requirements | `to-prd` |
+| `RAD-` | Research logs | `to-rad` |
+| `DOC-` | Documents | - |
+| `STRY-` | Stories | `to-issues` |
+
+**Numbering a living document is not a contradiction.** A specification or a guide is edited in place and never superseded, so it looks like it should not carry a sequence - but `DOC-` has always been numbered and always been maintained in place, and the identifier is doing a different job than a version. It gives the document a name that does not move when the title does. A record's title is fixed the day it is written; a living document's title drifts as its subject sharpens, and under a pure-title filename every retitle is a file rename, a wiki page rename and a dead inbound link. Stable identity matters more for the documents that get rewritten, not less.
+
+**A guide is a `DOC-` in `guides/`, and a specification is a `DOC-` in `specifications/`.** There is no separate prefix for either, because the directory already says what the document is *about* - and a prefix's job is to say how to *read* it. That is what `RAD-`, `ADR-` and `PRD-` do, and why they cannot collapse into each other: a research log may be inconclusive, a decision is settled, a requirement is normative, and two of them covering the same subject must still be read differently. A specification and an informational page are both descriptive prose maintained in place, so they share a prefix. `DOC-` is a single sequence across `documents/`, `guides/` and `specifications/` alike - numbering is per record type, not per directory.
+
+A project that needs a type not listed here coins one, and should add it here. Keep the list short: the wiki sync recognises exactly these prefixes and nothing else, deliberately, because an extra spelling left in the source reads as permission to use it.
+
 `docs/design/` is a **companion tree to `docs/knowledge/`**, not a section
 inside it: design records plus the images that make them worth reading.
 It stays git-native because it is mostly not prose - mockups, exports, a
@@ -101,10 +116,10 @@ falls back to the directory stem, de-hyphenated and title-cased, so
 |---|---|---|
 | `decisions/` | Architecture Decision Records | One hard-to-reverse choice each; append-only history |
 | `requirements/` | Product Requirements | PRD narratives + Stories tables of tracker IDs (never AC) |
-| `specifications/` | Specifications | How a thing IS - architecture, component specs; update in place |
+| `specifications/` | Specifications | How a thing IS - architecture, component specs; update in place. Numbered `DOC-`, sharing the sequence with `documents/` |
 | `research/` | Research | Investigations - question, trail, findings. Postmortems and worked case studies are kinds of investigation and belong here, as files or as a sub-group if there are enough to warrant one |
 | `reference/` | Reference | External facts: vendors, prospects, regulations, domain material - and the **Domain Glossary** (the project's canonical terms; `AGENTS.md` at the repo root points at it so agents find it without a path) |
-| `guides/` | Developer Guides | How-to - onboarding, environment, CI |
+| `guides/` | Developer Guides | How-to - onboarding, environment, CI. Numbered `DOC-`, sharing the sequence with `documents/` |
 | `testing/` | Quality Assurance | Durable test plans and protocols (QA *runs* are issues) |
 | `compliance/` | Mandates & Compliance | Legal/regulatory rules the work must satisfy |
 | `support/` | Support | Support knowledge, runbooks, customer-facing material |

@@ -1,13 +1,13 @@
 # Publishing a Release
 
-GUIDE-0003 · 2026-09-07
+DOC-0005 · 2026-09-07
 Keywords: publish to maven central, cut a release, release secrets, signing key, version bump, publishToMavenLocal, why did the publish workflow not run, GPG
 
 How a version gets from `develop` to Maven Central.
 
 ## Prerequisites, one time
 
-The publish workflow needs five repository secrets. Without them it fails at the publish step:
+The publish workflow needs five secrets. Without them it fails at the publish step:
 
 | Secret | Used for |
 |---|---|
@@ -17,7 +17,15 @@ The publish workflow needs five repository secrets. Without them it fails at the
 | `SIGNING_PASSWORD` | GPG key passphrase |
 | `GPG_KEY_CONTENTS` | the armoured private key |
 
-These are credentials and are set by someone with repository admin access, in the repository's own settings — never committed, never pasted into an issue or a conversation. `gh secret list -R aughtone/aughtone-normalize` shows which are present without revealing values.
+These live as **organization** secrets on the GitHub org, not as repository secrets — they are shared across every `aughtone-*` library rather than set per repo. They are credentials: never committed, never pasted into an issue or a conversation.
+
+**`gh secret list -R aughtone/aughtone-normalize` will show nothing, and that is not a problem.** It lists only repository-level secrets. To see the org secrets shared with this repo:
+
+```bash
+gh api /repos/aughtone/aughtone-normalize/actions/organization-secrets --jq '.secrets[].name'
+```
+
+**The org is on the GitHub Free plan, where organization secrets resolve only for PUBLIC repositories.** A private repo sees them listed by that API and still gets empty values at runtime, with no error — the step just behaves as though the secret were unset. So a repository in this org must be public before it can publish.
 
 ## Cutting a release
 
@@ -35,7 +43,7 @@ Publishing a GitHub release by hand also works and runs the publish job on its o
 
 ## Before you merge to master
 
-**The secrets must already exist.** The workflow creates the tag and a public, non-draft GitHub release *before* it attempts the upload. If the credentials are missing the upload fails but the tag and release remain, advertising a version that never reached Central — recovering means deleting both and re-cutting. `gh secret list -R aughtone/aughtone-normalize` confirms them without revealing values.
+**The credentials must actually resolve, which for this org means the repository must be public.** The workflow creates the tag and a public, non-draft GitHub release *before* it attempts the upload. If the credentials come back empty the upload fails but the tag and release remain, advertising a version that never reached Central — recovering means deleting both and re-cutting. See the prerequisites above for how to check, and why the obvious check misleads.
 
 **The release branch gets no CI.** `test.yml` runs on `develop` only, matching the other projects in the family, so nothing validates a release branch between leaving `develop` and publishing from `master`. Run `./gradlew check` locally before merging, or add `release/**` to the test workflow's triggers.
 

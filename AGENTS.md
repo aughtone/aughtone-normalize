@@ -56,8 +56,8 @@ later than to remove one from a public history.
 
 The documentation layout is described in [docs/README.md](docs/README.md); read it before filing or looking for a document. All agents MUST adhere to these specifications:
 
-- **[Normalization Suite Structure](docs/knowledge/specifications/SPEC-0001-normalization-suite.md)** — the module boundaries, the shared contract, and the policy-versioning rules. Binding on anything that can reach a canonical string.
-- **[Kotlin Multiplatform Conventions](docs/knowledge/specifications/SPEC-0002-kmp-conventions.md)** — the multiplatform constraints that are not obvious from a single-target build.
+- **[Normalization Suite Structure](docs/knowledge/specifications/DOC-0001-normalization-suite.md)** — the module boundaries, the shared contract, and the policy-versioning rules. Binding on anything that can reach a canonical string.
+- **[Kotlin Multiplatform Conventions](docs/knowledge/specifications/DOC-0002-kmp-conventions.md)** — the multiplatform constraints that are not obvious from a single-target build.
 
 ## 3. Core Development Principles
 - **Test-Driven Development (TDD)**: Whenever feasible, write a failing test before implementation.

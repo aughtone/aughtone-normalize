@@ -32,7 +32,7 @@ import kotlin.test.assertTrue
  * derived under it. Two policies coexisting is the supported outcome; one policy quietly changing
  * meaning is not.
  *
- * See `docs/knowledge/specifications/SPEC-0001-normalization-suite.md`. Adding NFC, IDNA/`ToASCII`,
+ * See `docs/knowledge/specifications/DOC-0001-normalization-suite.md`. Adding NFC, IDNA/`ToASCII`,
  * or any provider-specific rule to this policy is exactly the change this file exists to prevent.
  *
  * ## Changes that ARE allowed here

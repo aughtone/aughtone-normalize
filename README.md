@@ -1,4 +1,4 @@
-# Aughtone Normalize
+# Aught One Normalize
 
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.aughtone.normalize/email.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.aughtone.normalize/email)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
@@ -87,7 +87,7 @@ when (val outcome = normalizeEmail(value, EmailPolicy.ByteStableV1)) {
 
 ## 🛠️ Contributing
 
-Read [Getting Started](docs/knowledge/guides/GUIDE-0001-getting-started.md) first, then [AGENTS.md](AGENTS.md) if you are an agent. The one rule that matters more than the rest: **a published policy's canonical output never changes in place** — see [Normalization Suite Structure](docs/knowledge/specifications/SPEC-0001-normalization-suite.md).
+Read [Getting Started](docs/knowledge/guides/DOC-0003-getting-started.md) first, then [AGENTS.md](AGENTS.md) if you are an agent. The one rule that matters more than the rest: **a published policy's canonical output never changes in place** — see [Normalization Suite Structure](docs/knowledge/specifications/DOC-0001-normalization-suite.md).
 
 ## 📄 License
 
