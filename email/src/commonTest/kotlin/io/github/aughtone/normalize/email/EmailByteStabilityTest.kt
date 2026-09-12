@@ -152,9 +152,8 @@ class EmailByteStabilityTest {
     }
 
     /**
-     * [EmailPolicy.Lenient] is published too, so its bytes are equally frozen. Smaller corpus
-     * because it is not meant for tokenization — but a caller who used it anyway still cannot
-     * recompute what they hashed.
+     * [EmailPolicy.Lenient] is published too, so its bytes are equally frozen. Tokens derived under it are as permanent as any other
+     * policy's, so a change to these bytes orphans them just the same.
      */
     @Test
     fun lenientProducesTheFrozenCanonicalBytes() {

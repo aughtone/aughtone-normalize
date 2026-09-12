@@ -53,11 +53,11 @@ An ADR is owed on each remaining question above once it settles.
 Build the suite as the family of modules described in [DOC-0001](../specifications/DOC-0001-normalization-suite.md), in this order:
 
 1. ~~**Publish `0.0.1`**~~ — **done, 2026-09-08.** `io.github.aughtone.normalize:email:0.0.1` and `:common:0.0.1` are on Maven Central.
-2. **Build `:unicode`** — NFC/NFD/NFKC/NFKD, domain and punycode, confusables. This is where the vendor-versus-generate question and the delta-table design get realized, and it is the largest single piece of work remaining.
+2. **Build domain normalization** — the next module consumers need — in three steps: the Unicode table generator, then NFC in `:unicode`, then hostnames, domains and punycode in `:ubilibet`. The generator is where [ADR-0002](../decisions/ADR-0002-generating-the-unicode-tables.md) and the delta-table design get realized, and it is the largest single piece of work remaining. The modules are bundled by the data each one carries, not one per normalizer: [ADR-0003](../decisions/ADR-0003-bundling-modules-by-weight.md).
 3. **Build `:phone`** on `aughtone-phonenumber`, which is already published.
-4. **Add the remaining normalizers** — the full list, with the issue tracking each, is the roster in [DOC-0001](../specifications/DOC-0001-normalization-suite.md#normalizer-roster). Slug is the odd one: slugging usually transliterates, which is lossy and table-driven, so it may not be a no-table module at all and may not belong in an identity suite.
+4. **Move email into `:quodlibet` and add the remaining normalizers** — the full list, with the issue tracking each, is the roster in [DOC-0001](../specifications/DOC-0001-normalization-suite.md#normalizer-roster). Slug is the odd one: slugging usually transliterates, which is lossy and table-driven, so it may not be a no-table normalizer at all and may not belong in an identity suite.
 
-**What would change the answer:** a Unicode release that modifies rather than adds a mapping would break the additive-delta assumption and force a rethink of the packaging. A standards-track specification for provider-level address equivalence would reopen the provider-rules question — but only a standard would, not a provider's own documentation.
+**What would change the answer:** a Unicode release that modifies rather than adds a *normalization* mapping would break the additive-delta assumption for `:unicode` and force a rethink of the packaging. Confusable mappings already carry no such guarantee, which is why `:confusables` cannot assume it. A standards-track specification for provider-level address equivalence would reopen the provider-rules question — but only a standard would, not a provider's own documentation.
 
 ## Current state
 

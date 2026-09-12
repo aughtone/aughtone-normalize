@@ -9,8 +9,8 @@ How to add a normalizer that fits the suite's contract. Read [Normalization Suit
 
 Ask whether it needs a Unicode table.
 
-- **No table** — it can live in its own module depending only on `:common`. Credit-card/PAN, IBAN, IPv6 and hostname, and slug are all in this category, and related ones can share a module (`:financial`, `:net`).
-- **Needs a table** — it belongs in `:unicode`, which carries the frozen, delta-packaged tables. Do not add a table to any other module.
+- **No table** — it goes in `:quodlibet`, the bundle of normalizers that need no data and no external dependency. Email, credit-card/PAN, IBAN and IPv6 all belong there. Do not create a module for it: a module boundary exists only where what a caller must carry changes ([ADR-0003](../decisions/ADR-0003-bundling-modules-by-weight.md)). Until `:quodlibet` is created, email is still in `:email`.
+- **Needs a Unicode table** — the table comes from the generator ([ADR-0002](../decisions/ADR-0002-generating-the-unicode-tables.md)) and ships in the module that needs it: normalization forms in `:unicode`, confusables in `:confusables`, IDNA data and every hostname in `:ubilibet`. Join the module whose data you use; a new module is justified only when you bring data no existing module carries. Never hand-write or vendor a table.
 - **Needs region metadata but not Unicode** — like phone, which depends on `aughtone-phonenumber`. Its own module.
 
 A normalizer belongs in this suite at all only if it is general, reusable, and fits the versioned-policy contract. An application-specific formatter does not.
