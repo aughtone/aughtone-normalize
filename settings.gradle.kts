@@ -29,4 +29,11 @@ dependencyResolutionManagement {
 
 rootProject.name = "AONormalize"
 include(":common")
-include(":email")
+include(":quodlibet")
+include(":unicode")
+include(":ubilibet")
+include(":confusables")
+include(":phone")
+
+// Build tooling, never published: it turns the pinned Unicode data into the frozen tables.
+include(":tools:ucd-generator")

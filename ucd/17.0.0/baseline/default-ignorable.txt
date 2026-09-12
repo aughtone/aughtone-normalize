@@ -1,0 +1,1 @@
+ad:y;34f:y;61c:y;115f-1160:y;17b4-17b5:y;180b-180d:y;180e:y;180f:y;200b-200f:y;202a-202e:y;2060-2064:y;2065:y;2066-206f:y;3164:y;fe00-fe0f:y;feff:y;ffa0:y;fff0-fff8:y;1bca0-1bca3:y;1d173-1d17a:y;e0000:y;e0001:y;e0002-e001f:y;e0020-e007f:y;e0080-e00ff:y;e0100-e01ef:y;e01f0-e0fff:y

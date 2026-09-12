@@ -29,6 +29,12 @@
 #                   approval - only a new top-level directory does.
 #   --force         bootstrap over a non-empty KB_DIR with no sync state:
 #                   local files are adopted and pushed as pages
+#   --short-page-names
+#                   drop a record id (ADR-0004-, RAD-0023-, ...) from the
+#                   page name, so GitHub's title stops repeating it above
+#                   the document's own H1. OFF by default: turning it on
+#                   RENAMES every affected page and breaks inbound links.
+#                   Persist it as "wikiShortPageNames": true in the pointer.
 #   --dry-run       print the full action plan; change nothing anywhere
 #   --help          this text
 #
@@ -37,7 +43,7 @@
 # Exit codes: 0 ok, 1 error, 2 completed but conflicts need resolution.
 set -uo pipefail
 
-KB_DIR=""; REPO=""; DRY=0; PULL_ONLY=0; ALLOW_DELETE=0; FORCE=0; NEW_SECTIONS=""
+KB_DIR=""; REPO=""; DRY=0; PULL_ONLY=0; ALLOW_DELETE=0; FORCE=0; NEW_SECTIONS=""; SHORT_NAMES=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --repo) REPO="$2"; shift 2;;
@@ -46,6 +52,7 @@ while [[ $# -gt 0 ]]; do
     --new-section) NEW_SECTIONS="$NEW_SECTIONS $2"; shift 2;;
     --force) FORCE=1; shift;;
     --dry-run) DRY=1; shift;;
+    --short-page-names) SHORT_NAMES=1; shift;;
     --help) awk 'NR>1 && !/^#/{exit} NR>1{sub(/^# ?/,""); print}' "$0"; exit 0;;
     *) KB_DIR="$1"; shift;;
   esac
@@ -61,6 +68,12 @@ read_pointer() {
   sed -nE 's/.*"'"$1"'": *"?([^",}]+)"?.*/\1/p' "$f" | head -1
 }
 [[ -z "$REPO" ]] && REPO="$(read_pointer repo || true)"
+# Dropping the record id from a page name RENAMES the page, so it is opt-in:
+# a wiki that already exists has inbound links, and a silent refresh that
+# breaks all of them is not a fix. Persistent in the pointer rather than a
+# flag, because a flag remembered on one run and forgotten on the next
+# renames every page back again.
+[[ "$(read_pointer wikiShortPageNames || true)" == "true" ]] && SHORT_NAMES=1
 
 # GH_WIKI_URL overrides the remote entirely (used by the test harness).
 if [[ -z "${GH_WIKI_URL:-}" ]]; then
@@ -119,10 +132,27 @@ if ! git ls-remote "$WIKI_URL" >/dev/null 2>&1; then
   exit 1
 fi
 
+# Who can read what we are about to publish. "Everything under docs/knowledge/
+# is published" means a private KB behind auth on one tracker and the open web
+# on another - and on GitHub it is the REPO'S visibility that decides, not the
+# tracker. That distinction is invisible in the taxonomy and in the filing
+# decision, so the sync states it every run rather than leaving it to a
+# document somebody read once.
+WIKI_VIS="unknown"
+if [[ -n "$REPO" && -n "${GITHUB_TOKEN:-}" ]]; then
+  _vis="$(curl -sS -m 10 -H "Authorization: Bearer $GITHUB_TOKEN" \
+    -H "Accept: application/vnd.github+json" \
+    "https://api.github.com/repos/$REPO" 2>/dev/null \
+    | grep -oE '"private": *(true|false)' | grep -oE 'true|false' || true)"
+  [[ "$_vis" == "true"  ]] && WIKI_VIS="private"
+  [[ "$_vis" == "false" ]] && WIKI_VIS="public"
+fi
+export WIKI_VIS
+
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 git clone -q "$WIKI_URL" "$TMP/wiki" || { echo "error: wiki clone failed" >&2; exit 1; }
 
-export KB_DIR REPO WIKI_URL DRY PULL_ONLY ALLOW_DELETE FORCE NEW_SECTIONS
+export KB_DIR REPO WIKI_URL DRY PULL_ONLY ALLOW_DELETE FORCE NEW_SECTIONS WIKI_VIS SHORT_NAMES
 export WIKI_CLONE="$TMP/wiki"
 python3 <<'EOF'
 import os, re, subprocess, sys, datetime, tempfile
@@ -131,6 +161,7 @@ KB   = os.environ['KB_DIR'].rstrip('/')
 W    = os.environ['WIKI_CLONE']
 REPO = os.environ.get('REPO') or os.environ['WIKI_URL']
 DRY  = os.environ['DRY'] == '1'
+SHORT_NAMES = os.environ.get('SHORT_NAMES') == '1'
 PULL = os.environ['PULL_ONLY'] == '1'
 ADEL = os.environ['ALLOW_DELETE'] == '1'
 FORCE = os.environ['FORCE'] == '1'
@@ -161,11 +192,49 @@ def cap(seg):
 # have existed for months. Replace the prefix test with a directory-existence
 # check against the wiki clone at the same time: that tests the fact rather
 # than a name derived from it, and survives any later naming change.
+# A leading record id in the filename (ADR-0004-, RAD-0023-, PRD-0003-,
+# STRY-0042-) is dropped from the page name. GitHub renders the page NAME as
+# the page title, above the document's own H1, so keeping it showed the id
+# twice and put the least useful words first: "Research RAD 0001 Identifier
+# And Text Normalization" over "# Normalizing for blind matching". The id
+# stays in the filename, where it guarantees uniqueness, and on the
+# identifier line in the body, where the skill says it belongs.
+# A closed set, not a shape. An id-shaped pattern also matches a real title:
+# reference/ISO-8601-dates.md would publish as 'Reference-Dates', silently
+# losing the part that identified it.
+#
+# But a closed set fails badly on a NEAR miss. A project using a prefix one
+# letter from a recognised one keeps its ids, which reads as the feature
+# being broken rather than as a deliberate refusal - and from outside there
+# is no way to tell those two apart.
+#
+# So an id-shaped prefix that is NOT recognised is reported at the end of a
+# run rather than silently declined, and the next case arrives as a line of
+# output instead of as a bug report. SPEC- is the live example: it is
+# deliberately absent, because a specification is a DOC- in specifications/,
+# and a project still writing SPEC- learns that from the report.
+ID_SHAPED = re.compile(r'^([A-Z]{2,6})-\d{2,}-')
+# Exactly the conventions in taxonomy.md, and nothing more. This list IS
+# documentation whether or not it is meant to be - an agent reading the
+# source treats anything here as blessed and starts using it. An extra
+# spelling kept "just in case" is how a second convention gets born.
+ID_PREFIX = re.compile(r'^(ADR|DOC|PRD|RAD|STRY)-\d{2,}-')
+unknown_prefixes = {}
+would_shorten = []
+
 def page_for(path):          # rel path -> wiki page name
     p = path[:-3] if path.endswith('.md') else path
     if p == 'README': return 'Home'
     if p.endswith('/README'): p = p[:-len('/README')]
-    return '-'.join(cap(re.sub(r'[^A-Za-z0-9._ -]+', '', s)) for s in p.split('/'))
+    segs = p.split('/')
+    m = ID_SHAPED.match(segs[-1])
+    if m and not ID_PREFIX.match(segs[-1]):
+        unknown_prefixes.setdefault(m.group(1), []).append(path)
+    if SHORT_NAMES:
+        segs[-1] = ID_PREFIX.sub('', segs[-1])
+    elif ID_PREFIX.match(segs[-1]):
+        would_shorten.append(path)
+    return '-'.join(cap(re.sub(r'[^A-Za-z0-9._ -]+', '', s)) for s in segs)
 
 # ---- link notation ---------------------------------------------------------
 # Repo-relative is the authoring form and stays that way on disk. The wiki has
@@ -300,6 +369,27 @@ for root, dirs, files in os.walk(KB):
             local_files.append(os.path.relpath(os.path.join(root, f), KB))
 local_files.sort()
 
+# Two documents that collapse to one page name would silently overwrite each
+# other on the wiki - last writer wins, no error, and the loss is invisible
+# until somebody opens the page and finds the wrong document. Dropping the
+# record id from the page name (see page_for) makes that reachable where it
+# was not before, so it is checked rather than hoped about. It is not a
+# naming rule the sync should invent its way around: two documents in one
+# section with the same title is a real problem in the tree, and the fix is
+# to retitle one of them.
+_by_page = {}
+for _p in local_files:
+    _by_page.setdefault(page_for(_p), []).append(_p)
+_clash = {pg: ps for pg, ps in _by_page.items() if len(ps) > 1}
+if _clash:
+    print("error: these documents map to the same wiki page name:", file=sys.stderr)
+    for pg, ps in sorted(_clash.items()):
+        print(f"  {pg}", file=sys.stderr)
+        for _p in ps: print(f"      {_p}", file=sys.stderr)
+    print("  Retitle one of each pair so their slugs differ; the record ids are", file=sys.stderr)
+    print("  dropped from page names, so ids alone no longer separate them.", file=sys.stderr)
+    sys.exit(1)
+
 wiki_pages = sorted(f[:-3] for f in os.listdir(W)
                     if f.endswith('.md') and f not in ('_Sidebar.md', '_Footer.md'))
 
@@ -383,9 +473,14 @@ def wiki_rm(pg):
 
 def push_page(pth, pg):
     global wiki_dirty
-    if DRY: return
+    # wikify() is what records a link with no wiki page, so it has to run in a
+    # dry run too - returning before it made --dry-run analyse only the pages
+    # some other path happened to wikify, and under-report by 6x on a real
+    # tree. A preview that misses most of what it is previewing is worse than
+    # no preview: it is the documented way to check before touching a wiki.
     src = os.path.join(KB, pth)
     body = wikify(read(src), pth)
+    if DRY: return
     write(os.path.join(W, pg + '.md'), body)
     write(os.path.join(BASE, pg + '.md'), body)
     wiki_dirty = True
@@ -585,8 +680,31 @@ if not DRY:
     os.makedirs(STATE, exist_ok=True)
     write(MANF, ''.join(f"{pth}\t{pg}\n" for pth, pg in sorted(pairs.items())))
 
+# ---- link analysis ---------------------------------------------------------
+# Every local file, every run, regardless of whether anything is being pushed.
+# This used to be a side effect of push_page(), which meant the link report
+# only covered pages that happened to be pushed - so a tree that was fully in
+# sync reported nothing at all, while its unresolvable links sat published on
+# the wiki. --dry-run is documented as the way to check before touching a
+# wiki, so the check cannot depend on there being something to touch.
+# wikify() reads the filesystem only, so it is safe here and duplicates
+# collapse in the set() the report already does.
+for _pth in local_files:
+    try: wikify(read(os.path.join(KB, _pth)), _pth)
+    except OSError: pass
+
 # ---- report ----------------------------------------------------------------
 print(f"gh-wiki-sync: {REPO} <-> {KB}" + (' (dry run)' if DRY else ''))
+_vis = os.environ.get('WIKI_VIS', 'unknown')
+if _vis == 'public':
+    print("  This wiki is WORLD-READABLE - the repo is public. Anything under")
+    print("  docs/knowledge/ is disclosure the moment it syncs, and publication")
+    print("  is not reversible: deleting a page later does not unpublish it.")
+elif _vis == 'private':
+    print("  This wiki is behind auth - the repo is private. Readable by anyone")
+    print("  with repo access, which is wider than the people in this session.")
+else:
+    print("  Wiki readership unknown (could not read the repo's visibility).")
 for title, items in (("Pushed:", PUSHED), ("Pulled:", PULLED), ("Merged:", MERGED),
                      ("Renamed pages:", RENAMED),
                      ("New from wiki (file these into a section):", NEWWIKI),
@@ -594,12 +712,50 @@ for title, items in (("Pushed:", PUSHED), ("Pulled:", PULLED), ("Merged:", MERGE
     if items:
         print(title)
         for i in items: print("  " + i)
+if would_shorten and not SHORT_NAMES:
+    # Show it before explaining it. The cost is a rename of every affected
+    # page, so this has to be legible at a glance to somebody who did not
+    # ask a question.
+    n = len(set(would_shorten))
+    ex = sorted(set(would_shorten))[0]
+    long_name = page_for(ex)
+    segs = ex[:-3].split('/')
+    segs[-1] = ID_PREFIX.sub('', segs[-1])
+    short_name = '-'.join(cap(re.sub(r'[^A-Za-z0-9._ -]+', '', x)) for x in segs)
+    print()
+    print(f"OPTIONAL: {n} page{'s' if n > 1 else ''} show the record id in the title.")
+    print()
+    print("  On GitHub a reader sees the page name above your own heading:")
+    print(f"      {long_name.replace('-', ' ')}")
+    print(f"      # {title_for(ex)}")
+    print("  Shorter names would publish that page as:")
+    print(f"      {short_name.replace('-', ' ')}")
+    print()
+    print(f"  Off by default: turning it on renames all {n}. Old links break, and")
+    print("  the old pages stay until pruned.")
+    print("    preview   gh-wiki-sync.sh --short-page-names --dry-run")
+    print('    enable    "wikiShortPageNames": true  in .agents/config/story-tools.json')
+    print("    then      sync once, then sync with --allow-delete")
+    print("  Ignoring this is fine. Nothing changes.")
+
+if unknown_prefixes:
+    print()
+    print("Record-id prefixes not recognised - their ids stay in the page name:")
+    for pfx, paths in sorted(unknown_prefixes.items()):
+        print(f"  {pfx}-  ({len(paths)} file{'s' if len(paths) > 1 else ''}, e.g. {paths[0]})")
+    print("  If these are record types, document them in taxonomy.md first, then")
+    print("  add them to ID_PREFIX here - this list is meant to match the taxonomy")
+    print("  exactly, and a prefix added only here becomes a second convention.")
+    print("  If they are part of a real title, leave them - that is what this list")
+    print("  is protecting.")
+
 if ESCAPED:
     uniq = sorted(set(ESCAPED))
     print(f"Links with no wiki page ({len(uniq)}) - published as github.com/…/blob/HEAD/… :")
     for e in uniq[:10]: print("  " + e)
     if len(uniq) > 10: print(f"  ... and {len(uniq)-10} more")
     print("  These 404 silently if the target moves - GitHub does not warn.")
+
 
 if UNRESOLVED:
     uniq = sorted(set(UNRESOLVED))

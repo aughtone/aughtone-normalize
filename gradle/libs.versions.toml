@@ -1,7 +1,7 @@
 [versions]
 namespace = "io.github.aughtone.normalize"
 group = "io.github.aughtone.normalize"
-versionName = "0.0.1"
+versionName = "0.0.2"
 android-minSdk = "17"
 android-compileSdk = "37"
 
@@ -13,6 +13,7 @@ vanniktech = "0.37.0"
 kotlinBrowser = "2026.7.1"
 
 aughtone-types = "3.4.0"
+aughtone-phonenumber = "0.0.2"
 
 [libraries]
 kotlin-browser = { module = "org.jetbrains.kotlin-wrappers:kotlin-browser", version.ref = "kotlinBrowser" }
@@ -21,9 +22,11 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 
 aughtone-types = { module = "io.github.aughtone:types", version.ref = "aughtone-types" }
+aughtone-phonenumber = { module = "io.github.aughtone:phonenumber", version.ref = "aughtone-phonenumber" }
 
 [plugins]
 multiplatformLibrary = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 vanniktech-mavenPublish = { id = "com.vanniktech.maven.publish", version.ref = "vanniktech" }

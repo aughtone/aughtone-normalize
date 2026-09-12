@@ -17,11 +17,28 @@ Everything about this project lives in one of three kinds of place.
 
 **Plain git owns the machinery** — [AGENTS.md](../AGENTS.md) at the repo root, this file at the `docs/` root, and the generated `docs/stories/` snapshot. None of it is knowledge and none of it is published.
 
-## This knowledge base is git-native
+## This knowledge base mirrors the repo wiki
 
-The documentation system supports mirroring `docs/knowledge/` two-way into a tracker knowledge base. **This repository has no wiki enabled**, so there is no mirror and no sync state: the files here are the knowledge base, and git is the whole story — diffs, blame and merges work on knowledge exactly as they do on code.
+`docs/knowledge/` is two-way synced with the repository's GitHub wiki. **Content flows both ways, per page**: edit a file here, or edit the page in the wiki UI, and the sync three-way merges them against a recorded base kept in `docs/knowledge/.gh-wiki-sync/` — commit that directory, and never hand-edit it. A genuine conflict is marked with git conflict markers and is *never* pushed until a person resolves it.
 
-If a wiki is ever enabled on the repository, the `project-docs` skill's `gh-wiki-sync.sh` adopts this tree as-is and mirrors it. Nothing here needs to change first. Under that model the local tree still owns the layout — reorganize by moving files here, and the wiki follows.
+**Structure flows up.** The wiki has no hierarchy of its own, so this tree owns the layout:
+
+- `docs/knowledge/README.md` is the wiki Home page.
+- A section's `README.md` is that section's page (`decisions/README.md` → `Decisions`).
+- A document's page name encodes its path (`decisions/ADR-0001-….md` → `Decisions-ADR-0001-…`).
+- `_Sidebar.md` is generated from the tree — edits made to it in the wiki UI are overwritten.
+
+So reorganize by moving files **here**, and the wiki follows on the next sync. A page created fresh in the wiki UI lands at the KB root on pull and wants filing into a section.
+
+Run the sync at the start of a session, and again after creating or editing documents:
+
+```bash
+.agents/skills/project-docs/scripts/gh-wiki-sync.sh docs/knowledge
+```
+
+`--dry-run` previews without writing; `--pull-only` refreshes from the wiki without pushing. Exit code 2 means there are conflicts to resolve — open the listed files, fix the markers, and sync again.
+
+**Everything under `docs/knowledge/` is published to a public wiki on the next sync, without anyone approving it.** Nothing else under `docs/` is. That distinction is what the directory is for, and it is the thing to think about before filing something here.
 
 ## Adding a document
 

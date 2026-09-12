@@ -1,10 +1,10 @@
-# Normalizing identifiers for blind matching
+# Normalizing for blind matching
 
-RAD-0001 · 2026-09-07 · status: recommended
+RAD-0001 · 2026-09-07
 Keywords: same email hashes differently on iOS and Android, blind tokenization, breach-safe token, why not NFC, why not java.text.Normalizer, Gmail dots and plus addressing, IDNA ToASCII, Unicode version drift, canonical email, hash mismatch across app versions, why not libphonenumber for this
-Measured against: Kotlin 2.4.0, `io.github.aughtone:types` 3.4.0, targets jvm / android / iosX64 / iosArm64 / iosSimulatorArm64 / js / wasmJs / linuxX64, 2026-09-08. The email module's 17 tests run green on jvm, js, wasmJs, iosSimulatorArm64 and linuxX64 — 85 executions of the same suite across five runtimes. `iosX64` is compiled and linked but not executed, for want of an Intel runner.
+Measured against: Kotlin 2.4.0, `io.github.aughtone:types` 3.4.0, `io.github.aughtone:phonenumber` 0.0.2, Unicode 17.0.0, targets jvm / android / iosX64 / iosArm64 / iosSimulatorArm64 / js / wasmJs / linuxX64, 2026-09-12. The suite's tests run green across jvm, js, wasmJs and iosSimulatorArm64 — 477 executions of the same suites on four runtimes — including three standards conformance suites: `NormalizationTest.txt`, `IdnaTestV2.txt`, and `BidiCharacterTest.txt` (in full on JVM, a deterministic sample elsewhere). `linuxX64` runs on CI; `iosX64` is compiled and linked but not executed, for want of an Intel runner.
 
-The settled rules that came out of this are written up as [Normalization Suite Structure](../specifications/SPEC-0001-normalization-suite.md); this record is the reasoning behind them and the questions still open.
+The settled rules that came out of this are written up as [Normalization Suite Structure](../specifications/DOC-0001-normalization-suite.md); this record is the reasoning behind them and the questions still open.
 
 ## Question
 
@@ -33,34 +33,44 @@ The wider question is whether that constraint generalizes: phone, domain and URL
 ## Findings
 
 - **The constraint generalizes.** Every identifier normalizer wants the same shape: a named policy, a canonical string, and the policy identity travelling with anything derived from it. That shape became the `:common` contract.
-- **Byte-stability and ordinary normalization are the same interface with different policies**, not two systems. `ByteStableV1` and `Lenient` differ only in their rules.
+- **Byte-stability and ordinary normalization are the same interface with different policies**, not two systems. `ByteStableV1` and `ByteStableV1Lenient` differ only in their rules.
 - **A no-table canonical form is achievable for email and is genuinely permanent.** ASCII trim, ASCII-lowercase, RFC 5233 subaddress stripping and a surrogate check need no Unicode data, so the policy cannot drift when Unicode ships a new version. Measured: 17 tests green across jvm, js, wasmJs and iOS simulator.
 - **Determinism has to be designed for, not tested for.** Every rejected option above would have passed a single-platform test suite. The failures only appear across an OS upgrade or an old app build, which is to say in production and without a signal.
 - **Some things that look adjacent are a different concern.** Geo encodings (Open Location Code, geohash, GeoJson) encode coordinates rather than normalizing identity, and stay in their own repositories. Application-coupled formatters stay with their application; one of them is a port of Google's libaddressinput and is a plausible future extraction, but on its own terms rather than as part of this suite.
 
 ## Open questions
 
-- Whether `:unicode` **vendors** a frozen NFC/UTS-46 implementation or **generates its own** tables from the public UCD. Deferred until that module is built; the module boundary keeps it an opt-in decision. If vendoring, the source's licence and attribution must be retained.
-- Whether NFKC/NFKD ship in the first `:unicode` cut or a follow-up. They are lossy compatibility forms — ligatures, width, superscripts — and the risk is someone reaching for NFKC as though it were canonical, so the lossiness needs labelling loudly wherever they appear.
-- Major versus major.minor Unicode version naming (`V17` against `V170`). The full version is recorded in the policy `id` either way.
+- ~~Whether `:unicode` **vendors** a frozen NFC/UTS-46 implementation or **generates its own** tables from the public UCD.~~ **Settled** — generate from the UCD, see [ADR-0002](../decisions/ADR-0002-generating-the-unicode-tables.md). The delta packaging and the material-change check both depend on it.
+- ~~Whether NFKC/NFKD ship in the first `:unicode` cut or a follow-up.~~ **Settled** — all four forms shipped together. The generator produces the canonical and compatibility data in one pass, and the lossiness is handled by labelling it loudly on the policies and in the README rather than by withholding them.
+- ~~Major versus major.minor Unicode version naming (`V17` against `V170`).~~ **Settled** — major only, as `U17` in a constant and `u17` in an id, with the minor appended only when it is not zero (`u15-1`). `U` is the data version and `V` the policy version, which is why they no longer share a letter.
 
-An ADR is owed once these settle.
+The phone region question that came out of building the roster is also settled — two policies, `E164` and `e164ForRegion(region)`, neither ever defaulting: [ADR-0001](../decisions/ADR-0001-supplying-a-region-to-the-phone-normalizer.md).
+
+Every question raised here has now settled, and the decisions they produced are ADR-0001 through ADR-0003.
 
 ## Recommendation
 
-Build the suite as the family of modules described in [SPEC-0001](../specifications/SPEC-0001-normalization-suite.md), in this order:
+Build the suite as the family of modules described in [DOC-0001](../specifications/DOC-0001-normalization-suite.md), in this order:
 
-1. **Publish `0.0.1`** — `:common` and `:email` are built and tested. Publication is blocked on repository secrets, and the repository going public is gated on that too.
-2. **Build `:unicode`** — NFC/NFD/NFKC/NFKD, domain and punycode, confusables. This is where the vendor-versus-generate question and the delta-table design get realized, and it is the largest single piece of work remaining.
-3. **Build `:phone`** on `aughtone-phonenumber`, which is already published.
-4. **Add the remaining no-table normalizers** as their own modules — credit-card/PAN and IBAN, IPv6 and hostname, slug, username/handle. Slug is the odd one: slugging usually transliterates, which is lossy, so it wants its own policy family rather than sitting beside the byte-stable ones.
+1. ~~**Publish `0.0.1`**~~ — **done, 2026-09-08.** `io.github.aughtone.normalize:email:0.0.1` and `:common:0.0.1` are on Maven Central.
+2. ~~**Build domain normalization**~~ — **done.** The Unicode table generator, then NFC in `:unicode`, then hostnames, domains and punycode in `:ubilibet`. The modules are bundled by the data each one carries, not one per normalizer: [ADR-0003](../decisions/ADR-0003-bundling-modules-by-weight.md).
+3. ~~**Build `:phone`**~~ — **done**, on `aughtone-phonenumber`.
+4. ~~**Move email into `:quodlibet` and add the remaining normalizers**~~ — **done.** The roster in [DOC-0001](../specifications/DOC-0001-normalization-suite.md#normalizer-roster) is complete, with one entry declined: slug is a display artifact rather than an identity, and it is [out of scope](../reference/out-of-scope/slug-normalization.md).
 
-**What would change the answer:** a Unicode release that modifies rather than adds a mapping would break the additive-delta assumption and force a rethink of the packaging. A standards-track specification for provider-level address equivalence would reopen the provider-rules question — but only a standard would, not a provider's own documentation.
+The roster is built, so what remains is maintenance rather than construction: a new Unicode release regenerates the tables ([DOC-0006](../guides/DOC-0006-regenerating-the-unicode-tables.md)), and a new normalizer joins the module whose weight it shares.
+
+**What would change the answer:** a Unicode release that modifies rather than adds a *normalization* mapping would break the additive-delta assumption for `:unicode` and force a rethink of the packaging. Confusable mappings already carry no such guarantee, which is why `:confusables` cannot assume it. A standards-track specification for provider-level address equivalence would reopen the provider-rules question — but only a standard would, not a provider's own documentation.
 
 ## Current state
 
-`:common` and `:email` are built, tested and committed at version `0.0.1`, and are **not yet published**. Publishing requires the repository's Maven Central and signing secrets to be configured; the release workflow then tags, releases and publishes on a push to `master`.
+**`0.0.2` publishes six coordinates**: `common`, `quodlibet`, `unicode`, `ubilibet`, `confusables` and `phone`, all under `io.github.aughtone.normalize`. The table generator is a build module and is never published.
+
+`0.0.1` (2026-09-08) published `:common` and `:email` only. The email normalizer has since moved into `:quodlibet` per [ADR-0003](../decisions/ADR-0003-bundling-modules-by-weight.md), keeping its package, its type names and its canonical output; `email:0.0.1` remains on Central and is not republished. That move and the rename of `EmailPolicy.Lenient` are the two breaking changes in `0.0.2`, taken deliberately while the suite is alpha and every known consumer can be told directly.
+
+The Unicode data is pinned at **17.0.0**, checked in with its checksums under `ucd/`, and every frozen table is generated from it. `./gradlew check` fails if a checked-in table stops matching that data, or if a regeneration would modify an existing normalization mapping rather than add one.
+
+Releases are cut by pushing to `master`, which triggers the publish workflow; see [Publishing a Release](../guides/DOC-0005-publishing.md). The Maven Central and signing credentials are **organization** secrets on the GitHub org rather than repository secrets, and on a Free plan those resolve only for **public** repositories — which is why this repository had to be made public before the first publish would work.
 
 The suite depends on `io.github.aughtone:types` `3.4.0`, which exposes `Outcome.Success` and `Outcome.Failure(exception: Throwable)`, built via `runOutcome { }` (throw to fail). `Outcome.Error` survives there only as a deprecated typealias to `Failure`; this suite uses `Failure` throughout and should not reintroduce the old name.
 
-**Coordinate with consumers before ever changing the canonical form.** Both known consumers need identical bytes, and the settled contract is `ByteStableV1`, id `email.byte-stable`. An earlier draft used the id `email.canonical`; it changed before publication, so a consumer still holding the old id adopts the final one at publish. Once published, confirm the coordinate `io.github.aughtone.normalize:email:0.0.1`, policy `ByteStableV1`, id `email.byte-stable` with each of them.
+**Coordinate with consumers before ever changing the canonical form.** Both known consumers need identical bytes, and the settled contract is `ByteStableV1`, id `email.byte-stable`. An earlier draft used the id `email.canonical`; it changed before publication. **Both known consumers were carrying the draft id and were corrected at publish** — neither had minted tokens under it, so nothing was orphaned, but it was caught by asking rather than by anything failing. Any future guidance to a consumer must name the policy constant and its id explicitly, never just "the canonical form".

@@ -1,5 +1,13 @@
 # Tracker Binding: GitHub (docs sync)
 
+**Page names repeat the record id, and shortening them is opt-in.** GitHub renders the page name - derived from the file path - as the page title, above the document's own H1, so `RAD-0001-…` publishes as "Research RAD 0001 …" over "# The actual title". Setting `"wikiShortPageNames": true` in `.agents/config/story-tools.json` drops the id from the page name.
+
+It is off by default because turning it on **renames every affected page**: inbound links to the old names break, and the old pages need `--allow-delete` to prune. On a wiki that already exists that is a migration, not a fix. Preview it with `--short-page-names --dry-run`, which lists every rename and changes nothing. A wiki being created for the first time can turn it on before the first sync and pay nothing.
+
+**Who can read this wiki is the repo's visibility, not the tracker's.** On a public repo the wiki is world-readable the moment it syncs - no review, no approval, and no way back: deleting a page later does not unpublish it, and anything cloned or cached in between stays gone. On a private repo it is behind auth, like a YouTrack KB. The sync prints which one you are in on every run; read that line before filing operational detail.
+
+This is not a prohibition. A runbook that names its CI secret *variables*, or explains that org secrets do not show up in `gh secret list -R`, is exactly the content that saves the next reader a wasted session - and names in a public workflow file were never secret. Weigh what is genuinely new disclosure: an org's plan tier, an internal hostname, a path layout. The test is not "does this mention a secret" but "does publishing this tell someone something they could not already see".
+
 The knowledge base is the repo's **wiki** - itself a git repo
 (`<repo>.wiki.git`), so sync is git plumbing with the same three-way
 merge model as YouTrack. Capability-detected: no wiki (disabled, or a

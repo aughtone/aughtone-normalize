@@ -112,8 +112,8 @@ mavenPublishing {
     coordinates("io.github.aughtone.normalize", "common", version.toString())
 
     pom {
-        name = "Aughtone Normalize Common"
-        description = "Shared contracts for the Aughtone Normalize suite."
+        name = "Aught One Normalize Common"
+        description = "Shared contracts for the Aught One Normalize suite."
         inceptionYear = "2026"
         url = "https://github.com/aughtone/aughtone-normalize"
         licenses {
