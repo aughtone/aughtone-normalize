@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-09-12
+
 ### Added
 
 - **A policy identity can be resolved back into its policy.** `PolicyResolver` in `:common` turns a stored `(id, version)` pair into the frozen policy that produced it, so an application adding rows to an existing store normalizes them under the policy those rows were derived with, and a policy can be named in configuration rather than hardcoded. Each module exposes one resolver — `QuodlibetPolicies` today — and callers combine the ones they depend on with `+`. There is no global registry and nothing registers at startup.
@@ -44,5 +46,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Multiplatform targets**: published for JVM, Android, iOS (`arm64`, `x64`, `simulatorArm64`), JS (browser), wasmJs (browser) and Linux x64. The same test suite runs on each, so the canonical form is verified identical across them rather than assumed.
 - **Shared `Normalized` contract (`:common`)**: the `Normalized` interface (`canonical`, `policyId`, `policyVersion`) is the common result shape every normalizer in the suite reports, so a derived hash can always be stored beside the policy identity that produced it.
 
-[Unreleased]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.1...HEAD
+[Unreleased]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.2...HEAD
+[0.0.2]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/aughtone/aughtone-normalize/releases/tag/v0.0.1

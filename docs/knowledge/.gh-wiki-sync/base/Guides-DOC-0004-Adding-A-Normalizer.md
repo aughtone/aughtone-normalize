@@ -9,15 +9,15 @@ How to add a normalizer that fits the suite's contract. Read [Normalization Suit
 
 Ask whether it needs a Unicode table.
 
-- **No table** — it can live in its own module depending only on `:common`. Credit-card/PAN, IBAN, IPv6 and hostname, and slug are all in this category, and related ones can share a module (`:financial`, `:net`).
-- **Needs a table** — it belongs in `:unicode`, which carries the frozen, delta-packaged tables. Do not add a table to any other module.
+- **No table** — it goes in `:quodlibet`, the bundle of normalizers that need no data and no external dependency. Email, credit-card/PAN, IBAN and IPv6 all belong there. Do not create a module for it: a module boundary exists only where what a caller must carry changes ([ADR-0003](Decisions-ADR-0003-Bundling-Modules-By-Weight)).
+- **Needs a Unicode table** — the table comes from the generator ([ADR-0002](Decisions-ADR-0002-Generating-The-Unicode-Tables)) and ships in the module that needs it: normalization forms in `:unicode`, confusables in `:confusables`, IDNA data and every hostname in `:ubilibet`. Join the module whose data you use; a new module is justified only when you bring data no existing module carries. Never hand-write or vendor a table.
 - **Needs region metadata but not Unicode** — like phone, which depends on `aughtone-phonenumber`. Its own module.
 
 A normalizer belongs in this suite at all only if it is general, reusable, and fits the versioned-policy contract. An application-specific formatter does not.
 
 ## 2. Implement the contract
 
-Four pieces, following `:email` as the worked example:
+Four pieces, following the email normalizer in `:quodlibet` as the worked example:
 
 - **`NormalizedX : Normalized`** — a data class carrying `canonical`, `policyId` and `policyVersion`. Nothing else unless the identifier genuinely needs it.
 - **`XPolicy`** — a class with an **`internal` constructor** and named frozen instances in its companion. The internal constructor is the point: callers must not be able to invent a policy, because an unnamed rule-set cannot be reproduced later. Each instance carries a stable `id` and an integer `version`.
@@ -28,7 +28,7 @@ The canonical string is what a caller hashes. If an operation would need a Unico
 
 ## 3. Add the module
 
-Copy `email/build.gradle.kts` and change:
+A new module is only for a normalizer that brings its own data or an external dependency. When you do need one, copy `quodlibet/build.gradle.kts` and change:
 
 - the `android { namespace }`,
 - the iOS framework `baseName` (`AONormalize<Name>`) and its `bundleId` binary option,
@@ -49,7 +49,13 @@ The permutation matrix is the specification. At minimum: each failure mode with 
 
 Green on every target, not just JVM. A normalizer that passes only on JVM has not been tested for the one property the suite exists to provide.
 
-## 5. Record it
+## 5. Publish its policies
+
+Add every policy to the module's resolver object, the single `PublishedPolicies` subclass that module exposes, along with the links the policies are built from. Build each policy's `id` by rendering a chain through `PolicyId` rather than writing the string out by hand — the written and parsed forms have to agree forever, and one grammar for both is what keeps them agreeing.
+
+Then copy the round-trip test: every published policy must resolve from its own `(id, version)` and come back as the same instance. A policy missing from the resolver still normalizes, so nothing fails at build time — it simply cannot be re-derived from a stored id later, which is discovered by the consumer, years on, with the inputs gone.
+
+## 6. Record it
 
 Add a `CHANGELOG.md` entry under `## [Unreleased]`, and update [DOC-0001](Specifications-DOC-0001-Normalization-Suite)'s module table — it is a specification, so it is corrected in place to match reality.
 

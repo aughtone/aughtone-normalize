@@ -1,6 +1,6 @@
 # Aught One Normalize
 
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.aughtone.normalize/email.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.aughtone.normalize/email)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.aughtone.normalize/common.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.aughtone.normalize/common)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 Kotlin Multiplatform normalization suite — deterministic, byte-stable canonical forms for hashing and matching identifiers and text.
@@ -17,14 +17,16 @@ Every normalizer in the roster is built: email, credit-card/PAN, IBAN, IPv4, IPv
 |---|---|---|
 | `:quodlibet` | `io.github.aughtone.normalize:quodlibet` | every normalizer that needs no lookup table and no external dependency: email, credit-card/PAN, IBAN, IPv4, IPv6 and usernames, each with named frozen policies and typed, value-free errors |
 | `:unicode` | `io.github.aughtone.normalize:unicode` | NFC, NFD, NFKC and NFKD against tables frozen from a pinned Unicode release, never the platform's |
-| `:ubilibet` | `io.github.aughtone.normalize:ubilibet` | every hostname and domain, ASCII included, under UTS-46 with Punycode — the full IDNA conformance suite passes on every target |
+| `:ubilibet` | `io.github.aughtone.normalize:ubilibet` | every hostname and domain, ASCII included, under UTS-46 with Punycode, and URLs — the full IDNA conformance suite passes on every target |
 | `:confusables` | `io.github.aughtone.normalize:confusables` | UTS-39 skeletons for spoof detection, including the bidirectional algorithm the standard defines them through |
 | `:phone` | `io.github.aughtone.normalize:phone` | phone numbers to E.164, with the region on the policy so a country code is never guessed |
 | `:common` | `io.github.aughtone.normalize:common` | the shared `Normalized` contract, the policy identity grammar, and resolution of a stored id back to its policy |
 
 ## 📥 Installation
 
-`:quodlibet` exposes `:common` transitively, so depending on it alone is enough.
+Each module is its own coordinate: depend on the normalizers you use and you carry nothing else. Every module exposes `:common` transitively, and `:ubilibet` and `:confusables` bring `:unicode` with them, so you never name those yourself.
+
+The example below installs `:quodlibet`, which is the table-free bundle — email, PAN, IBAN, IPv4, IPv6 and usernames. Swap or add coordinates from the table above for the rest.
 
 **Moving from `0.0.1`?** The email normalizer was published as `io.github.aughtone.normalize:email:0.0.1` and now lives in `:quodlibet`. Change the coordinate; nothing else moves. The package, every type name, the canonical output and the policy versions are unchanged, so no stored value is affected. The one rename is `EmailPolicy.Lenient`, now `EmailPolicy.ByteStableV1Lenient`, whose `id` became `email.byte-stable+lenient`. `email:0.0.1` stays on Maven Central.
 
@@ -33,7 +35,7 @@ Every normalizer in the roster is built: email, credit-card/PAN, IBAN, IPv4, IPv
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("io.github.aughtone.normalize:quodlibet:<version>")
+            implementation("io.github.aughtone.normalize:quodlibet:0.0.2")
         }
     }
 }
@@ -44,7 +46,7 @@ Or with a version catalog:
 ```toml
 # gradle/libs.versions.toml
 [versions]
-aughtone-normalize = "<version>"
+aughtone-normalize = "0.0.2"
 
 [libraries]
 aughtone-normalize-quodlibet = { module = "io.github.aughtone.normalize:quodlibet", version.ref = "aughtone-normalize" }
