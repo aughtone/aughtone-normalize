@@ -22,7 +22,7 @@ That runs the full multiplatform test suite. On a non-macOS host the iOS targets
 To iterate quickly on one target:
 
 ```bash
-./gradlew :email:jvmTest
+./gradlew :quodlibet:jvmTest
 ```
 
 Memory settings are deliberately **not** committed: `gradle.properties` leaves `org.gradle.jvmargs` commented out so each developer can set their own in `~/.gradle/gradle.properties`. The file carries a worked example for a large machine. CI passes its own settings on the command line.
@@ -31,7 +31,13 @@ Memory settings are deliberately **not** committed: `gradle.properties` leaves `
 
 ```
 common/   the shared contract every normalizer reports (io.github.aughtone.normalize:common)
-email/    the byte-stable email normalizer                (io.github.aughtone.normalize:email)
+quodlibet/ normalizers needing no table or dependency      (io.github.aughtone.normalize:quodlibet)
+unicode/   the four Unicode normalization forms             (io.github.aughtone.normalize:unicode)
+ubilibet/  hostnames and domains, UTS-46 and Punycode      (io.github.aughtone.normalize:ubilibet)
+confusables/ UTS-39 skeletons, and the bidirectional algorithm (io.github.aughtone.normalize:confusables)
+phone/     phone numbers to E.164                           (io.github.aughtone.normalize:phone)
+ucd/       the pinned Unicode data, checksummed, and the table baselines
+tools/     build tooling, never published - the table generator
 docs/     documentation - see docs/README.md
 ```
 

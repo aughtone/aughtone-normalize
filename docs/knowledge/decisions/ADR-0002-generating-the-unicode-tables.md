@@ -1,6 +1,6 @@
 # Generating the Unicode tables
 
-ADR-0002 · 2026-09-08 · Status: accepted
+ADR-0002 · 2026-09-08 · Status: accepted · corrected 2026-09-11
 Keywords: NFC implementation, where do the Unicode tables come from, why not use an existing normalization library, UCD, NormalizationTest.txt, delta packaging, Unicode version drift, bundle size wasmJs, ICU4J, kuri
 
 ## Context
@@ -21,10 +21,12 @@ The generator regenerates from a named Unicode release, diffs against the frozen
 
 ## Consequences
 
-**Easier.** The material-change check becomes mechanical rather than a judgement call: regenerate, diff, and an empty diff means no new epoch while additions mean a new epoch and the diff *is* the delta. Delta packaging becomes possible at all, so a consumer pinned to `NfcPolicyV17` does not drag later versions into a wasm or iOS bundle. Correctness is verifiable against the standard's own conformance data rather than asserted.
+**Easier.** The material-change check becomes mechanical rather than a judgement call: regenerate, diff, and an empty diff means no new epoch while additions mean a new epoch and the diff *is* the delta. Delta packaging becomes possible at all, so a consumer pinned to `NfcU17` does not drag later versions into a wasm or iOS bundle.
 
-**Harder, and this is the real cost.** This is substantially more work than vendoring, and it is the largest single piece of engineering left in the suite. It adds a build-time generator, a checked-in frozen baseline, and a conformance-test step to CI — none of which exists today. `:unicode` should be expected to take considerably longer to ship than any other module in the roster.
+*Corrected 2026-09-11:* that mechanical check holds for the **normalization** tables, whose existing mappings the Unicode stability policy freezes. It does not hold for every table this generator later produces. UTS-46 permits a previously disallowed character to change status or mapping, and UTS-39 permits any confusable mapping to change between releases, so those families define their own rule and their own packaging — see [ADR-0003](ADR-0003-bundling-modules-by-weight.md). The decision to generate rather than vendor is unaffected; the claim that one check covers every table was wrong. Correctness is verifiable against the standard's own conformance data rather than asserted.
 
-**What we gave up.** A quicker path to a working `:unicode`. If schedule pressure ever makes that tempting, the thing to re-read is the second rejection above: the shortcut is not a shortcut, because the vendored engine can never be removed once a policy has been published on it.
+**Harder, and this is the real cost.** This is substantially more work than vendoring, and it is the largest single piece of engineering left in the suite. It adds a build-time generator, a checked-in frozen baseline, and a conformance-test step to CI — none of which exists today. The generator and the first module built on it should be expected to take considerably longer to ship than any module that carries no data.
+
+**What we gave up.** A quicker path to a working normalizer. If schedule pressure ever makes that tempting, the thing to re-read is the second rejection above: the shortcut is not a shortcut, because the vendored engine can never be removed once a policy has been published on it.
 
 **Licensing note.** Generating from the UCD means the Unicode data licence applies to the generated tables and must be carried in `NOTICE.md`, as the format suite already does for CLDR data. Vendoring would have meant carrying the source library's licence and attribution instead; this does not avoid an attribution obligation, it changes whose.

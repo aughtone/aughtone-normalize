@@ -1,6 +1,6 @@
 # Phone region policies
 
-ADR-0001 · 2026-09-08 · Status: accepted
+ADR-0001 · 2026-09-08 · Status: accepted · corrected 2026-09-11
 Keywords: E.164 needs a country code, national format phone number, default region, which country does 555-1234 belong to, why not a third parameter, phone policy identity, guessed country code, normalizePhone signature
 
 ## Context
@@ -16,7 +16,9 @@ Feeds from [RAD-0001](../research/RAD-0001-identifier-and-text-normalization.md)
 **Two policies, and neither ever guesses.**
 
 - **`PhonePolicy.E164`** — id `phone.e164`. For input that already carries its own country code. National-format input is refused with a typed failure, not defaulted.
-- **`PhonePolicy.e164For(region)`** — id `phone.e164+region.<REGION>`, e.g. `phone.e164+region.CA`. For national-format input, interpreted against the region the caller named deliberately.
+- **`PhonePolicy.e164ForRegion(region)`** — id `phone.e164+region-<region>`, e.g. `phone.e164+region-ca`. For national-format input, interpreted against the region the caller named deliberately.
+
+*Corrected 2026-09-11:* the ids and the factory name were restated to match the suite-wide policy grammar in DOC-0001 — a policy identity is an ordered chain of links joined by `+`, with the region as a qualifier link and any relaxation last, lowercase throughout. The decision itself is unchanged: the region rides on the policy identity.
 
 The region is part of the policy `id`, so it travels with every derived token. The two-argument contract `normalizeX(value, policy)` is unchanged.
 
@@ -30,7 +32,7 @@ The region is part of the policy `id`, so it travels with every derived token. T
 
 **Harder.** Policy identities multiply — one per region actually used. That is a cost in the abstract and close to free in practice, since `id` is a derived string and policies are cheap objects.
 
-**What this gives up, and it needs stating loudly.** `phone.e164` and `phone.e164+region.CA` produce *identical bytes* for input already in E.164 form, but they carry **different policy identities**. Matching is scoped by identity, so two consumers using different policies will not match each other even where the canonical strings agree.
+**What this gives up, and it needs stating loudly.** `phone.e164` and `phone.e164+region-ca` produce *identical bytes* for input already in E.164 form, but they carry **different policy identities**. Matching is scoped by identity, so two consumers using different policies will not match each other even where the canonical strings agree.
 
 **So consumers who must interoperate have to agree on the same policy constant, not merely on the same output format.** This is the same class of failure as the `email.canonical` / `email.byte-stable` mismatch caught before publication, and it is reachable here without anyone making a mistake — two teams can each choose reasonably and still not match. Any future guidance for phone consumers must name the specific policy, never "use E.164".
 

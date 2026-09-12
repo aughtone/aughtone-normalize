@@ -22,9 +22,9 @@ At the other end, one module per no-table normalizer isolates nothing. Email, PA
 | `:common` | the shared contract | `aughtone-types` | nothing |
 | `:quodlibet` | every normalizer needing no table and no external dependency: email, PAN, IBAN, IPv6, the username base, and slug if it does not transliterate | `:common` | nothing |
 | `:phone` | E.164 | `:common` + `aughtone-phonenumber` | region metadata, via the dependency |
-| `:unicode` | NFC, NFD, NFKC, NFKD | `:common` | normalization tables |
-| `:confusables` | UTS-39 skeletons | `:unicode` | confusable mappings |
-| `:ubilibet` | hostnames and domains (UTS-46 nontransitional processing, Punycode per RFC 3492), and URL | `:unicode` | IDNA mapping, bidi class, joining type |
+| `:unicode` | NFC, NFD, NFKC, NFKD, and any character property more than one module needs | `:common` | normalization tables, shared properties |
+| `:confusables` | UTS-39 skeletons | `:unicode` | confusable mappings, mirroring, paired brackets |
+| `:ubilibet` | hostnames and domains (UTS-46 nontransitional processing, Punycode per RFC 3492), and URL | `:unicode` | IDNA mapping, joining type |
 
 - **Unicode data is produced only by the ADR-0002 generator, and ships in the module that needs it.** This replaces "nothing outside `:unicode` ships a Unicode table", which only held while every table lived in one module.
 - **Every hostname is normalized in `:ubilibet`, ASCII included.** For ASCII input UTS-46 does little more than lowercase and validate, so a separate ASCII hostname rule in `:quodlibet` would give callers two policies producing identical bytes under different identities — the trap [ADR-0001](ADR-0001-supplying-a-region-to-the-phone-normalizer.md) records for phone.
@@ -44,7 +44,11 @@ The names are a deliberate pair of Latin: `quodlibet`, "whatever you please", is
 
 **Harder.** `:email` consumers must change one dependency coordinate before they can take any later email change. This is a breaking move, made deliberately at `0.0.1` while the suite is alpha and every known consumer can be told directly.
 
-`:confusables` cannot use ADR-0002's additive-delta packaging as designed, because a later confusables table can change an existing mapping. A policy frozen at one version is still byte-stable — its data never changes — but how versions are packaged is open on that module's issue.
+`:confusables` cannot use ADR-0002's additive-delta packaging as designed, because a later confusables table can change an existing mapping. A policy frozen at one version is still byte-stable — its data never changes — so that module ships each version's table whole instead.
+
+*Corrected 2026-09-11:* an earlier version of this record had `:confusables` and `:ubilibet` each ship their own copy of the bidi-class table, on the grounds that the duplication was small. That was wrong on the case that matters — checking a domain for spoofing needs both modules at once, which is what registries and browsers do — so the rule is now: **a table needed by more than one module lives in `:unicode`; a table needed by exactly one lives in that one.** Bidi class moves to `:unicode`; mirroring and paired brackets stay in `:confusables`, joining type in `:ubilibet`.
+
+That costs an NFC-only caller roughly 15KB of artifact and no memory, since an unreferenced table is never loaded on JVM and is removed by dead-code elimination on JS, wasm and native. Merging the two modules instead was rejected for the obvious reason: it would put 230KB of IDNA data in front of every caller who only wanted a skeleton. A separate shared module was rejected too — a published coordinate, with its own release and versioning surface, for one 15KB table.
 
 A `:quodlibet` caller who wants only IBAN also compiles against the email and IPv6 code. It is code rather than data, and unreferenced code is removed by dead-code elimination on JS and wasm.
 
