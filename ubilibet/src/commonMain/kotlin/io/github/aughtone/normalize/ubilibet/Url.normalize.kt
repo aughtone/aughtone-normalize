@@ -1,5 +1,6 @@
 package io.github.aughtone.normalize.ubilibet
 
+import io.github.aughtone.normalize.common.ComparableForm
 import io.github.aughtone.normalize.common.LinkKind
 import io.github.aughtone.normalize.common.Normalized
 import io.github.aughtone.normalize.common.Policy
@@ -239,6 +240,9 @@ class UrlPolicy internal constructor(
     override val version: Int,
     internal val domainPolicy: DomainPolicy,
 ) : Policy {
+
+    /** Its leniency is the host policy's, so both URL policies write the same URL: see [DomainForms]. */
+    override val forms: Set<ComparableForm> = setOf(DomainForms.UrlRfc3986U17)
 
     override fun toString(): String = id
 

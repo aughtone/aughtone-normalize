@@ -1,5 +1,6 @@
 package io.github.aughtone.normalize.pan
 
+import io.github.aughtone.normalize.common.ComparableForm
 import io.github.aughtone.normalize.common.LinkKind
 import io.github.aughtone.normalize.common.Normalized
 import io.github.aughtone.normalize.common.Policy
@@ -82,6 +83,9 @@ class PanPolicy internal constructor(
     internal val checkLuhn: Boolean,
 ) : Policy {
 
+    /** Leniency only skips the Luhn check, so both policies write the same digits: see [PanForms]. */
+    override val forms: Set<ComparableForm> = setOf(PanForms.Digits)
+
     override fun toString(): String = id
 
     companion object {
@@ -128,4 +132,12 @@ sealed class PanNormalizationError(message: String) : Exception(message) {
 
     /** The Luhn check failed, which under a strict policy means the number is not usable. */
     class ChecksumFailed : PanNormalizationError("pan: checksum failed")
+}
+
+/**
+ * The comparable forms payment-card policies write. [Digits] is the card number as digits: [PanPolicy.Digits]
+ * and [PanPolicy.DigitsLenient] both write it, because leniency only skips the Luhn check.
+ */
+object PanForms {
+    val Digits: ComparableForm = ComparableForm("pan.digits")
 }

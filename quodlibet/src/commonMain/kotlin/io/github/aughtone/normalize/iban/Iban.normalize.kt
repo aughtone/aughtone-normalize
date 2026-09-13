@@ -1,5 +1,6 @@
 package io.github.aughtone.normalize.iban
 
+import io.github.aughtone.normalize.common.ComparableForm
 import io.github.aughtone.normalize.common.LinkKind
 import io.github.aughtone.normalize.common.Normalized
 import io.github.aughtone.normalize.common.Policy
@@ -86,6 +87,9 @@ class IbanPolicy internal constructor(
     internal val checkMod97: Boolean,
 ) : Policy {
 
+    /** Leniency only skips the mod-97 check, so both policies write the same compact IBAN: see [IbanForms]. */
+    override val forms: Set<ComparableForm> = setOf(IbanForms.Compact)
+
     override fun toString(): String = id
 
     companion object {
@@ -129,4 +133,12 @@ sealed class IbanNormalizationError(message: String) : Exception(message) {
 
     /** The mod-97 check failed, which under a strict policy means the number is not usable. */
     class ChecksumFailed : IbanNormalizationError("iban: checksum failed")
+}
+
+/**
+ * The comparable forms IBAN policies write. [Compact] is the IBAN without spacing: [IbanPolicy.Compact] and
+ * [IbanPolicy.CompactLenient] both write it, because leniency only skips the mod-97 check.
+ */
+object IbanForms {
+    val Compact: ComparableForm = ComparableForm("iban.compact")
 }
