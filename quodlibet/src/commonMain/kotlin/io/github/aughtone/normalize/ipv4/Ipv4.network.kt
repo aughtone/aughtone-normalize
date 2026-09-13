@@ -1,10 +1,12 @@
 package io.github.aughtone.normalize.ipv4
 
+import io.github.aughtone.normalize.common.ComparableForm
 import io.github.aughtone.normalize.common.LinkKind
 import io.github.aughtone.normalize.common.Normalized
 import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
+import io.github.aughtone.normalize.quodlibet.IpForms
 import io.github.aughtone.normalize.quodlibet.NetworkForm
 import io.github.aughtone.types.outcome.Outcome
 import io.github.aughtone.types.outcome.runOutcome
@@ -89,9 +91,20 @@ class Ipv4BlockPolicy internal constructor(
     val address: Ipv4Policy,
     /** The prefix length every derived block has, 0 to 32. */
     val prefixLength: Int,
+    internal val optedIn: Set<ComparableForm> = emptySet(),
 ) : Policy {
 
-    override val id: String = chain(address, blockLink(prefixLength))
+    override val id: String = chain(address, optedIn, blockLink(prefixLength))
+
+    override val forms: Set<ComparableForm> = networkForms(address, optedIn)
+
+    override val offeredForms: Set<ComparableForm> = offeredNetworkForms(address)
+
+    /** This block policy with [forms] opted into, as an [Ipv4BlockPolicy]. */
+    override fun withForms(forms: Set<ComparableForm>): Ipv4BlockPolicy {
+        requireOffered(forms)
+        return if (forms.isEmpty()) this else Ipv4BlockPolicy(address, prefixLength, optedIn + forms)
+    }
 
     override val version: Int = 1
 
@@ -114,10 +127,21 @@ class Ipv4CidrPolicy internal constructor(
     val address: Ipv4Policy,
     /** True if host bits are cleared rather than refused. */
     val masked: Boolean,
+    internal val optedIn: Set<ComparableForm> = emptySet(),
 ) : Policy {
 
     override val id: String =
-        if (masked) chain(address, CIDR_LINK, MASKED_LINK) else chain(address, CIDR_LINK)
+        if (masked) chain(address, optedIn, CIDR_LINK, MASKED_LINK) else chain(address, optedIn, CIDR_LINK)
+
+    override val forms: Set<ComparableForm> = networkForms(address, optedIn)
+
+    override val offeredForms: Set<ComparableForm> = offeredNetworkForms(address)
+
+    /** This CIDR policy with [forms] opted into, as an [Ipv4CidrPolicy]. */
+    override fun withForms(forms: Set<ComparableForm>): Ipv4CidrPolicy {
+        requireOffered(forms)
+        return if (forms.isEmpty()) this else Ipv4CidrPolicy(address, masked, optedIn + forms)
+    }
 
     override val version: Int = 1
 
@@ -135,14 +159,14 @@ class Ipv4CidrPolicy internal constructor(
  */
 fun Ipv4Policy.block(prefixLength: Int): Ipv4BlockPolicy {
     require(prefixLength in 0..BITS) { "an IPv4 prefix length is 0 to $BITS, was $prefixLength" }
-    return Ipv4BlockPolicy(this, prefixLength)
+    return Ipv4BlockPolicy(plain, prefixLength)
 }
 
 /** CIDR input under these address rules, refusing host bits set: `ipv4.dotted-quad+cidr`. */
-fun Ipv4Policy.cidr(): Ipv4CidrPolicy = Ipv4CidrPolicy(this, masked = false)
+fun Ipv4Policy.cidr(): Ipv4CidrPolicy = Ipv4CidrPolicy(plain, masked = false)
 
 /** CIDR input under these address rules, clearing host bits: `ipv4.dotted-quad+cidr+masked`. */
-fun Ipv4Policy.cidrMasked(): Ipv4CidrPolicy = Ipv4CidrPolicy(this, masked = true)
+fun Ipv4Policy.cidrMasked(): Ipv4CidrPolicy = Ipv4CidrPolicy(plain, masked = true)
 
 /**
  * A canonical IPv4 network plus the policy identity that produced it.
@@ -188,5 +212,17 @@ private fun networkResult(network: Long, prefixLength: Int, policy: Policy): Nor
     )
 }
 
-private fun chain(address: Ipv4Policy, vararg parameters: PolicyLink): String =
-    PolicyId.of(listOf(PolicyLink(address.id, LinkKind.Base)) + parameters).dataOrThrow().rendered
+private fun chain(address: Ipv4Policy, optedIn: Set<ComparableForm>, vararg parameters: PolicyLink): String =
+    PolicyId.of(listOf(PolicyLink(address.base, LinkKind.Base)) + parameters + optedIn.sorted().map { it.link }).dataOrThrow().rendered
+
+/** `dotted-quad` networks write the IPv4 network form; `inet-aton` networks only once a caller opts in. */
+private fun networkForms(address: Ipv4Policy, optedIn: Set<ComparableForm>): Set<ComparableForm> =
+    if (address.interpretsShorthand) optedIn else setOf(IpForms.Ipv4Network)
+
+private fun offeredNetworkForms(address: Ipv4Policy): Set<ComparableForm> =
+    if (address.interpretsShorthand) setOf(IpForms.Ipv4Network) else emptySet()
+
+private fun Policy.requireOffered(forms: Set<ComparableForm>) {
+    val refused = forms.firstOrNull { it !in offeredForms }
+    require(refused == null) { "$id does not offer the comparable form $refused" }
+}

@@ -1,11 +1,13 @@
 package io.github.aughtone.normalize.ipv6
 
+import io.github.aughtone.normalize.common.ComparableForm
 import io.github.aughtone.normalize.common.LinkKind
 import io.github.aughtone.normalize.common.Normalized
 import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.normalize.ipv4.formatIpv4
+import io.github.aughtone.normalize.quodlibet.IpForms
 import io.github.aughtone.types.outcome.Outcome
 import io.github.aughtone.types.outcome.dataOrElse
 import io.github.aughtone.types.outcome.runOutcome
@@ -232,6 +234,13 @@ class Ipv6Policy internal constructor(
         .rendered
 
     override val version: Int = 1
+
+    /**
+     * Every IPv6 policy writes the IPv6 address form; one that folds IPv4 out also writes the IPv4 address
+     * form, so a mapped or NAT64 address is explicitly comparable with the same host under `ipv4.dotted-quad`.
+     */
+    override val forms: Set<ComparableForm> =
+        if (unmap || nat64) setOf(IpForms.Ipv4Address, IpForms.Ipv6Address) else setOf(IpForms.Ipv6Address)
 
     /** This policy, also writing IPv4-mapped addresses as IPv4: `…+unmap`. */
     fun unmap(): Ipv6Policy = Ipv6Policy(unmap = true, nat64 = nat64, zone = zone)

@@ -1,5 +1,6 @@
 package io.github.aughtone.normalize.ipv6
 
+import io.github.aughtone.normalize.common.ComparableForm
 import io.github.aughtone.normalize.common.LinkKind
 import io.github.aughtone.normalize.common.Normalized
 import io.github.aughtone.normalize.common.Policy
@@ -9,6 +10,7 @@ import io.github.aughtone.normalize.ipv4.CIDR_LINK
 import io.github.aughtone.normalize.ipv4.MASKED_LINK
 import io.github.aughtone.normalize.ipv4.blockLink
 import io.github.aughtone.normalize.ipv4.formatIpv4
+import io.github.aughtone.normalize.quodlibet.IpForms
 import io.github.aughtone.normalize.quodlibet.NetworkForm
 import io.github.aughtone.types.outcome.Outcome
 import io.github.aughtone.types.outcome.runOutcome
@@ -113,6 +115,8 @@ class Ipv6BlockPolicy internal constructor(
 
     override val version: Int = 1
 
+    override val forms: Set<ComparableForm> = networkForms(address)
+
     internal fun derive(reading: Ipv6Reading): NormalizedIpv6Network = when (reading) {
         is Ipv6Reading.V4 -> {
             val prefix = ipv4PrefixLength ?: error("an address folded to IPv4 needs an IPv4 prefix")
@@ -140,6 +144,8 @@ class Ipv6CidrPolicy internal constructor(
         PolicyId.of(address.links + if (masked) listOf(CIDR_LINK, MASKED_LINK) else listOf(CIDR_LINK)).dataOrThrow().rendered
 
     override val version: Int = 1
+
+    override val forms: Set<ComparableForm> = networkForms(address)
 
     override fun equals(other: Any?): Boolean = other is Ipv6CidrPolicy && other.id == id && other.version == version
 
@@ -222,6 +228,10 @@ private fun mask(fields: IntArray, prefixLength: Int): IntArray = IntArray(field
     val fieldMask = if (kept == 0) 0 else (0xFFFF shl (FIELD_BITS - kept)) and 0xFFFF
     fields[index] and fieldMask
 }
+
+/** Every IPv6 network writes the IPv6 network form; one whose modes fold IPv4 out also writes the IPv4 one. */
+private fun networkForms(address: Ipv6Policy): Set<ComparableForm> =
+    if (address.foldsIpv4) setOf(IpForms.Ipv4Network, IpForms.Ipv6Network) else setOf(IpForms.Ipv6Network)
 
 private fun ipv4Mask(prefixLength: Int): Long = (-1L shl (IPV4_BITS - prefixLength)) and 0xFFFFFFFFL
 

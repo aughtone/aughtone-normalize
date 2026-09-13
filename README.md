@@ -137,6 +137,8 @@ Block derivation buckets an address into the network it falls in, and every pref
 
 IPv6 works the same way, and has modes for systems that need a different reading, each named in the id: `unmap` writes an IPv4-mapped address as IPv4 so it matches the IPv4 spelling of the same host, `nat64` does the same for `64:ff9b::/96`, and `zone` keeps a zone identifier. A block under `unmap` or `nat64` carries both prefixes: `Ipv6Policy.Rfc5952.unmap().block(24, 64)`.
 
+These policies declare comparable forms (`IpForms`), so the matches they exist for are explicit rather than coincidental: an IPv4 address is comparable with its `unmap` or `nat64` spelling in `ipv4.address`, and a derived block with a CIDR range in `ipv4.network` or `ipv6.network`. `inet-aton` only offers its forms, because its reading of `010` as 8 is an interpretation: opt in with `Ipv4Policy.InetAton.withForms(setOf(IpForms.Ipv4Address))`, which stores `ipv4.inet-aton+form.ipv4.address`.
+
 ### Hostname and Domain Normalization (`:ubilibet`)
 ```kotlin
 import io.github.aughtone.normalize.ubilibet.DomainPolicy

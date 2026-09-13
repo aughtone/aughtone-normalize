@@ -1,10 +1,12 @@
 package io.github.aughtone.normalize.ipv4
 
+import io.github.aughtone.normalize.common.ComparableForm
 import io.github.aughtone.normalize.common.LinkKind
 import io.github.aughtone.normalize.common.Normalized
 import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
+import io.github.aughtone.normalize.quodlibet.IpForms
 import io.github.aughtone.types.outcome.Outcome
 import io.github.aughtone.types.outcome.dataOrElse
 import io.github.aughtone.types.outcome.runOutcome
@@ -85,10 +87,36 @@ internal fun formatIpv4(address: Long): String =
  * a different rule-set with its own identity rather than a loosened version of the other.
  */
 class Ipv4Policy internal constructor(
-    override val id: String,
-    override val version: Int,
+    /** The base link name, without any opted-in forms: `ipv4.dotted-quad`. */
+    internal val base: String,
     internal val interpretsShorthand: Boolean,
+    internal val optedIn: Set<ComparableForm> = emptySet(),
 ) : Policy {
+
+    override val id: String = chainOf(PolicyLink(base, LinkKind.Base), *optedIn.sorted().map { it.link }.toTypedArray())
+
+    override val version: Int = 1
+
+    /** `dotted-quad` writes the IPv4 address form; `inet-aton` writes it only once a caller opts in. */
+    override val forms: Set<ComparableForm> =
+        if (interpretsShorthand) optedIn else setOf(IpForms.Ipv4Address)
+
+    override val offeredForms: Set<ComparableForm> =
+        if (interpretsShorthand) setOf(IpForms.Ipv4Address) else emptySet()
+
+    /** This policy with [forms] opted into, as an [Ipv4Policy] so `normalizeIpv4` stores the opted-in id. */
+    override fun withForms(forms: Set<ComparableForm>): Ipv4Policy {
+        val refused = forms.firstOrNull { it !in offeredForms }
+        require(refused == null) { "$id does not offer the comparable form $refused" }
+        return if (forms.isEmpty()) this else Ipv4Policy(base, interpretsShorthand, optedIn + forms)
+    }
+
+    /** The same rules with no opted-in forms, which is what a network policy builds on. */
+    internal val plain: Ipv4Policy get() = if (optedIn.isEmpty()) this else Ipv4Policy(base, interpretsShorthand)
+
+    override fun equals(other: Any?): Boolean = other is Ipv4Policy && other.id == id
+
+    override fun hashCode(): Int = id.hashCode()
 
     /** Read one part under this policy's rules, or refuse it. */
     internal fun readPart(part: String): Long {
@@ -123,11 +151,7 @@ class Ipv4Policy internal constructor(
          * Four decimal octets, no leading zeros: the one spelling every stack agrees on. Anything else
          * is refused rather than interpreted, so a token minted here cannot mean two different hosts.
          */
-        val DottedQuad: Ipv4Policy = Ipv4Policy(
-            id = chainOf(PolicyLink("ipv4.dotted-quad", LinkKind.Base)),
-            version = 1,
-            interpretsShorthand = false,
-        )
+        val DottedQuad: Ipv4Policy = Ipv4Policy(base = "ipv4.dotted-quad", interpretsShorthand = false)
 
         /**
          * The classic `inet_aton` rules, applied deliberately: one to four parts with the last absorbing
@@ -136,19 +160,17 @@ class Ipv4Policy internal constructor(
          *
          * **Its output is an interpretation, and the id says so.** Other stacks read the same input
          * differently - Go and Python refuse the octal forms outright - so this policy is a statement
-         * that these particular rules were applied. Values normalized here never match values normalized
-         * under [DottedQuad].
+         * that these particular rules were applied. Values normalized here do not match values normalized
+         * under [DottedQuad] unless a caller opts into the IPv4 address form - `InetAton.withForms(setOf(
+         * IpForms.Ipv4Address))`, id `ipv4.inet-aton+form.ipv4.address` - which makes the comparison a
+         * recorded choice rather than an accident.
          *
          * **Do not reach for this to accept more input.** Canonicalizing an ambiguous address turns an
          * attacker's choice of spelling into a token that may name a host the caller never intended,
          * which is how address-based filters get bypassed. Use it when the data you are matching *came
          * from* a system with these semantics, not to be permissive at the edge.
          */
-        val InetAton: Ipv4Policy = Ipv4Policy(
-            id = chainOf(PolicyLink("ipv4.inet-aton", LinkKind.Base)),
-            version = 1,
-            interpretsShorthand = true,
-        )
+        val InetAton: Ipv4Policy = Ipv4Policy(base = "ipv4.inet-aton", interpretsShorthand = true)
 
         /** The base links these policies are built on, published for resolution. */
         internal val links: List<PolicyLink> = listOf(
