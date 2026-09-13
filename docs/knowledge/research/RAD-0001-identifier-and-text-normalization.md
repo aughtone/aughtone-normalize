@@ -2,7 +2,7 @@
 
 RAD-0001 · 2026-09-07
 Keywords: same email hashes differently on iOS and Android, blind tokenization, breach-safe token, why not NFC, why not java.text.Normalizer, Gmail dots and plus addressing, IDNA ToASCII, Unicode version drift, canonical email, hash mismatch across app versions, why not libphonenumber for this
-Measured against: Kotlin 2.4.0, `io.github.aughtone:types` 3.4.0, `io.github.aughtone:phonenumber` 0.0.2, Unicode 17.0.0, targets jvm / android / iosX64 / iosArm64 / iosSimulatorArm64 / js / wasmJs / linuxX64, 2026-09-12. The suite's tests run green across jvm, js, wasmJs and iosSimulatorArm64 — 477 executions of the same suites on four runtimes — including three standards conformance suites: `NormalizationTest.txt`, `IdnaTestV2.txt`, and `BidiCharacterTest.txt` (in full on JVM, a deterministic sample elsewhere). `linuxX64` runs on CI; `iosX64` is compiled and linked but not executed, for want of an Intel runner.
+Measured against: Kotlin 2.4.0, AGP 9.2.1 (lint 32.2.1), `io.github.aughtone:types` 3.4.0, `io.github.aughtone:phonenumber` 0.0.2, Unicode 17.0.0, targets jvm / android / iosX64 / iosArm64 / iosSimulatorArm64 / js / wasmJs / linuxX64, 2026-09-12. The suite's tests run green across jvm, js, wasmJs and iosSimulatorArm64 — 477 executions of the same suites on four runtimes — including three standards conformance suites: `NormalizationTest.txt`, `IdnaTestV2.txt`, and `BidiCharacterTest.txt` (in full on JVM, a deterministic sample elsewhere). `linuxX64` runs on CI; `iosX64` is compiled and linked but not executed, for want of an Intel runner.
 
 The settled rules that came out of this are written up as [Normalization Suite Structure](../specifications/DOC-0001-normalization-suite.md); this record is the reasoning behind them and the questions still open.
 
@@ -63,7 +63,9 @@ The roster is built, so what remains is maintenance rather than construction: a 
 
 ## Current state
 
-**`0.0.2` publishes six coordinates**: `common`, `quodlibet`, `unicode`, `ubilibet`, `confusables` and `phone`, all under `io.github.aughtone.normalize`. The table generator is a build module and is never published.
+**`0.0.3` publishes the same six coordinates as `0.0.2`**: `common`, `quodlibet`, `unicode`, `ubilibet`, `confusables` and `phone`, all under `io.github.aughtone.normalize`. The table generator and the lint rules are build modules and are never published on their own; the lint rules reach callers only inside the `unicode` Android artifact.
+
+`0.0.3` adds the configurable text normalizer, comparable forms, IP networks, MAC and UUID normalizers, the email subaddress piece and display ToUnicode for domains. Its breaking changes are renames of ids and API, taken while the suite is alpha: the normalization forms moved to `text.u17+…` ids and the subaddress-keeping email policy became `email.byte-stable+subaddressed`. No published policy's bytes changed.
 
 `0.0.1` (2026-09-08) published `:common` and `:email` only. The email normalizer has since moved into `:quodlibet` per [ADR-0003](../decisions/ADR-0003-bundling-modules-by-weight.md), keeping its package, its type names and its canonical output; `email:0.0.1` remains on Central and is not republished. That move and the rename of `EmailPolicy.Lenient` are the two breaking changes in `0.0.2`, taken deliberately while the suite is alpha and every known consumer can be told directly.
 

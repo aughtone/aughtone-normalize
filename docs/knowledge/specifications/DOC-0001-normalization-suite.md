@@ -21,9 +21,9 @@ Group `io.github.aughtone.normalize`. A shared base plus functional modules: **f
 | Module | Coordinate | Contains | Depends on | Ships a table? |
 | :--- | :--- | :--- | :--- | :--- |
 | `:common` | `io.github.aughtone.normalize:common` | the shared contract — `Normalized`, `NormalizationStep`, policy + version base | `aughtone-types` | No |
-| `:quodlibet` | `io.github.aughtone.normalize:quodlibet` | every normalizer needing no table and no external dependency — email, credit-card/PAN, IBAN, IPv4, IPv6, the username base | `api(:common)` | No — permanent, zero data |
+| `:quodlibet` | `io.github.aughtone.normalize:quodlibet` | every normalizer needing no table and no external dependency — email and its subaddress, credit-card/PAN, IBAN, IPv4, IPv6 and networks, MAC addresses, UUIDs, the username base | `api(:common)` | No — permanent, zero data |
 | `:phone` | `io.github.aughtone.normalize:phone` | phone → E.164 | `api(:common)` + `aughtone-phonenumber` | No (region metadata, not Unicode) |
-| `:unicode` | `io.github.aughtone.normalize:unicode` | Unicode normalization forms — NFC, NFD, NFKC, NFKD — and any character property more than one module needs | `api(:common)` | Yes — normalization tables, delta-packaged, plus shared properties |
+| `:unicode` | `io.github.aughtone.normalize:unicode` | configurable text normalization — control, trim, spaces, case, case folding, NFC, NFD, NFKC, NFKD — and any character property more than one module needs; its Android artifact bundles the `TextPolicyRuleOrder` lint check | `api(:common)` | Yes — normalization tables, delta-packaged, plus shared properties |
 | `:confusables` | `io.github.aughtone.normalize:confusables` | UTS-39 skeletons | `api(:unicode)` | Yes — confusable mappings, mirroring, paired brackets |
 | `:ubilibet` | `io.github.aughtone.normalize:ubilibet` | every hostname and domain, ASCII included (UTS-46, Punycode), URL, and validating ToUnicode for display | `api(:unicode)` | Yes — IDNA mapping, joining type |
 

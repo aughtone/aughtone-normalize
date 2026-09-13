@@ -18,9 +18,9 @@ Every normalizer in the roster is built: email, credit-card/PAN, IBAN, IPv4, IPv
 
 | Module | Coordinate | What it does |
 |---|---|---|
-| `:quodlibet` | `io.github.aughtone.normalize:quodlibet` | every normalizer that needs no lookup table and no external dependency: email, credit-card/PAN, IBAN, IPv4, IPv6 and usernames, each with named frozen policies and typed, value-free errors |
-| `:unicode` | `io.github.aughtone.normalize:unicode` | configurable text normalization — trim, spaces, case, case folding, NFC/NFD/NFKC/NFKD — over ASCII or against tables frozen from a pinned Unicode release, never the platform's |
-| `:ubilibet` | `io.github.aughtone.normalize:ubilibet` | every hostname and domain, ASCII included, under UTS-46 with Punycode, and URLs — the full IDNA conformance suite passes on every target |
+| `:quodlibet` | `io.github.aughtone.normalize:quodlibet` | every normalizer that needs no lookup table and no external dependency: email and its subaddress, credit-card/PAN, IBAN, IPv4, IPv6 and networks, MAC addresses, UUIDs and usernames, each with named frozen policies and typed, value-free errors |
+| `:unicode` | `io.github.aughtone.normalize:unicode` | configurable text normalization — trim, spaces, case, case folding, NFC/NFD/NFKC/NFKD — over ASCII or against tables frozen from a pinned Unicode release, never the platform's; its Android artifact bundles a lint check for rules written out of order |
+| `:ubilibet` | `io.github.aughtone.normalize:ubilibet` | every hostname and domain, ASCII included, under UTS-46 with Punycode, URLs, and validating ToUnicode for display — the full IDNA conformance suite passes on every target |
 | `:confusables` | `io.github.aughtone.normalize:confusables` | UTS-39 skeletons for spoof detection, including the bidirectional algorithm the standard defines them through |
 | `:phone` | `io.github.aughtone.normalize:phone` | phone numbers to E.164, with the region on the policy so a country code is never guessed |
 | `:common` | `io.github.aughtone.normalize:common` | the shared `Normalized` contract, the policy identity grammar, and resolution of a stored id back to its policy |
@@ -29,16 +29,18 @@ Every normalizer in the roster is built: email, credit-card/PAN, IBAN, IPv4, IPv
 
 Each module is its own coordinate: depend on the normalizers you use and you carry nothing else. Every module exposes `:common` transitively, and `:ubilibet` and `:confusables` bring `:unicode` with them, so you never name those yourself.
 
-The example below installs `:quodlibet`, which is the table-free bundle — email, PAN, IBAN, IPv4, IPv6 and usernames. Swap or add coordinates from the table above for the rest.
+The example below installs `:quodlibet`, which is the table-free bundle — email, PAN, IBAN, IP addresses and networks, MAC addresses, UUIDs and usernames. Swap or add coordinates from the table above for the rest.
 
 **Moving from `0.0.1`?** The email normalizer was published as `io.github.aughtone.normalize:email:0.0.1` and now lives in `:quodlibet`. Change the coordinate; nothing else moves. The package, every type name, the canonical output and the policy versions are unchanged, so no stored value is affected. The relaxed email policy has since been renamed twice: `EmailPolicy.Lenient` (`email.lenient`) became `ByteStableV1Lenient` (`email.byte-stable+lenient`) in `0.0.2`, and in `0.0.3` it is `ByteStableV1Subaddressed` (`email.byte-stable+subaddressed`), because it keeps the `+`-subaddress rather than relaxing a rule. Its bytes never changed; only the name and id did. `email:0.0.1` stays on Maven Central.
+
+**Moving from `0.0.2`?** Three changes are breaking, and none changes a stored byte. The Unicode normalization forms moved to text policy ids: `nfc.u17` is now `text.u17+nfc`, and likewise for `nfd`, `nfkc` and `nfkd`, with `TextPolicy.NfcU17` and its siblings kept as presets. The subaddress-keeping email policy is `ByteStableV1Subaddressed` (`email.byte-stable+subaddressed`), as above. A module that rebuilds policies from ids overrides `PublishedPolicies.resolveBase` rather than `resolve`, and `NormalizationStep.link` became `links`. The [changelog](CHANGELOG.md) lists each one.
 
 ```kotlin
 // build.gradle.kts
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("io.github.aughtone.normalize:quodlibet:0.0.2")
+            implementation("io.github.aughtone.normalize:quodlibet:0.0.3")
         }
     }
 }
@@ -49,7 +51,7 @@ Or with a version catalog:
 ```toml
 # gradle/libs.versions.toml
 [versions]
-aughtone-normalize = "0.0.2"
+aughtone-normalize = "0.0.3"
 
 [libraries]
 aughtone-normalize-quodlibet = { module = "io.github.aughtone.normalize:quodlibet", version.ref = "aughtone-normalize" }

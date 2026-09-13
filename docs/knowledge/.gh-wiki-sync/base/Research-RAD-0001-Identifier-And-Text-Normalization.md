@@ -2,7 +2,7 @@
 
 RAD-0001 · 2026-09-07
 Keywords: same email hashes differently on iOS and Android, blind tokenization, breach-safe token, why not NFC, why not java.text.Normalizer, Gmail dots and plus addressing, IDNA ToASCII, Unicode version drift, canonical email, hash mismatch across app versions, why not libphonenumber for this
-Measured against: Kotlin 2.4.0, `io.github.aughtone:types` 3.4.0, `io.github.aughtone:phonenumber` 0.0.2, Unicode 17.0.0, targets jvm / android / iosX64 / iosArm64 / iosSimulatorArm64 / js / wasmJs / linuxX64, 2026-09-12. The suite's tests run green across jvm, js, wasmJs and iosSimulatorArm64 — 477 executions of the same suites on four runtimes — including three standards conformance suites: `NormalizationTest.txt`, `IdnaTestV2.txt`, and `BidiCharacterTest.txt` (in full on JVM, a deterministic sample elsewhere). `linuxX64` runs on CI; `iosX64` is compiled and linked but not executed, for want of an Intel runner.
+Measured against: Kotlin 2.4.0, AGP 9.2.1 (lint 32.2.1), `io.github.aughtone:types` 3.4.0, `io.github.aughtone:phonenumber` 0.0.2, Unicode 17.0.0, targets jvm / android / iosX64 / iosArm64 / iosSimulatorArm64 / js / wasmJs / linuxX64, 2026-09-12. The suite's tests run green across jvm, js, wasmJs and iosSimulatorArm64 — 477 executions of the same suites on four runtimes — including three standards conformance suites: `NormalizationTest.txt`, `IdnaTestV2.txt`, and `BidiCharacterTest.txt` (in full on JVM, a deterministic sample elsewhere). `linuxX64` runs on CI; `iosX64` is compiled and linked but not executed, for want of an Intel runner.
 
 The settled rules that came out of this are written up as [Normalization Suite Structure](Specifications-DOC-0001-Normalization-Suite); this record is the reasoning behind them and the questions still open.
 
@@ -33,7 +33,7 @@ The wider question is whether that constraint generalizes: phone, domain and URL
 ## Findings
 
 - **The constraint generalizes.** Every identifier normalizer wants the same shape: a named policy, a canonical string, and the policy identity travelling with anything derived from it. That shape became the `:common` contract.
-- **Byte-stability and ordinary normalization are the same interface with different policies**, not two systems. `ByteStableV1` and `ByteStableV1Lenient` differ only in their rules.
+- **Byte-stability and ordinary normalization are the same interface with different policies**, not two systems. `ByteStableV1` and `ByteStableV1Subaddressed` differ only in their rules.
 - **A no-table canonical form is achievable for email and is genuinely permanent.** ASCII trim, ASCII-lowercase, RFC 5233 subaddress stripping and a surrogate check need no Unicode data, so the policy cannot drift when Unicode ships a new version. Measured: 17 tests green across jvm, js, wasmJs and iOS simulator.
 - **Determinism has to be designed for, not tested for.** Every rejected option above would have passed a single-platform test suite. The failures only appear across an OS upgrade or an old app build, which is to say in production and without a signal.
 - **Some things that look adjacent are a different concern.** Geo encodings (Open Location Code, geohash, GeoJson) encode coordinates rather than normalizing identity, and stay in their own repositories. Application-coupled formatters stay with their application; one of them is a port of Google's libaddressinput and is a plausible future extraction, but on its own terms rather than as part of this suite.
@@ -63,7 +63,9 @@ The roster is built, so what remains is maintenance rather than construction: a 
 
 ## Current state
 
-**`0.0.2` publishes six coordinates**: `common`, `quodlibet`, `unicode`, `ubilibet`, `confusables` and `phone`, all under `io.github.aughtone.normalize`. The table generator is a build module and is never published.
+**`0.0.3` publishes the same six coordinates as `0.0.2`**: `common`, `quodlibet`, `unicode`, `ubilibet`, `confusables` and `phone`, all under `io.github.aughtone.normalize`. The table generator and the lint rules are build modules and are never published on their own; the lint rules reach callers only inside the `unicode` Android artifact.
+
+`0.0.3` adds the configurable text normalizer, comparable forms, IP networks, MAC and UUID normalizers, the email subaddress piece and display ToUnicode for domains. Its breaking changes are renames of ids and API, taken while the suite is alpha: the normalization forms moved to `text.u17+…` ids and the subaddress-keeping email policy became `email.byte-stable+subaddressed`. No published policy's bytes changed.
 
 `0.0.1` (2026-09-08) published `:common` and `:email` only. The email normalizer has since moved into `:quodlibet` per [ADR-0003](Decisions-ADR-0003-Bundling-Modules-By-Weight), keeping its package, its type names and its canonical output; `email:0.0.1` remains on Central and is not republished. That move and the rename of `EmailPolicy.Lenient` are the two breaking changes in `0.0.2`, taken deliberately while the suite is alpha and every known consumer can be told directly.
 
@@ -71,6 +73,6 @@ The Unicode data is pinned at **17.0.0**, checked in with its checksums under `u
 
 Releases are cut by pushing to `master`, which triggers the publish workflow; see [Publishing a Release](Guides-DOC-0005-Publishing). The Maven Central and signing credentials are **organization** secrets on the GitHub org rather than repository secrets, and on a Free plan those resolve only for **public** repositories — which is why this repository had to be made public before the first publish would work.
 
-The suite depends on `io.github.aughtone:types` `3.4.0`, which exposes `Outcome.Success` and `Outcome.Failure(exception: Throwable)`, built via `runOutcome { }` (throw to fail). `Outcome.Error` survives there only as a deprecated typealias to `Failure`; this suite uses `Failure` throughout and should not reintroduce the old name.
+The suite depends on `io.github.aughtone:types` `3.4.0`, whose `Outcome` is `Success(data)` or `Failure(exception: Throwable)`, built via `runOutcome { }` (throw to fail). Consume it through its own API rather than a `when`: `onSuccess { }` and `onFailure { }` (which receives the `Failure`, so the throwable is `it.exception`), `dataOrNull()`, `dataOrThrow()`, `fold`, `map`, `mapCatching`, and the extensions `recover` and `dataOrElse`. `Outcome.Error` survives there only as a deprecated typealias to `Failure`; this suite uses `Failure` throughout and should not reintroduce the old name.
 
 **Coordinate with consumers before ever changing the canonical form.** Both known consumers need identical bytes, and the settled contract is `ByteStableV1`, id `email.byte-stable`. An earlier draft used the id `email.canonical`; it changed before publication. **Both known consumers were carrying the draft id and were corrected at publish** — neither had minted tokens under it, so nothing was orphaned, but it was caught by asking rather than by anything failing. Any future guidance to a consumer must name the policy constant and its id explicitly, never just "the canonical form".
