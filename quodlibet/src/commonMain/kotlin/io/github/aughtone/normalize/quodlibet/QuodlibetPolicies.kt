@@ -11,6 +11,7 @@ import io.github.aughtone.normalize.ipv4.Ipv4Networks
 import io.github.aughtone.normalize.ipv4.Ipv4Policy
 import io.github.aughtone.normalize.ipv6.Ipv6Networks
 import io.github.aughtone.normalize.ipv6.Ipv6Policy
+import io.github.aughtone.normalize.mac.MacPolicy
 import io.github.aughtone.normalize.pan.PanPolicy
 import io.github.aughtone.normalize.username.UsernamePolicy
 import io.github.aughtone.types.outcome.Outcome
@@ -38,7 +39,7 @@ object QuodlibetPolicies : PublishedPolicies() {
     override val policies: List<Policy> =
         listOf(EmailPolicy.ByteStableV1, EmailPolicy.ByteStableV1Lenient) +
             PanPolicy.all + IbanPolicy.all + Ipv4Policy.all + Ipv6Policy.all + UsernamePolicy.all +
-            Ipv4Networks.policies + Ipv6Networks.policies
+            Ipv4Networks.policies + Ipv6Networks.policies + MacPolicy.all
 
     override val links: List<PolicyLink> = listOf(
         EmailLinks.ByteStable,
@@ -47,7 +48,7 @@ object QuodlibetPolicies : PublishedPolicies() {
         Ipv6Policy.Base,
         UsernamePolicy.Base,
         PolicyLink.Lenient,
-    ) + Ipv4Policy.links + (Ipv4Networks.links + Ipv6Networks.links).distinctBy { it.name }
+    ) + Ipv4Policy.links + MacPolicy.links + (Ipv4Networks.links + Ipv6Networks.links).distinctBy { it.name }
 
     /**
      * IP block and CIDR policies, and IPv6 policies with modes, are rebuilt from their ids; every other id
