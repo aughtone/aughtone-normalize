@@ -160,7 +160,7 @@ normalizePhone("+1 (212) 555-0123", PhonePolicy.E164).dataOrNull()?.canonical   
 normalizePhone("(212) 555-0123", PhonePolicy.e164ForRegion("us")).dataOrNull()?.canonical   // "+12125550123"
 ```
 
-**The region travels on the policy, and nothing is ever guessed.** `E164` accepts only input carrying its own country code; `e164ForRegion` reads national-format input against a region you named. A guessed country code does not fail loudly — it produces a valid-looking token for a *different number*, and by then the input is gone. One consequence worth knowing: `phone.e164` and `phone.e164+region-ca` produce identical bytes for input already in E.164 form and are still **different identities**, so systems that must match each other have to agree on the same constant.
+**The region travels on the policy, and nothing is ever guessed.** `E164` accepts only input carrying its own country code; `e164ForRegion` reads national-format input against a region you named. A guessed country code does not fail loudly — it produces a valid-looking token for a *different number*, and by then the input is gone. The region is part of the identity, because it records how national input was read, so `phone.e164` and `phone.e164+region-ca` are different policies. Every phone policy writes the same E.164 number, though, and declares the comparable form `phone.e164` (`PhoneForms.E164`): systems that read numbers with different regions, or leniently, match through `comparability` rather than by trusting that their strings agree.
 
 ### Spoof Detection (`:confusables`)
 ```kotlin
