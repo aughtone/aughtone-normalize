@@ -26,6 +26,17 @@ import io.github.aughtone.types.outcome.runOutcome
  * ```
  */
 fun normalizeEmail(value: String, policy: EmailPolicy): Outcome<NormalizedEmail> = runOutcome {
+    readEmail(value, policy).mailbox
+}
+
+/** One reading of an address: the normalized mailbox, and the subaddress the policy stripped, if any. */
+internal class EmailReading(val mailbox: NormalizedEmail, val subaddress: String?)
+
+/**
+ * Read [value] under [policy]. The one place the email rules live, so every piece derived from an address
+ * comes from the same reading of it. Throws a typed [EmailNormalizationError].
+ */
+internal fun readEmail(value: String, policy: EmailPolicy): EmailReading {
     if (value.hasUnpairedSurrogate()) throw EmailNormalizationError.UnpairedSurrogate()
 
     val trimmed = value.trimAsciiWhitespace()
@@ -37,12 +48,20 @@ fun normalizeEmail(value: String, policy: EmailPolicy): Outcome<NormalizedEmail>
     if (domain.isEmpty()) throw EmailNormalizationError.EmptyDomain()
     if (local.isEmpty()) throw EmailNormalizationError.EmptyLocalPart()
 
+    var subaddress: String? = null
     if (policy.stripPlusSubaddress) {
-        local = local.substringBefore('+')
+        val plus = local.indexOf('+')
+        if (plus >= 0) {
+            subaddress = local.substring(plus + 1)
+            local = local.substring(0, plus)
+        }
         if (local.isEmpty()) throw EmailNormalizationError.EmptyLocalPart()
     }
 
-    NormalizedEmail(canonical = "$local@$domain", policyId = policy.id, policyVersion = policy.version)
+    return EmailReading(
+        mailbox = NormalizedEmail(canonical = "$local@$domain", policyId = policy.id, policyVersion = policy.version),
+        subaddress = subaddress,
+    )
 }
 
 /**

@@ -94,6 +94,8 @@ normalizeEmail(value, EmailPolicy.ByteStableV1)
 val canonical: String? = normalizeEmail(value, EmailPolicy.ByteStableV1).dataOrNull()?.canonical
 ```
 
+To match on the subaddress as well as the mailbox, read both from one parse: `normalizeEmailWithSubaddress(value, EmailSubaddressPolicy.ByteStableV1)` returns the mailbox, byte-identical to `normalizeEmail` under `ByteStableV1`, and the subaddress (`tag` for `user+tag@example.com`, `null` without a `+`). The subaddress carries its own id, `email.subaddress`, so a stored tag token records what it is.
+
 ### Text Normalization (`:unicode`)
 ```kotlin
 import io.github.aughtone.normalize.unicode.TextPolicy

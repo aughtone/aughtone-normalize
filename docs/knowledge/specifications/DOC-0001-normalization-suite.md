@@ -125,6 +125,8 @@ It collapses **no** Unicode variants and encodes **no** provider-specific behavi
 
 `ByteStableV1Subaddressed` (id `email.byte-stable+subaddressed`, version 1) is trim + ASCII-lowercase only, keeping the `+`-subaddress: the email is subaddressed. It exists as a light-touch key for display and dedupe that changes as few bytes as possible, and keeping the subaddress is an opt-in; `ByteStableV1` strips it and is the default. Its bytes are frozen and identical on every platform. It is not a lenient policy and not comparable with `ByteStableV1`: for a tagged address the two write different text. Its id was `email.lenient` in `0.0.1` and `email.byte-stable+lenient` in `0.0.2`, and was renamed in `0.0.3` to name its rule; its bytes never changed.
 
+`normalizeEmailWithSubaddress` with `EmailSubaddressPolicy.ByteStableV1` returns the mailbox and the RFC 5233 subaddress from one reading of the address, for a caller that tokenizes the two separately and matches on either. The mailbox is exactly `ByteStableV1`'s output, id and version, so its tokens match those from `normalizeEmail`. The subaddress is everything after the first `+` of the local part, ASCII-lowercased like the rest; it is absent when there is no `+` and empty for `user+@`. It has its own identity (id `email.subaddress`, version 1), because a stored tag token must record what it is, and it declares no comparable form: a tag never compares with an address. Pairing the two in one constant, and reading them in one pass, is what stops a hand-cut tag drifting from the mailbox it came from. Refusals are `normalizeEmail`'s.
+
 Errors are `MissingAtSign`, `EmptyLocalPart`, `EmptyDomain`, `UnpairedSurrogate` — all value-free.
 
 ## Changing any of this
