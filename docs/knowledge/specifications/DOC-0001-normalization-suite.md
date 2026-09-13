@@ -53,6 +53,7 @@ What this suite intends to normalize. **This table is the canonical list** — a
 | IPv6 | `:quodlibet` | no | **built** — [#4](https://github.com/aughtone/aughtone-normalize/issues/4); `unmap`, `nat64` and `zone` modes under [#17](https://github.com/aughtone/aughtone-normalize/issues/17) |
 | IP networks: CIDR input and address-to-block derivation, IPv4 and IPv6 | `:quodlibet` | no | **built** — [#17](https://github.com/aughtone/aughtone-normalize/issues/17) |
 | MAC address (EUI-48, EUI-64) | `:quodlibet` | no | **built** — [#23](https://github.com/aughtone/aughtone-normalize/issues/23) |
+| UUID, including Windows GUID byte dumps | `:quodlibet` | no | **built** — [#24](https://github.com/aughtone/aughtone-normalize/issues/24) |
 | Username / handle | `:quodlibet` base + optional confusable fold from `:confusables` | optional | **built** — [#8](https://github.com/aughtone/aughtone-normalize/issues/8) |
 
 **Slug was considered and declined** — it is a display artifact rather than an identity, and transliterating one requires editorial choices this suite would have to freeze forever. The reasoning is kept in [Slug Normalization](../reference/out-of-scope/slug-normalization.md). **URL** was the other contested entry and is in: it stays narrowly scoped to transforms that cannot change which resource is addressed, which is recorded on its issue.

@@ -14,7 +14,7 @@ It works just as well for ordinary normalization (search keys, dedupe, display) 
 
 ## 📦 Modules
 
-Every normalizer in the roster is built: email, credit-card/PAN, IBAN, IPv4, IPv6 and networks, MAC addresses and usernames in `:quodlibet`; configurable text normalization in `:unicode`; hostnames, domains and URLs in `:ubilibet`; UTS-39 skeletons in `:confusables`; and phone numbers in `:phone`.
+Every normalizer in the roster is built: email, credit-card/PAN, IBAN, IPv4, IPv6 and networks, MAC addresses, UUIDs and usernames in `:quodlibet`; configurable text normalization in `:unicode`; hostnames, domains and URLs in `:ubilibet`; UTS-39 skeletons in `:confusables`; and phone numbers in `:phone`.
 
 | Module | Coordinate | What it does |
 |---|---|---|
@@ -154,6 +154,22 @@ formatMac(address, MacNotation.Ieee)                  // "00-00-5E-00-53-01", fo
 ```
 
 Every spelling of one address - colon, hyphen, Cisco dotted, bare, any case, leading zeros omitted - normalizes to lowercase colon pairs. The IEEE registry's notation is accepted but never produced, because two canonical notations could never match each other; `formatMac` renders any notation for display, and its output is not an identity to store. EUI-48 and EUI-64 are separate policies and neither is widened into the other.
+
+### UUIDs (`:quodlibet`)
+```kotlin
+import io.github.aughtone.normalize.uuid.UuidNotation
+import io.github.aughtone.normalize.uuid.UuidPolicy
+import io.github.aughtone.normalize.uuid.formatUuid
+import io.github.aughtone.normalize.uuid.normalizeUuid
+
+normalizeUuid("{919108F7-52D1-4320-9BAC-F847DB4148A8}", UuidPolicy.Hex)         // "919108f7-52d1-4320-9bac-f847db4148a8"
+normalizeUuid("urn:uuid:919108f7-52d1-4320-9bac-f847db4148a8", UuidPolicy.Rfc9562)
+normalizeUuid("f7089191d15220439bacf847db4148a8", UuidPolicy.Hex.guidBytes())   // a Windows GUID byte dump
+```
+
+Any case, braces, a `urn:uuid:` prefix and the bare 32-digit form all normalize to lowercase hyphenated text. `UuidPolicy.Hex` accepts any 128-bit value; `UuidPolicy.Rfc9562` also requires RFC 9562's variant and version bits, and both write the comparable form `uuid`.
+
+**Windows GUIDs store their first three fields little-endian**, so a GUID read from raw bytes and hex-encoded looks like a different UUID, and nothing in the text says which reading is meant. The `guidBytes()` mode is how a caller says the input is a byte dump: it swaps those fields back, and refuses braces and `urn:uuid:`, which only string forms carry. Because the result is only right if the caller is, the mode offers the `uuid` form rather than declaring it: opt in with `withForms(setOf(UuidForms.Uuid))`. `formatUuid` renders braces, a URN, uppercase, bare or GUID byte order for display.
 
 ### Hostname and Domain Normalization (`:ubilibet`)
 ```kotlin
