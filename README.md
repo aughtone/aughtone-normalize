@@ -119,6 +119,24 @@ The id states the Unicode release once and only when a rule uses it: `text+trim+
 
 This is not an identifier normalizer: emails, domains, phone numbers and handles have their own.
 
+### IP Addresses and Networks (`:quodlibet`)
+```kotlin
+import io.github.aughtone.normalize.ipv4.Ipv4Policy
+import io.github.aughtone.normalize.ipv4.block
+import io.github.aughtone.normalize.ipv4.cidr
+import io.github.aughtone.normalize.ipv4.normalizeIpv4Block
+import io.github.aughtone.normalize.ipv4.normalizeIpv4Blocks
+import io.github.aughtone.normalize.ipv4.normalizeIpv4Cidr
+
+normalizeIpv4Block("192.0.2.57", Ipv4Policy.DottedQuad.block(24))       // "192.0.2.0/24"
+normalizeIpv4Blocks("192.0.2.57", Ipv4Policy.DottedQuad, listOf(24, 16)) // "192.0.2.0/24", "192.0.0.0/16"
+normalizeIpv4Cidr("192.0.2.0/24", Ipv4Policy.DottedQuad.cidr())         // "192.0.2.0/24"; host bits set is refused
+```
+
+Block derivation buckets an address into the network it falls in, and every prefix is its own identity (`ipv4.dotted-quad+block-24`). **To match an address against a range from a list, run both through the same block policy**: the range's network address, which CIDR input exposes, and the incoming address, at the same prefix. CIDR input comes strict (`cidr`, refusing host bits) or masked (`cidrMasked`, clearing them), and both write a network exactly as block derivation does.
+
+IPv6 works the same way, and has modes for systems that need a different reading, each named in the id: `unmap` writes an IPv4-mapped address as IPv4 so it matches the IPv4 spelling of the same host, `nat64` does the same for `64:ff9b::/96`, and `zone` keeps a zone identifier. A block under `unmap` or `nat64` carries both prefixes: `Ipv6Policy.Rfc5952.unmap().block(24, 64)`.
+
 ### Hostname and Domain Normalization (`:ubilibet`)
 ```kotlin
 import io.github.aughtone.normalize.ubilibet.DomainPolicy

@@ -1,6 +1,7 @@
 package io.github.aughtone.normalize.quodlibet
 
 import io.github.aughtone.normalize.common.Policy
+import io.github.aughtone.normalize.common.PolicyIdentityError
 import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.normalize.common.PublishedPolicies
 import io.github.aughtone.normalize.email.EmailLinks
@@ -12,6 +13,7 @@ import io.github.aughtone.normalize.ipv6.Ipv6Networks
 import io.github.aughtone.normalize.ipv6.Ipv6Policy
 import io.github.aughtone.normalize.pan.PanPolicy
 import io.github.aughtone.normalize.username.UsernamePolicy
+import io.github.aughtone.types.outcome.Outcome
 
 /**
  * Every policy this module publishes, and the links they are built from - the one place an id stored by
@@ -46,4 +48,21 @@ object QuodlibetPolicies : PublishedPolicies() {
         UsernamePolicy.Base,
         PolicyLink.Lenient,
     ) + Ipv4Policy.links + (Ipv4Networks.links + Ipv6Networks.links).distinctBy { it.name }
+
+    /**
+     * IP block and CIDR policies, and IPv6 policies with modes, are rebuilt from their ids; every other id
+     * is looked up among [policies].
+     */
+    override fun resolve(id: String, version: Int): Outcome<Policy> {
+        val rebuilt = try {
+            IpPolicyIds.rebuild(id)
+        } catch (refused: PolicyIdentityError) {
+            return Outcome.Failure(refused)
+        } ?: return super.resolve(id, version)
+        return if (rebuilt.version == version) {
+            Outcome.Success(rebuilt)
+        } else {
+            Outcome.Failure(PolicyIdentityError.VersionMismatch(id, version, listOf(rebuilt.version)))
+        }
+    }
 }

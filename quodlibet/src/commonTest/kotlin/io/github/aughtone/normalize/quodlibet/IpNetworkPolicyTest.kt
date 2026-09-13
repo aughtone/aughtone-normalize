@@ -10,6 +10,7 @@ import io.github.aughtone.normalize.ipv4.block
 import io.github.aughtone.normalize.ipv4.cidrMasked
 import io.github.aughtone.normalize.ipv6.Ipv6Policy
 import io.github.aughtone.normalize.ipv6.block
+import io.github.aughtone.normalize.ipv6.cidrMasked as ipv6CidrMasked
 import io.github.aughtone.types.outcome.Outcome
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -56,5 +57,38 @@ class IpNetworkPolicyTest {
         assertTrue(tooLong is Outcome.Failure && tooLong.exception is PolicyIdentityError, "got $tooLong")
         val v6TooLong = QuodlibetPolicies.resolve("ipv6.rfc5952+block-129", 1)
         assertTrue(v6TooLong is Outcome.Failure && v6TooLong.exception is PolicyIdentityError.UnknownLink, "got $v6TooLong")
+    }
+
+    @Test
+    fun aBlockTakesThePrefixesItsModesNeed() {
+        assertFailsWith<IllegalArgumentException> { Ipv6Policy.Rfc5952.unmap().block(64) }
+        assertFailsWith<IllegalArgumentException> { Ipv6Policy.Rfc5952.block(24, 64) }
+        assertFailsWith<IllegalArgumentException> { Ipv6Policy.Rfc5952.nat64().block(33, 64) }
+    }
+
+    @Test
+    fun modePoliciesResolveAndOtherSpellingsAreRefused() {
+        val policies = listOf(
+            Ipv6Policy.Rfc5952.unmap(),
+            Ipv6Policy.Rfc5952.unmap().nat64().zone(),
+            Ipv6Policy.Rfc5952.unmap().block(24, 64),
+            Ipv6Policy.Rfc5952.nat64().zone().ipv6CidrMasked(),
+            Ipv6Policy.Rfc5952.zone().block(64),
+        )
+        for (policy in policies) {
+            val outcome = QuodlibetPolicies.resolve(policy.id, 1)
+            assertTrue(outcome is Outcome.Success, "<${policy.id}> must resolve")
+            assertEquals(policy, outcome.data)
+        }
+        for (id in listOf(
+            "ipv6.rfc5952+zone+unmap",
+            "ipv6.rfc5952+unmap+block-64",
+            "ipv6.rfc5952+block-v4-24+block-v6-64",
+            "ipv6.rfc5952+unmap+block-v6-64+block-v4-24",
+            "ipv6.rfc5952+unmap+block-v4-33+block-v6-64",
+        )) {
+            val outcome = QuodlibetPolicies.resolve(id, 1)
+            assertTrue(outcome is Outcome.Failure && outcome.exception is PolicyIdentityError, "<$id> must be refused, got $outcome")
+        }
     }
 }

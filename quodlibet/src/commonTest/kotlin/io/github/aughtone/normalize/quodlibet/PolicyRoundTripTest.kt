@@ -24,7 +24,7 @@ class PolicyRoundTripTest {
         for (policy in QuodlibetPolicies.policies) {
             when (val o = QuodlibetPolicies.resolve(policy.id, policy.version)) {
                 is Outcome.Success -> {
-                    assertSame(policy, o.data, "<${policy.id}> resolved to a different instance")
+                    assertEquals(policy, o.data, "<${policy.id}> resolved to a different policy")
                     assertEquals(policy.id, o.data.id, "<${policy.id}> did not render back to itself")
                 }
 
@@ -41,7 +41,7 @@ class PolicyRoundTripTest {
         val value = "  User+Tag@Example.COM  "
         // This module publishes several normalizers now; the email ones are the ones this value suits.
         // Each normalizer's own frozen corpus covers its bytes, so what matters here is that reaching a
-        // policy by resolution gives the same instance and therefore the same output.
+        // policy by resolution gives an equal policy and therefore the same output.
         for (policy in QuodlibetPolicies.policies.filterIsInstance<EmailPolicy>()) {
             val resolved = (QuodlibetPolicies.resolve(policy.id, policy.version) as Outcome.Success).data
             val viaConstant = normalizeEmail(value, policy)

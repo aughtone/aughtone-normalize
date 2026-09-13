@@ -197,4 +197,83 @@ class IpNetworkByteStabilityTest {
         assertEquals(1, Ipv4Policy.DottedQuad.block(24).version)
         assertEquals(1, Ipv6Policy.Rfc5952.cidrMasked().version)
     }
+
+    @Test
+    fun ipv6AddressModesAreFrozen() {
+        val unmap = Ipv6Policy.Rfc5952.unmap()
+        val nat64 = Ipv6Policy.Rfc5952.nat64()
+        val zone = Ipv6Policy.Rfc5952.zone()
+        val cases = listOf(
+            Triple(unmap, "::ffff:192.0.2.5", "192.0.2.5"),
+            Triple(unmap, "::FFFF:C000:0205", "192.0.2.5"),
+            Triple(unmap, "2001:db8::1", "2001:db8::1"),
+            // The obsolete IPv4-compatible form is not unmapped, and unmap leaves NAT64 alone.
+            Triple(unmap, "::192.0.2.5", "::c000:205"),
+            Triple(unmap, "64:ff9b::192.0.2.5", "64:ff9b::c000:205"),
+            Triple(nat64, "64:ff9b::192.0.2.5", "192.0.2.5"),
+            Triple(nat64, "64:ff9b::c000:205", "192.0.2.5"),
+            Triple(nat64, "::ffff:192.0.2.5", "::ffff:192.0.2.5"),
+            Triple(Ipv6Policy.Rfc5952.unmap().nat64(), "64:ff9b::198.51.100.7", "198.51.100.7"),
+            Triple(zone, "fe80::1%eth0", "fe80::1%eth0"),
+            // A zone is kept verbatim, case included; only the address part is canonicalized.
+            Triple(zone, "FE80::0001%Eth0", "fe80::1%Eth0"),
+            Triple(zone, "2001:db8::1", "2001:db8::1"),
+        )
+        for ((policy, input, expected) in cases) {
+            assertEquals(expected, canonical(normalizeIpv6(input, policy), "${policy.id} <$input>"))
+        }
+        assertEquals("::ffff:192.0.2.5", canonical(normalizeIpv6("::ffff:192.0.2.5", Ipv6Policy.Rfc5952), "default keeps mapped"))
+        assertRefused<Ipv6NormalizationError.ZoneIdentifier>(normalizeIpv6("fe80::1%eth0", Ipv6Policy.Rfc5952), "zone without the mode")
+        assertRefused<Ipv6NormalizationError.InvalidZone>(normalizeIpv6("fe80::1%", zone), "empty zone")
+        assertRefused<Ipv6NormalizationError.InvalidZone>(normalizeIpv6("fe80::1%et h", zone), "zone with a space")
+        assertRefused<Ipv6NormalizationError.ZoneIdentifier>(normalizeIpv6("::ffff:192.0.2.5%eth0", Ipv6Policy.Rfc5952.unmap().zone()), "zone on an unmapped address")
+    }
+
+    @Test
+    fun ipv6ModeBlocksAreFrozen() {
+        val unmap = Ipv6Policy.Rfc5952.unmap().block(24, 64)
+        assertEquals("192.0.2.0/24", canonical(normalizeIpv6Block("::ffff:192.0.2.57", unmap), "mapped"))
+        assertEquals("2001:db8:abcd:12::/64", canonical(normalizeIpv6Block("2001:db8:abcd:12::1", unmap), "not mapped"))
+        assertEquals("198.51.0.0/16", canonical(normalizeIpv6Block("64:ff9b::198.51.100.7", Ipv6Policy.Rfc5952.nat64().block(16, 48)), "nat64"))
+        assertEquals("fe80::%eth0/64", canonical(normalizeIpv6Block("fe80::1:2%eth0", Ipv6Policy.Rfc5952.zone().block(64)), "zone"))
+
+        val many = normalizeIpv6Blocks("::ffff:192.0.2.57", listOf(Ipv6Policy.Rfc5952.unmap().block(24, 64), Ipv6Policy.Rfc5952.unmap().block(16, 48)))
+        assertTrue(many is Outcome.Success)
+        assertEquals(listOf("192.0.2.0/24", "192.0.0.0/16"), many.data.map { it.canonical })
+    }
+
+    @Test
+    fun anUnmappedBlockIsWrittenLikeTheIpv4Block() {
+        assertEquals(
+            canonical(normalizeIpv4Block("192.0.2.57", Ipv4Policy.DottedQuad.block(24)), "ipv4"),
+            canonical(normalizeIpv6Block("::ffff:192.0.2.57", Ipv6Policy.Rfc5952.unmap().block(24, 64)), "mapped"),
+        )
+    }
+
+    @Test
+    fun ipv6ModeCidrInputIsFrozen() {
+        val unmap = Ipv6Policy.Rfc5952.unmap()
+        val result = normalizeIpv6Cidr("::ffff:192.0.2.0/120", unmap.cidr())
+        assertTrue(result is Outcome.Success)
+        assertEquals("192.0.2.0/24", result.data.canonical)
+        assertEquals("192.0.2.0", result.data.network)
+        assertEquals(24, result.data.prefixLength)
+        assertEquals("192.0.2.0/24", canonical(normalizeIpv6Cidr("::ffff:192.0.2.57/120", unmap.cidrMasked()), "masked"))
+        assertEquals("0.0.0.0/0", canonical(normalizeIpv6Cidr("::ffff:0.0.0.0/96", unmap.cidr()), "/96"))
+        // A prefix shorter than 96 covers more than the mapped range, so the network stays IPv6.
+        assertEquals("::fffe:0:0/95", canonical(normalizeIpv6Cidr("::ffff:192.0.2.57/95", unmap.cidrMasked()), "/95"))
+        assertRefused<Ipv6NormalizationError.HostBitsSet>(normalizeIpv6Cidr("::ffff:192.0.2.57/120", unmap.cidr()), "host bits")
+        assertEquals("fe80::%eth0/64", canonical(normalizeIpv6Cidr("FE80::%eth0/64", Ipv6Policy.Rfc5952.zone().cidr()), "zone"))
+    }
+
+    @Test
+    fun ipv6ModeIdentitiesAreFrozen() {
+        assertEquals("ipv6.rfc5952+unmap", Ipv6Policy.Rfc5952.unmap().id)
+        assertEquals("ipv6.rfc5952+nat64", Ipv6Policy.Rfc5952.nat64().id)
+        assertEquals("ipv6.rfc5952+zone", Ipv6Policy.Rfc5952.zone().id)
+        assertEquals("ipv6.rfc5952+unmap+nat64+zone", Ipv6Policy.Rfc5952.zone().nat64().unmap().id)
+        assertEquals("ipv6.rfc5952+unmap+block-v4-24+block-v6-64", Ipv6Policy.Rfc5952.unmap().block(24, 64).id)
+        assertEquals("ipv6.rfc5952+nat64+block-v4-24+block-v6-24", Ipv6Policy.Rfc5952.nat64().block(24, 24).id)
+        assertEquals("ipv6.rfc5952+zone+cidr+masked", Ipv6Policy.Rfc5952.zone().cidrMasked().id)
+    }
 }

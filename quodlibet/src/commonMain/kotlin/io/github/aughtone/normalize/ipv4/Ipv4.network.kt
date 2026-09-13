@@ -158,14 +158,13 @@ data class NormalizedIpv4Network(
     val prefixLength: Int,
 ) : Normalized
 
-/** Every block and CIDR policy, and the links they add, published for resolution. */
+/** The links IPv4 network policies add, published for resolution. */
 internal object Ipv4Networks {
 
     val links: List<PolicyLink> = (0..BITS).map { blockLink(it) } + listOf(CIDR_LINK, MASKED_LINK)
 
-    val policies: List<Policy> = Ipv4Policy.all.flatMap { address ->
-        (0..BITS).map { address.block(it) } + listOf(address.cidr(), address.cidrMasked())
-    }
+    /** The CIDR policies for every address policy. Blocks are rebuilt from their ids rather than listed. */
+    val policies: List<Policy> = Ipv4Policy.all.flatMap { listOf(it.cidr(), it.cidrMasked()) }
 }
 
 private const val BITS = 32
