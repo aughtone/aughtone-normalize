@@ -38,6 +38,9 @@ sealed class PolicyIdentityError(message: String) : Exception(message) {
     /** No resolver knows this link, so the chain cannot be trusted to mean what it appears to mean. */
     class UnknownLink(val id: String, val link: String) : PolicyIdentityError("policy id '$id': no module publishes link '$link'")
 
+    /** A value given as a portable id contains `+`, so it is not one - see [PolicyId.fromPortable]. */
+    class NotPortable(val id: String) : PolicyIdentityError("policy id '$id': not a portable spelling")
+
     /** The chain is well-formed and every link is known, but no module publishes this exact policy. */
     class UnknownPolicy(val id: String) : PolicyIdentityError("policy id '$id': no module publishes this policy")
 

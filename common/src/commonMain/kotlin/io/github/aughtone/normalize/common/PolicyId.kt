@@ -46,6 +46,12 @@ class PolicyId private constructor(val links: List<PolicyLink>) {
     /** The chain as it appears in [Policy.id] and in storage: links joined by `+`. */
     val rendered: String = links.joinToString(SEPARATOR.toString()) { it.name }
 
+    /**
+     * The chain in its portable spelling: links joined by `_` instead of `+` - see [toPortable].
+     * A transport form only; [rendered] is the identity.
+     */
+    val portable: String = links.joinToString(PORTABLE_SEPARATOR.toString()) { it.name }
+
     /** The base link, which every valid chain has exactly one of, first. */
     val base: PolicyLink get() = links.first()
 
@@ -57,6 +63,7 @@ class PolicyId private constructor(val links: List<PolicyLink>) {
 
     companion object {
         private const val SEPARATOR = '+'
+        private const val PORTABLE_SEPARATOR = '_'
 
         /**
          * Build a chain from [links], validating order and duplicates. Fails with a
@@ -83,8 +90,8 @@ class PolicyId private constructor(val links: List<PolicyLink>) {
                 val linkPhase = link.phase
                 when {
                     linkPhase != null -> {
-                        if (linkPhase.ordinal < phase) throw PolicyIdentityError.OutOfOrder(rendered, link.name)
-                        phase = linkPhase.ordinal
+                        if (linkPhase.rank < phase) throw PolicyIdentityError.OutOfOrder(rendered, link.name)
+                        phase = linkPhase.rank
                         sawRelaxation = false
                     }
 
@@ -112,17 +119,11 @@ class PolicyId private constructor(val links: List<PolicyLink>) {
          */
         fun parse(id: String, known: Collection<PolicyLink>): Outcome<PolicyId> = runOutcome {
             val byName = known.associateBy { it.name }
-            val names = when (val outcome = split(id)) {
-                is Outcome.Success -> outcome.data
-                is Outcome.Failure -> throw outcome.exception
-            }
+            val names = split(id).dataOrThrow()
             val links = names.map { name ->
                 byName[name] ?: throw PolicyIdentityError.UnknownLink(id, name)
             }
-            when (val outcome = of(links)) {
-                is Outcome.Success -> outcome.data
-                is Outcome.Failure -> throw outcome.exception
-            }
+            of(links).dataOrThrow()
         }
 
         /**
@@ -138,5 +139,34 @@ class PolicyId private constructor(val links: List<PolicyLink>) {
             names
         }
 
+        /**
+         * Spell [id] with `_` in place of `+`, for places that refuse `+`.
+         *
+         * `+` is legal in file names, JSON, database columns and URL paths, and the canonical id uses it
+         * everywhere it can. It is not legal everywhere: form-encoded query strings decode it as a space,
+         * and restricted identifier slots - Kubernetes label values, container image tags, some metric and
+         * cloud tag systems - accept only letters, digits, `-`, `_` and `.`. `_` never occurs in the id
+         * grammar, so the mapping is lossless in both directions and [fromPortable] recovers the exact id.
+         *
+         * **Store and compare the canonical id, not this.** The portable spelling is a way to carry an id
+         * through a slot that cannot hold it, and it converts back before anything else happens to it.
+         * Only the lexical grammar is checked, as in [split].
+         */
+        fun toPortable(id: String): Outcome<String> = runOutcome {
+            split(id).dataOrThrow().joinToString(PORTABLE_SEPARATOR.toString())
+        }
+
+        /**
+         * Recover the canonical id from its portable spelling - the inverse of [toPortable].
+         *
+         * A value containing `+` is refused rather than accepted as already canonical: a string that is
+         * half one spelling and half the other was not produced by [toPortable], and accepting it would give
+         * one id two portable spellings.
+         */
+        fun fromPortable(portable: String): Outcome<String> = runOutcome {
+            if (portable.contains(SEPARATOR)) throw PolicyIdentityError.NotPortable(portable)
+            val names = portable.split(PORTABLE_SEPARATOR)
+            split(names.joinToString(SEPARATOR.toString())).dataOrThrow().joinToString(SEPARATOR.toString())
+        }
     }
 }

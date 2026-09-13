@@ -17,10 +17,8 @@ import io.github.aughtone.normalize.username.UsernamePolicy
  *
  * ```
  * // the id and version were stored beside the hash when the value was first normalized
- * when (val outcome = QuodlibetPolicies.resolve(storedId, storedVersion)) {
- *     is Outcome.Success -> normalizeEmail(newValue, outcome.data as EmailPolicy)
- *     is Outcome.Failure -> error(outcome.exception.message ?: "unknown policy")
- * }
+ * val policy = QuodlibetPolicies.resolve(storedId, storedVersion).dataOrThrow() as EmailPolicy
+ * normalizeEmail(newValue, policy)
  * ```
  *
  * A caller depending on several modules combines their resolvers with `+` rather than reaching for a

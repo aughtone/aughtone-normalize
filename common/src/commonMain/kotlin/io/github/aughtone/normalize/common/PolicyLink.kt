@@ -31,8 +31,18 @@ enum class LinkKind {
  * When a [LinkKind.Step] runs. Steps in a chain are ordered by phase, because there is one correct
  * order and the others are degenerate rather than useful - punycoding before normalizing, for instance,
  * applies the normalization to ASCII, where it does nothing.
+ *
+ * @property rank The phase's position in a chain; a later link may not have a lower rank than an earlier
+ * one. **These values are frozen**: they decide which chains are valid, so changing one would make a
+ * stored policy id stop parsing, or start parsing as a different chain. A new phase takes a new rank and
+ * never renumbers the existing ones. The order is explicit rather than taken from declaration order, so
+ * reordering the members cannot silently change it.
  */
-enum class StepPhase { Map, Normalize, Encode }
+enum class StepPhase(val rank: Int) {
+    Map(0),
+    Normalize(1),
+    Encode(2),
+}
 
 /**
  * One link in a policy chain: a name, what it contributes, and - for a step - when it runs.

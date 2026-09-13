@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **A portable spelling for policy ids.** `PolicyId.toPortable` and `PolicyId.fromPortable` convert an id to and from a form that uses `_` in place of `+`, and `PolicyId.portable` renders a parsed chain that way. It is for places that reject `+`: form-encoded query strings, Kubernetes label values, container image tags. The canonical `+` spelling remains the stored identity.
+- **`StepPhase.rank`.** Chain order is validated against an explicit, frozen rank rather than enum declaration order. Every id parses exactly as before.
+
+### Changed
+
+- **Examples and internals use the `Outcome` API instead of hand-written `when` blocks.** The README and KDoc consume results with `onSuccess { }` / `onFailure { }`, `dataOrNull()` and `dataOrThrow()`, and the `normalizeEmailOrNull`, `normalizeDomainOrNull` and `normalizeTextOrNull` helpers are now `dataOrNull()` calls. No canonical output, policy id or signature changed.
+
 ## [0.0.2] - 2026-09-12
 
 ### Added

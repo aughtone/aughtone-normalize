@@ -7,6 +7,7 @@ import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.types.outcome.Outcome
+import io.github.aughtone.types.outcome.dataOrElse
 import io.github.aughtone.types.outcome.runOutcome
 
 /**
@@ -75,10 +76,7 @@ class UsernamePolicy internal constructor(
      */
     internal fun idWith(steps: List<NormalizationStep>): String {
         if (steps.isEmpty()) return id
-        return when (val outcome = PolicyId.of(listOf(Base) + steps.map { it.link })) {
-            is Outcome.Success -> outcome.data.rendered
-            is Outcome.Failure -> throw outcome.exception
-        }
+        return PolicyId.of(listOf(Base) + steps.map { it.link }).dataOrThrow().rendered
     }
 
     override fun toString(): String = id
@@ -89,10 +87,9 @@ class UsernamePolicy internal constructor(
 
         /** Trim, ASCII-lowercase, and nothing else. */
         val Basic: UsernamePolicy = UsernamePolicy(
-            id = when (val outcome = PolicyId.of(listOf(Base))) {
-                is Outcome.Success -> outcome.data.rendered
-                is Outcome.Failure -> error("not a valid policy chain: ${outcome.exception.message}")
-            },
+            id = PolicyId.of(listOf(Base))
+                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .rendered,
             version = 1,
         )
 

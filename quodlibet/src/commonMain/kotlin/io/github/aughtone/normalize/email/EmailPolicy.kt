@@ -4,7 +4,7 @@ import io.github.aughtone.normalize.common.LinkKind
 import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
-import io.github.aughtone.types.outcome.Outcome
+import io.github.aughtone.types.outcome.dataOrElse
 
 /**
  * A frozen, NAMED email-normalization policy.
@@ -96,10 +96,9 @@ class EmailPolicy internal constructor(
          * the class loads rather than the first time someone stores an id.
          */
         private fun chainOf(vararg links: PolicyLink): String =
-            when (val outcome = PolicyId.of(links.toList())) {
-                is Outcome.Success -> outcome.data.rendered
-                is Outcome.Failure -> error("not a valid policy chain: ${outcome.exception.message}")
-            }
+            PolicyId.of(links.toList())
+                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .rendered
     }
 }
 

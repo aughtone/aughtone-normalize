@@ -24,10 +24,9 @@ import io.github.aughtone.types.outcome.runOutcome
  *   means the two spellings are different bytes under the lenient policy. Normalize the form you mean.
  *
  * ```
- * when (val outcome = normalizeDomain(value, DomainPolicy.AsciiU17)) {
- *     is Outcome.Success -> outcome.data.canonical   // "xn--caf-dma.fr"
- *     is Outcome.Failure -> outcome.exception        // a typed, value-free DomainNormalizationError
- * }
+ * normalizeDomain(value, DomainPolicy.AsciiU17)
+ *     .onSuccess { normalized -> store(normalized.canonical) }   // "xn--caf-dma.fr"
+ *     .onFailure { failure -> log(failure.exception) }           // a typed, value-free DomainNormalizationError
  * ```
  */
 fun normalizeDomain(value: String, policy: DomainPolicy): Outcome<NormalizedDomain> = runOutcome {
@@ -45,10 +44,7 @@ fun normalizeDomain(value: String, policy: DomainPolicy): Outcome<NormalizedDoma
  * NOT for tokenization - use [normalizeDomain] and keep the policy identity beside whatever you derive.
  */
 fun String.normalizeDomainOrNull(policy: DomainPolicy): String? =
-    when (val outcome = normalizeDomain(this, policy)) {
-        is Outcome.Success -> outcome.data.canonical
-        is Outcome.Failure -> null
-    }
+    normalizeDomain(this, policy).dataOrNull()?.canonical
 
 /**
  * The canonical A-label form plus the policy identity that produced it. Store all three beside anything

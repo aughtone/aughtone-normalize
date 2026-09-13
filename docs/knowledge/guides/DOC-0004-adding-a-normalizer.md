@@ -22,7 +22,7 @@ Four pieces, following the email normalizer in `:quodlibet` as the worked exampl
 - **`NormalizedX : Normalized`** — a data class carrying `canonical`, `policyId` and `policyVersion`. Nothing else unless the identifier genuinely needs it.
 - **`XPolicy`** — a class with an **`internal` constructor** and named frozen instances in its companion. The internal constructor is the point: callers must not be able to invent a policy, because an unnamed rule-set cannot be reproduced later. Each instance carries a stable `id` and an integer `version`.
 - **`XNormalizationError`** — a `sealed class` extending `Exception`, one subclass per failure reason. **Messages must never echo the input.** A rejected identifier that reaches a log is the failure mode these types exist to prevent.
-- **`normalizeX(value, policy): Outcome<NormalizedX>`** — a top-level function with **no default policy**, built with `runOutcome { }` from `aughtone-types` (throw the typed error to fail). Add a `String.normalizeXOrNull(policy): String?` convenience if it makes sense, documented as *not* for tokenization.
+- **`normalizeX(value, policy): Outcome<NormalizedX>`** — a top-level function with **no default policy**, built with `runOutcome { }` from `aughtone-types` (throw the typed error to fail). Add a `String.normalizeXOrNull(policy): String?` convenience if it makes sense, documented as *not* for tokenization — it is one `dataOrNull()?.canonical` call, and examples consume the result with `onSuccess { }` / `onFailure { }` rather than a `when`.
 
 The canonical string is what a caller hashes. If an operation would need a Unicode table and your module has none, it does not belong in the policy — take it as a `NormalizationStep` from `:common` instead and let the caller compose.
 

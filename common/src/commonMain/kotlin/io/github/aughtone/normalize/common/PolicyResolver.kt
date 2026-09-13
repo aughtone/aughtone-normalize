@@ -89,10 +89,7 @@ private fun resolveIn(
     id: String,
     version: Int,
 ): Outcome<Policy> = runOutcome {
-    val chain = when (val parsed = PolicyId.parse(id, links)) {
-        is Outcome.Success -> parsed.data
-        is Outcome.Failure -> throw parsed.exception
-    }
+    val chain = PolicyId.parse(id, links).dataOrThrow()
     val matches = policies.filter { it.id == chain.rendered }
     if (matches.isEmpty()) throw PolicyIdentityError.UnknownPolicy(chain.rendered)
     matches.firstOrNull { it.version == version }

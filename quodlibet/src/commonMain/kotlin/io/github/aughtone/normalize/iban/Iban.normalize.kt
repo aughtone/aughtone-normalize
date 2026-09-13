@@ -6,6 +6,7 @@ import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.types.outcome.Outcome
+import io.github.aughtone.types.outcome.dataOrElse
 import io.github.aughtone.types.outcome.runOutcome
 
 /**
@@ -20,10 +21,9 @@ import io.github.aughtone.types.outcome.runOutcome
  * `:pan`: an account number in a log is a data-protection incident.
  *
  * ```
- * when (val outcome = normalizeIban(value, IbanPolicy.Compact)) {
- *     is Outcome.Success -> outcome.data.canonical   // "GB82WEST12345698765432"
- *     is Outcome.Failure -> outcome.exception        // a typed IbanNormalizationError
- * }
+ * normalizeIban(value, IbanPolicy.Compact)
+ *     .onSuccess { normalized -> store(normalized.canonical) }   // "GB82WEST12345698765432"
+ *     .onFailure { failure -> log(failure.exception) }           // a typed IbanNormalizationError
  * ```
  */
 fun normalizeIban(value: String, policy: IbanPolicy): Outcome<NormalizedIban> = runOutcome {
@@ -102,10 +102,9 @@ class IbanPolicy internal constructor(
         internal val all: List<IbanPolicy> = listOf(Compact, CompactLenient)
 
         private fun chainOf(vararg links: PolicyLink): String =
-            when (val outcome = PolicyId.of(links.toList())) {
-                is Outcome.Success -> outcome.data.rendered
-                is Outcome.Failure -> error("not a valid policy chain: ${outcome.exception.message}")
-            }
+            PolicyId.of(links.toList())
+                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .rendered
     }
 }
 

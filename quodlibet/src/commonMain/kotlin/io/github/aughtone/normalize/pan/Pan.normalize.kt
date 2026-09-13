@@ -6,6 +6,7 @@ import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.types.outcome.Outcome
+import io.github.aughtone.types.outcome.dataOrElse
 import io.github.aughtone.types.outcome.runOutcome
 
 /**
@@ -21,10 +22,9 @@ import io.github.aughtone.types.outcome.runOutcome
  * data-protection incident, not a debugging aid.
  *
  * ```
- * when (val outcome = normalizePan(value, PanPolicy.Digits)) {
- *     is Outcome.Success -> outcome.data.canonical   // "4111111111111111"
- *     is Outcome.Failure -> outcome.exception        // a typed PanNormalizationError
- * }
+ * normalizePan(value, PanPolicy.Digits)
+ *     .onSuccess { normalized -> store(normalized.canonical) }   // "4111111111111111"
+ *     .onFailure { failure -> log(failure.exception) }           // a typed PanNormalizationError
  * ```
  */
 fun normalizePan(value: String, policy: PanPolicy): Outcome<NormalizedPan> = runOutcome {
@@ -98,10 +98,9 @@ class PanPolicy internal constructor(
         internal val all: List<PanPolicy> = listOf(Digits, DigitsLenient)
 
         private fun chainOf(vararg links: PolicyLink): String =
-            when (val outcome = PolicyId.of(links.toList())) {
-                is Outcome.Success -> outcome.data.rendered
-                is Outcome.Failure -> error("not a valid policy chain: ${outcome.exception.message}")
-            }
+            PolicyId.of(links.toList())
+                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .rendered
     }
 }
 

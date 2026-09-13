@@ -9,6 +9,9 @@ The point is one property: **the same input produces the same canonical bytes, o
 
 It works just as well for ordinary normalization (search keys, dedupe, display) through the same interface.
 
+> [!WARNING]
+> **This suite is alpha (`0.0.x`), and its shape is still being worked out.** Policy ids, constant names and module boundaries may change between releases, and some changes will be breaking. Each one is listed in the [changelog](CHANGELOG.md). Once a release is published, a policy's canonical bytes never change in place. What may change during alpha is which policies exist and what they are called. Before you store a token derived under a policy, check the changelog for the release you depend on, and do not treat an id from an unreleased design as final.
+
 ## 📦 Modules
 
 Every normalizer in the roster is built: email, credit-card/PAN, IBAN, IPv4, IPv6 and usernames in `:quodlibet`; the four Unicode forms in `:unicode`; hostnames, domains and URLs in `:ubilibet`; UTS-39 skeletons in `:confusables`; and phone numbers in `:phone`.
@@ -80,18 +83,15 @@ Work is tracked as issues rather than documents — see [WORKFLOW.md](WORKFLOW.m
 ```kotlin
 import io.github.aughtone.normalize.email.normalizeEmail
 import io.github.aughtone.normalize.email.EmailPolicy
-import io.github.aughtone.types.outcome.Outcome
+normalizeEmail(value, EmailPolicy.ByteStableV1)
+    .onSuccess { normalized ->
+        // the hash is stable across platforms and builds; keep the policy identity beside it
+        store(hash(normalized.canonical), normalized.policyId, normalized.policyVersion)
+    }
+    .onFailure { failure -> log(failure.exception) }   // a typed, value-free EmailNormalizationError
 
-when (val outcome = normalizeEmail(value, EmailPolicy.ByteStableV1)) {
-    is Outcome.Success -> {
-        val normalized = outcome.data          // NormalizedEmail
-        hash(normalized.canonical)             // stable across platforms and builds
-        // persist normalized.policyId + normalized.policyVersion beside the hash
-    }
-    is Outcome.Failure -> {
-        val reason = outcome.exception         // a typed, value-free EmailNormalizationError
-    }
-}
+// or, where a failure needs no handling of its own
+val canonical: String? = normalizeEmail(value, EmailPolicy.ByteStableV1).dataOrNull()?.canonical
 ```
 
 ### Unicode Normalization (`:unicode`)
@@ -99,10 +99,9 @@ when (val outcome = normalizeEmail(value, EmailPolicy.ByteStableV1)) {
 import io.github.aughtone.normalize.unicode.TextPolicy
 import io.github.aughtone.normalize.unicode.normalizeText
 
-when (val outcome = normalizeText(value, TextPolicy.NfcU17)) {
-    is Outcome.Success -> outcome.data.canonical    // identical on every platform, forever
-    is Outcome.Failure -> outcome.exception         // a typed, value-free TextNormalizationError
-}
+normalizeText(value, TextPolicy.NfcU17)
+    .onSuccess { normalized -> store(normalized.canonical) }   // identical on every platform, forever
+    .onFailure { failure -> log(failure.exception) }          // a typed, value-free TextNormalizationError
 ```
 
 `NfcU17` and `NfdU17` are canonical and lossless. `NfkcU17` and `NfkdU17` are compatibility forms and deliberately lossy — a ligature becomes its letters and cannot be turned back — so they are useful for search and wrong for a token you expect to round-trip. The tables are frozen against Unicode 17.0.0 and shipped with the library, so a new OS release cannot change what your application produces; a new Unicode release is a new policy, `NfcU18`, never a changed `NfcU17`.
@@ -112,10 +111,9 @@ when (val outcome = normalizeText(value, TextPolicy.NfcU17)) {
 import io.github.aughtone.normalize.ubilibet.DomainPolicy
 import io.github.aughtone.normalize.ubilibet.normalizeDomain
 
-when (val outcome = normalizeDomain(value, DomainPolicy.AsciiU17)) {
-    is Outcome.Success -> outcome.data.canonical    // "café.fr" -> "xn--caf-dma.fr"
-    is Outcome.Failure -> outcome.exception         // a typed, value-free DomainNormalizationError
-}
+normalizeDomain(value, DomainPolicy.AsciiU17)
+    .onSuccess { normalized -> store(normalized.canonical) }   // "café.fr" -> "xn--caf-dma.fr"
+    .onFailure { failure -> log(failure.exception) }          // a typed, value-free DomainNormalizationError
 ```
 
 Every hostname goes through the same function, ASCII included: a second, simpler rule for ASCII names would produce identical bytes under a different policy identity, which is a mismatch waiting to happen. `AsciiU17` applies every UTS-46 check; `AsciiU17Lenient` relaxes hyphen placement, the STD3 character restriction and DNS length, and keeps the bidi and joiner rules — those exist to stop a name that displays as one thing and resolves as another, which is not something leniency should buy.
@@ -125,8 +123,8 @@ Every hostname goes through the same function, ASCII included: a second, simpler
 import io.github.aughtone.normalize.phone.PhonePolicy
 import io.github.aughtone.normalize.phone.normalizePhone
 
-normalizePhone("+1 (212) 555-0123", PhonePolicy.E164)               // "+12125550123"
-normalizePhone("(212) 555-0123", PhonePolicy.e164ForRegion("us"))   // "+12125550123"
+normalizePhone("+1 (212) 555-0123", PhonePolicy.E164).dataOrNull()?.canonical               // "+12125550123"
+normalizePhone("(212) 555-0123", PhonePolicy.e164ForRegion("us")).dataOrNull()?.canonical   // "+12125550123"
 ```
 
 **The region travels on the policy, and nothing is ever guessed.** `E164` accepts only input carrying its own country code; `e164ForRegion` reads national-format input against a region you named. A guessed country code does not fail loudly — it produces a valid-looking token for a *different number*, and by then the input is gone. One consequence worth knowing: `phone.e164` and `phone.e164+region-ca` produce identical bytes for input already in E.164 form and are still **different identities**, so systems that must match each other have to agree on the same constant.
@@ -136,8 +134,8 @@ normalizePhone("(212) 555-0123", PhonePolicy.e164ForRegion("us"))   // "+1212555
 import io.github.aughtone.normalize.confusables.ConfusablePolicy
 import io.github.aughtone.normalize.confusables.normalizeSkeleton
 
-val a = normalizeSkeleton("paypal", ConfusablePolicy.SkeletonU17)
-val b = normalizeSkeleton("раypal", ConfusablePolicy.SkeletonU17)   // Cyrillic р and а
+val a = normalizeSkeleton("paypal", ConfusablePolicy.SkeletonU17).dataOrNull()?.canonical
+val b = normalizeSkeleton("раypal", ConfusablePolicy.SkeletonU17).dataOrNull()?.canonical   // Cyrillic р and а
 // equal canonical values: the second is a lookalike of the first
 ```
 
@@ -153,13 +151,10 @@ The id and version stored beside a hash resolve back to the policy that produced
 import io.github.aughtone.normalize.email.EmailPolicy
 import io.github.aughtone.normalize.email.normalizeEmail
 import io.github.aughtone.normalize.quodlibet.QuodlibetPolicies
-import io.github.aughtone.types.outcome.Outcome
 
 // policyId and policyVersion were stored next to the hash when the first value was normalized
-when (val outcome = QuodlibetPolicies.resolve(policyId, policyVersion)) {
-    is Outcome.Success -> normalizeEmail(newValue, outcome.data as EmailPolicy)
-    is Outcome.Failure -> error(outcome.exception.message ?: "unknown policy")
-}
+val policy = QuodlibetPolicies.resolve(policyId, policyVersion).dataOrThrow() as EmailPolicy
+normalizeEmail(newValue, policy)
 ```
 
 Resolution is explicit: combine the resolvers of the modules you depend on with `+`. There is no global registry and no startup registration, and an unknown id, an unknown link or a version this build does not carry fails loudly rather than resolving to something close — a nearly-right policy silently derives bytes that match nothing already stored.

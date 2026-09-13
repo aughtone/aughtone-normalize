@@ -6,7 +6,7 @@ import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.normalize.common.PublishedPolicies
 import io.github.aughtone.normalize.common.StepPhase
-import io.github.aughtone.types.outcome.Outcome
+import io.github.aughtone.types.outcome.dataOrElse
 
 /**
  * A frozen hostname-normalization policy: a fixed set of UTS-46 checks, pinned to the Unicode release
@@ -88,10 +88,9 @@ class DomainPolicy internal constructor(
 
         /** Render a chain through [PolicyId] rather than writing the id out by hand - see `Policy`. */
         private fun chainOf(vararg links: PolicyLink): String =
-            when (val outcome = PolicyId.of(links.toList())) {
-                is Outcome.Success -> outcome.data.rendered
-                is Outcome.Failure -> error("not a valid policy chain: ${outcome.exception.message}")
-            }
+            PolicyId.of(links.toList())
+                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .rendered
     }
 }
 

@@ -6,6 +6,7 @@ import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.types.outcome.Outcome
+import io.github.aughtone.types.outcome.dataOrElse
 import io.github.aughtone.types.outcome.runOutcome
 
 /**
@@ -20,10 +21,9 @@ import io.github.aughtone.types.outcome.runOutcome
  * tie, and a single zero field never compressed.
  *
  * ```
- * when (val outcome = normalizeIpv6(value, Ipv6Policy.Rfc5952)) {
- *     is Outcome.Success -> outcome.data.canonical   // "2001:db8::1"
- *     is Outcome.Failure -> outcome.exception        // a typed Ipv6NormalizationError
- * }
+ * normalizeIpv6(value, Ipv6Policy.Rfc5952)
+ *     .onSuccess { normalized -> store(normalized.canonical) }   // "2001:db8::1"
+ *     .onFailure { failure -> log(failure.exception) }           // a typed Ipv6NormalizationError
  * ```
  */
 fun normalizeIpv6(value: String, policy: Ipv6Policy): Outcome<NormalizedIpv6> = runOutcome {
@@ -159,10 +159,9 @@ class Ipv6Policy internal constructor(
 
         /** The canonical form of RFC 5952. */
         val Rfc5952: Ipv6Policy = Ipv6Policy(
-            id = when (val outcome = PolicyId.of(listOf(Base))) {
-                is Outcome.Success -> outcome.data.rendered
-                is Outcome.Failure -> error("not a valid policy chain: ${outcome.exception.message}")
-            },
+            id = PolicyId.of(listOf(Base))
+                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .rendered,
             version = 1,
         )
 

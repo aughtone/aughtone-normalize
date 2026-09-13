@@ -6,6 +6,7 @@ import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.types.outcome.Outcome
+import io.github.aughtone.types.outcome.dataOrElse
 import io.github.aughtone.types.outcome.runOutcome
 
 /**
@@ -44,10 +45,9 @@ import io.github.aughtone.types.outcome.runOutcome
  * produce different bytes for the same input.
  *
  * ```
- * when (val outcome = normalizeUrl(value, UrlPolicy.Rfc3986U17)) {
- *     is Outcome.Success -> outcome.data.canonical   // "https://xn--caf-dma.fr/menu"
- *     is Outcome.Failure -> outcome.exception        // a typed, value-free UrlNormalizationError
- * }
+ * normalizeUrl(value, UrlPolicy.Rfc3986U17)
+ *     .onSuccess { normalized -> store(normalized.canonical) }   // "https://xn--caf-dma.fr/menu"
+ *     .onFailure { failure -> log(failure.exception) }           // a typed, value-free UrlNormalizationError
  * ```
  */
 fun normalizeUrl(value: String, policy: UrlPolicy): Outcome<NormalizedUrl> = runOutcome {
@@ -83,10 +83,8 @@ fun normalizeUrl(value: String, policy: UrlPolicy): Outcome<NormalizedUrl> = run
             if (!hostText.isCanonicalDottedQuad()) throw UrlNormalizationError.AmbiguousAddressHost()
             hostText
         } else {
-            when (val outcome = normalizeDomain(hostText, policy.domainPolicy)) {
-                is Outcome.Success -> outcome.data.canonical
-                is Outcome.Failure -> throw UrlNormalizationError.InvalidHost()
-            }
+            normalizeDomain(hostText, policy.domainPolicy).dataOrNull()?.canonical
+                ?: throw UrlNormalizationError.InvalidHost()
         }
         canonical.append("//").append(host)
 
@@ -265,10 +263,9 @@ class UrlPolicy internal constructor(
         internal val all: List<UrlPolicy> = listOf(Rfc3986U17, Rfc3986U17Lenient)
 
         private fun chainOf(vararg links: PolicyLink): String =
-            when (val outcome = PolicyId.of(links.toList())) {
-                is Outcome.Success -> outcome.data.rendered
-                is Outcome.Failure -> error("not a valid policy chain: ${outcome.exception.message}")
-            }
+            PolicyId.of(links.toList())
+                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .rendered
     }
 }
 

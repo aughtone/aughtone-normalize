@@ -9,6 +9,7 @@ import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.normalize.common.PublishedPolicies
 import io.github.aughtone.normalize.common.StepPhase
 import io.github.aughtone.types.outcome.Outcome
+import io.github.aughtone.types.outcome.dataOrElse
 import io.github.aughtone.types.outcome.runOutcome
 
 /**
@@ -35,10 +36,9 @@ import io.github.aughtone.types.outcome.runOutcome
  * against one computed under a later release is a comparison with no meaning.
  *
  * ```
- * when (val outcome = normalizeSkeleton(value, ConfusablePolicy.SkeletonU17)) {
- *     is Outcome.Success -> outcome.data.canonical
- *     is Outcome.Failure -> outcome.exception
- * }
+ * normalizeSkeleton(value, ConfusablePolicy.SkeletonU17)
+ *     .onSuccess { normalized -> store(normalized.canonical) }
+ *     .onFailure { failure -> log(failure.exception) }
  * ```
  */
 fun normalizeSkeleton(value: String, policy: ConfusablePolicy): Outcome<NormalizedSkeleton> = runOutcome {
@@ -71,10 +71,9 @@ class ConfusablePolicy internal constructor(
         /** The skeleton as defined by UTS-39, frozen against Unicode 17. */
         val SkeletonU17: ConfusablePolicy = run {
             val link = PolicyLink("skeleton.u17", LinkKind.Base, StepPhase.Map)
-            val id = when (val outcome = PolicyId.of(listOf(link))) {
-                is Outcome.Success -> outcome.data.rendered
-                is Outcome.Failure -> error("not a valid policy chain: ${outcome.exception.message}")
-            }
+            val id = PolicyId.of(listOf(link))
+                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .rendered
             ConfusablePolicy(id = id, version = 1, link = link)
         }
 

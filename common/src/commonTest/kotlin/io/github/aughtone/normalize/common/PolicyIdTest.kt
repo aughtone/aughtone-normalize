@@ -104,4 +104,35 @@ class PolicyIdTest {
         assertTrue(o is Outcome.Success)
         assertEquals(listOf("email.byte-stable", "not-a-real-link"), o.data)
     }
+
+    @Test
+    fun thePortableSpellingIsFrozenAndRoundTrips() {
+        val ids = listOf(
+            "email.byte-stable",
+            "phone.e164+region-ca+lenient",
+            "email.byte-stable+nfc.u17+punycode.u17",
+        )
+        val portable = listOf(
+            "email.byte-stable",
+            "phone.e164_region-ca_lenient",
+            "email.byte-stable_nfc.u17_punycode.u17",
+        )
+        for ((id, expected) in ids.zip(portable)) {
+            assertEquals(expected, PolicyId.toPortable(id).dataOrThrow(), "FROZEN: portable spelling of <$id>")
+            assertEquals(expected, parsed(id).portable)
+            assertEquals(id, PolicyId.fromPortable(expected).dataOrThrow(), "<$expected> must recover <$id>")
+            // Only letters, digits, '-', '_' and '.' - the set restricted identifier slots accept.
+            assertTrue(expected.all { it in 'a'..'z' || it in '0'..'9' || it in "-_." }, expected)
+        }
+    }
+
+    @Test
+    fun aMixedOrMalformedPortableSpellingIsRefused() {
+        val mixed = PolicyId.fromPortable("phone.e164_region-ca+lenient")
+        assertTrue(mixed is Outcome.Failure && mixed.exception is PolicyIdentityError.NotPortable)
+        val malformed = PolicyId.fromPortable("phone.e164__lenient")
+        assertTrue(malformed is Outcome.Failure && malformed.exception is PolicyIdentityError.MalformedLink)
+        val uppercase = PolicyId.toPortable("Phone.E164")
+        assertTrue(uppercase is Outcome.Failure && uppercase.exception is PolicyIdentityError.MalformedLink)
+    }
 }

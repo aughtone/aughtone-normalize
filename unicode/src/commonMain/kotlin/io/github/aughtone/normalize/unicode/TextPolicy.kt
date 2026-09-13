@@ -6,7 +6,7 @@ import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.normalize.common.StepPhase
-import io.github.aughtone.types.outcome.Outcome
+import io.github.aughtone.types.outcome.dataOrElse
 
 /**
  * A frozen Unicode normalization form, pinned to the Unicode release its tables came from.
@@ -79,10 +79,9 @@ class TextPolicy internal constructor(
             // A rule-set in its own right, and a step when another module composes it, so the link
             // declares the phase at which it runs.
             val link = PolicyLink("$name.$VERSION_SEGMENT", LinkKind.Base, StepPhase.Normalize)
-            val id = when (val outcome = PolicyId.of(listOf(link))) {
-                is Outcome.Success -> outcome.data.rendered
-                is Outcome.Failure -> error("not a valid policy chain: ${outcome.exception.message}")
-            }
+            val id = PolicyId.of(listOf(link))
+                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .rendered
             return TextPolicy(id = id, version = 1, link = link, form = form)
         }
     }

@@ -15,10 +15,9 @@ import io.github.aughtone.types.outcome.runOutcome
  * - **Idempotent:** normalizing an already-normalized string returns it unchanged.
  *
  * ```
- * when (val outcome = normalizeText(value, TextPolicy.NfcU17)) {
- *     is Outcome.Success -> outcome.data.canonical
- *     is Outcome.Failure -> outcome.exception       // a TextNormalizationError
- * }
+ * normalizeText(value, TextPolicy.NfcU17)
+ *     .onSuccess { normalized -> store(normalized.canonical) }
+ *     .onFailure { failure -> log(failure.exception) }           // a TextNormalizationError
  * ```
  */
 fun normalizeText(value: String, policy: TextPolicy): Outcome<NormalizedText> = runOutcome {
@@ -35,10 +34,7 @@ fun normalizeText(value: String, policy: TextPolicy): Outcome<NormalizedText> = 
  * NOT for anything you intend to store a token from - use [normalizeText] and keep the policy identity.
  */
 fun String.normalizeTextOrNull(policy: TextPolicy): String? =
-    when (val outcome = normalizeText(this, policy)) {
-        is Outcome.Success -> outcome.data.canonical
-        is Outcome.Failure -> null
-    }
+    normalizeText(this, policy).dataOrNull()?.canonical
 
 /**
  * The normalized string plus the policy identity that produced it. Store all three beside anything
