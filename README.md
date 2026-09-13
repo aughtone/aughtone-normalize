@@ -188,6 +188,19 @@ val policy = QuodlibetPolicies.resolve(policyId, policyVersion).dataOrThrow() as
 normalizeEmail(newValue, policy)
 ```
 
+**Matching across policies is explicit.** Values from different policies never match by coincidence, but policies can declare a *comparable form* they both write, and a caller can opt into one a policy offers by naming it in the id (`…+form.ipv4.address`). Ask before matching:
+
+```kotlin
+import io.github.aughtone.normalize.common.Comparability
+import io.github.aughtone.normalize.common.comparability
+
+when (val result = policies.comparability(idA, versionA, idB, versionB).dataOrThrow()) {
+    Comparability.SamePolicy -> match()
+    is Comparability.InForm -> match()          // result.form names the declaration that allows it
+    Comparability.NotComparable -> skip()
+}
+```
+
 Resolution is explicit: combine the resolvers of the modules you depend on with `+`. There is no global registry and no startup registration, and an unknown id, an unknown link or a version this build does not carry fails loudly rather than resolving to something close — a nearly-right policy silently derives bytes that match nothing already stored.
 
 ## 🛠️ Contributing

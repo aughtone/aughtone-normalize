@@ -17,6 +17,12 @@ enum class LinkKind {
      */
     Base,
 
+    /**
+     * A comparable form a caller opted into, `form.ipv4.address`. Form links come after every other link
+     * in a chain, in form-name order - see [ComparableForm].
+     */
+    Form,
+
     /** Side input the base needs, named in the identity so it travels with derived values: `region-ca`. */
     Parameter,
 
@@ -67,8 +73,11 @@ class PolicyLink(
         require(kind != LinkKind.Step || phase != null) {
             "a Step link must declare the phase at which it runs: $name"
         }
-        require(phase == null || kind != LinkKind.Parameter && kind != LinkKind.Relaxation) {
+        require(phase == null || kind != LinkKind.Parameter && kind != LinkKind.Relaxation && kind != LinkKind.Form) {
             "only a rule-set or a step runs at a phase, not a qualifier: $name"
+        }
+        require((kind == LinkKind.Form) == name.startsWith(ComparableForm.FORM_PREFIX)) {
+            "a Form link, and only a Form link, is named form.<form name>: $name"
         }
     }
 

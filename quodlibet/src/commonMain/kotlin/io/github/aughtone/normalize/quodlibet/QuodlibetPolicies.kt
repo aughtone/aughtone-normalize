@@ -53,12 +53,12 @@ object QuodlibetPolicies : PublishedPolicies() {
      * IP block and CIDR policies, and IPv6 policies with modes, are rebuilt from their ids; every other id
      * is looked up among [policies].
      */
-    override fun resolve(id: String, version: Int): Outcome<Policy> {
+    override fun resolveBase(id: String, version: Int): Outcome<Policy> {
         val rebuilt = try {
             IpPolicyIds.rebuild(id)
         } catch (refused: PolicyIdentityError) {
             return Outcome.Failure(refused)
-        } ?: return super.resolve(id, version)
+        } ?: return super.resolveBase(id, version)
         return if (rebuilt.version == version) {
             Outcome.Success(rebuilt)
         } else {

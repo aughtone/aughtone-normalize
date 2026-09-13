@@ -52,6 +52,9 @@ sealed class PolicyIdentityError(message: String) : Exception(message) {
      */
     class NotAStep(val id: String, val group: String) : PolicyIdentityError("policy id '$id': '$group' is not a step")
 
+    /** An id opts into a comparable form its policy does not offer. */
+    class FormNotOffered(val id: String, val form: String) : PolicyIdentityError("policy id '$id': comparable form '$form' is not offered")
+
     /** A value given as a portable id contains `+`, so it is not one - see [PolicyId.fromPortable]. */
     class NotPortable(val id: String) : PolicyIdentityError("policy id '$id': not a portable spelling")
 

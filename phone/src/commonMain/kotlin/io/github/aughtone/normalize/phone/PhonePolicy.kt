@@ -147,8 +147,8 @@ object PhonePolicies : PublishedPolicies() {
 
     override val links: List<PolicyLink> = listOf(PhonePolicy.Base, PolicyLink.Lenient)
 
-    override fun resolve(id: String, version: Int): Outcome<Policy> {
-        val region = regionOf(id) ?: return super.resolve(id, version)
+    override fun resolveBase(id: String, version: Int): Outcome<Policy> {
+        val region = regionOf(id) ?: return super.resolveBase(id, version)
         val rebuilt = try {
             if (id.endsWith("+lenient")) {
                 PhonePolicy.e164ForRegionLenient(region)
@@ -156,9 +156,9 @@ object PhonePolicies : PublishedPolicies() {
                 PhonePolicy.e164ForRegion(region)
             }
         } catch (failure: IllegalArgumentException) {
-            return super.resolve(id, version)
+            return super.resolveBase(id, version)
         }
-        return if (rebuilt.id == id && rebuilt.version == version) Outcome.Success(rebuilt) else super.resolve(id, version)
+        return if (rebuilt.id == id && rebuilt.version == version) Outcome.Success(rebuilt) else super.resolveBase(id, version)
     }
 
     /** The region named by a chain like `phone.e164+region-ca+lenient`, if it names one. */

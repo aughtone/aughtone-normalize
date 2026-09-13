@@ -93,7 +93,11 @@ class CompositePolicyResolver(internal val resolvers: List<PolicyResolver>) : Po
 
     override val links: List<PolicyLink> get() = resolvers.flatMap { it.links }.distinct()
 
-    override fun resolve(id: String, version: Int): Outcome<Policy> = runOutcome {
+    override fun resolve(id: String, version: Int): Outcome<Policy> = resolveWithForms(id, version) { base, baseVersion ->
+        resolveComposite(base, baseVersion)
+    }
+
+    private fun resolveComposite(id: String, version: Int): Outcome<Policy> = runOutcome {
         val direct = resolveDirect(id, version)
         if (direct is Outcome.Success) return@runOutcome direct.data
         val directFailure = (direct as Outcome.Failure).exception
@@ -184,7 +188,37 @@ class ComposedPolicy(val base: Policy, val steps: List<NormalizationStep>) : Pol
  */
 abstract class PublishedPolicies : PolicyResolver {
 
-    override fun resolve(id: String, version: Int): Outcome<Policy> = resolveIn(policies, links, id, version)
+    /**
+     * Resolve [id], including any comparable forms it opts into. The forms are split off, the rest of the
+     * id is resolved by [resolveBase], and the forms are applied only if that policy offers them.
+     */
+    final override fun resolve(id: String, version: Int): Outcome<Policy> = resolveWithForms(id, version, ::resolveBase)
+
+    /**
+     * Resolve an id that carries no form links. Override this, not [resolve], in a module that rebuilds
+     * policies from their ids rather than enumerating them.
+     */
+    protected open fun resolveBase(id: String, version: Int): Outcome<Policy> = resolveIn(policies, links, id, version)
+}
+
+/**
+ * Split any trailing form links off [id], resolve the rest with [base], and apply the forms. The result's
+ * id must be exactly [id], so forms out of order, repeated, or not offered are refused rather than repaired.
+ */
+private fun resolveWithForms(id: String, version: Int, base: (String, Int) -> Outcome<Policy>): Outcome<Policy> = runOutcome {
+    val names = id.split('+')
+    val formCount = names.reversed().takeWhile { it.startsWith(ComparableForm.FORM_PREFIX) }.size
+    if (formCount == 0) return@runOutcome base(id, version).dataOrThrow()
+    if (formCount == names.size) throw PolicyIdentityError.MissingBase(id)
+
+    val policy = base(names.dropLast(formCount).joinToString("+"), version).dataOrThrow()
+    val formNames = names.takeLast(formCount)
+    val forms = formNames.map { ComparableForm.ofLink(it) ?: throw PolicyIdentityError.MalformedLink(it) }
+    if (forms.toSet().size != forms.size) throw PolicyIdentityError.DuplicateLink(id, formNames.first { name -> formNames.count { it == name } > 1 })
+    forms.firstOrNull { it !in policy.offeredForms }?.let { throw PolicyIdentityError.FormNotOffered(id, it.name) }
+    val opted = policy.withForms(forms.toSet())
+    if (opted.id != id) throw PolicyIdentityError.NotCanonical(id)
+    opted
 }
 
 /**

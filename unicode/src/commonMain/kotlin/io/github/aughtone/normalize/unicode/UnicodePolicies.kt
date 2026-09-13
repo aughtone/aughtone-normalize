@@ -24,7 +24,7 @@ object UnicodePolicies : PublishedPolicies() {
 
     override val links: List<PolicyLink> = TextPolicy.publishedLinks
 
-    override fun resolve(id: String, version: Int): Outcome<Policy> = runOutcome {
+    override fun resolveBase(id: String, version: Int): Outcome<Policy> = runOutcome {
         val policy = TextPolicy.parse(id).dataOrThrow()
         if (policy.version != version) throw PolicyIdentityError.VersionMismatch(id, version, listOf(policy.version))
         policy

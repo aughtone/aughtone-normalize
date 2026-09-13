@@ -27,7 +27,9 @@ import io.github.aughtone.types.outcome.runOutcome
  *
  * A chain is a sequence of **groups**. The first group opens with the [LinkKind.Base]; each later group
  * opens with something that runs at a [StepPhase], and the phases do not go backwards. Within a group
- * come that link's qualifiers: [LinkKind.Parameter]s first, then [LinkKind.Relaxation]s.
+ * come that link's qualifiers: [LinkKind.Parameter]s first, then [LinkKind.Relaxation]s. Any
+ * [LinkKind.Form] links - comparable forms a caller opted into, `form.ipv4.address` - close the chain,
+ * after every group, in form-name order.
  *
  * Grouping is what lets a qualifier say which link it modifies. In `url.rfc3986+domain.ascii.u17+lenient`
  * the leniency belongs to the host policy, not to the URL policy, and a flat ordering could not express
@@ -86,9 +88,18 @@ class PolicyId private constructor(val links: List<PolicyLink>) {
             // could not express which link a qualifier modifies.
             var phase = -1
             var sawRelaxation = false
+            var lastForm: String? = null
             for (link in links.drop(1)) {
                 val linkPhase = link.phase
+                // Form links close the chain: a caller's opt-in is about the whole output, so nothing
+                // follows one, and several appear in name order so a set of forms has one spelling.
+                if (lastForm != null && link.kind != LinkKind.Form) throw PolicyIdentityError.OutOfOrder(rendered, link.name)
                 when {
+                    link.kind == LinkKind.Form -> {
+                        if (lastForm != null && link.name <= lastForm) throw PolicyIdentityError.OutOfOrder(rendered, link.name)
+                        lastForm = link.name
+                    }
+
                     linkPhase != null -> {
                         if (linkPhase.rank < phase) throw PolicyIdentityError.OutOfOrder(rendered, link.name)
                         phase = linkPhase.rank
@@ -121,7 +132,9 @@ class PolicyId private constructor(val links: List<PolicyLink>) {
             val byName = known.associateBy { it.name }
             val names = split(id).dataOrThrow()
             val links = names.map { name ->
-                byName[name] ?: throw PolicyIdentityError.UnknownLink(id, name)
+                // A form link is recognized from its name: no module publishes one, and whether the policy
+                // offers that form is the resolver's question, not the grammar's.
+                byName[name] ?: ComparableForm.ofLink(name)?.link ?: throw PolicyIdentityError.UnknownLink(id, name)
             }
             of(links).dataOrThrow()
         }
