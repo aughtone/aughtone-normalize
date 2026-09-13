@@ -70,13 +70,13 @@ class UsernamePolicy internal constructor(
 ) : Policy {
 
     /**
-     * The identity of this policy composed with [steps] - the base link, then each step's link, which
+     * The identity of this policy composed with [steps] - the base link, then each step's group, which
      * is what makes a folded handle a different identity from a plain one rather than a hidden variant
      * of it.
      */
     internal fun idWith(steps: List<NormalizationStep>): String {
         if (steps.isEmpty()) return id
-        return PolicyId.of(listOf(Base) + steps.map { it.link }).dataOrThrow().rendered
+        return PolicyId.of(listOf(Base) + steps.flatMap { it.links }).dataOrThrow().rendered
     }
 
     override fun toString(): String = id

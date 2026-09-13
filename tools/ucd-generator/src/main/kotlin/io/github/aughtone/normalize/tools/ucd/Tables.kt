@@ -60,6 +60,14 @@ enum class Family(val label: String, val modificationsAllowed: Boolean) {
      * stored skeletons must be recomputed, so modifications are ordinary here.
      */
     Confusables("confusables", modificationsAllowed = true),
+
+    /**
+     * Whitespace, control and case data for the configurable text rules. A text policy names the
+     * Unicode release it was frozen against (`text.u17`), so a later release is a new policy with its
+     * own tables and never a changed one. Modifications are reported rather than fatal, because they
+     * change what a *new* release's policy produces, not what an existing one already did.
+     */
+    Text("text", modificationsAllowed = true),
 }
 
 /** What changed between a checked-in baseline and a regeneration. */
@@ -136,6 +144,15 @@ fun normalizationTables(data: UnicodeData, exclusions: Set<Int>): List<Table> = 
         Family.Normalization,
         exclusions.sorted().associate { hex(it) to "" },
     ),
+)
+
+/** Build a table of code point mappings, encoded `codepoint>mapping` like a decomposition. */
+fun mappingTable(name: String, family: Family, mappings: Map<Int, List<Int>>): Table = Table(
+    name,
+    family,
+    mappings.toSortedMap().entries.associate { (codePoint, mapping) ->
+        hex(codePoint) to ">" + mapping.joinToString(" ") { hex(it) }
+    },
 )
 
 /**

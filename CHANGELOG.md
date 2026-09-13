@@ -6,8 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Breaking
+
+- **The four Unicode normalization forms moved to text policy ids.** `nfc.u17`, `nfd.u17`, `nfkc.u17` and `nfkd.u17` are removed; the same forms are `text.u17+nfc`, `text.u17+nfd`, `text.u17+nfkc` and `text.u17+nfkd`, and `TextPolicy.NfcU17` and its siblings remain as presets under the new ids. Their output bytes are unchanged. Taken during alpha, before any known consumer stored a text id.
+- **`NormalizationStep` contributes a group of links.** `link: PolicyLink` became `links: List<PolicyLink>`, so a configured policy can compose into another module's chain whole.
+
 ### Added
 
+- **`normalizeText` is a configurable text normalizer.** `TextPolicy { ascii { … } }` and `TextPolicy(UnicodeRelease.U17) { unicode { … }; ascii { … }; nonEmpty() }` configure control stripping, trimming, space collapsing or removal, lowercase, uppercase, full case folding, the four normalization forms and a non-empty check. Rules run in a fixed order regardless of how they are written, and the id renders the configuration: `text+trim+lower`, `text.u17+trim+casefold+nfc`. Rules written out of order produce a `TextPolicyWarning`, reported through a replaceable `TextPolicy.warningHandler`. `UnicodePolicies` resolves any text id by rebuilding it and refuses non-canonical spellings with the new `PolicyIdentityError.NotCanonical`. Convenience presets `TrimLowercase` and `CaselessU17` are provided.
+- **Unicode 17 `CaseFolding.txt` and `PropList.txt` are pinned**, and the generator emits White_Space, control, case folding and simple case mapping tables for the text rules.
 - **A portable spelling for policy ids.** `PolicyId.toPortable` and `PolicyId.fromPortable` convert an id to and from a form that uses `_` in place of `+`, and `PolicyId.portable` renders a parsed chain that way. It is for places that reject `+`: form-encoded query strings, Kubernetes label values, container image tags. The canonical `+` spelling remains the stored identity.
 - **`StepPhase.rank`.** Chain order is validated against an explicit, frozen rank rather than enum declaration order. Every id parses exactly as before.
 

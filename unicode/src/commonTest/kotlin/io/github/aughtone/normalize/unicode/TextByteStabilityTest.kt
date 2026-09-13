@@ -115,10 +115,16 @@ class TextByteStabilityTest {
     @Test
     fun policyIdentitiesAreFrozen() {
         // Stored beside every derived value. Renaming one orphans the data it identifies.
-        assertEquals("nfc.u17", TextPolicy.NfcU17.id)
-        assertEquals("nfd.u17", TextPolicy.NfdU17.id)
-        assertEquals("nfkc.u17", TextPolicy.NfkcU17.id)
-        assertEquals("nfkd.u17", TextPolicy.NfkdU17.id)
+        //
+        // These ids changed once, deliberately, in 0.0.3 while the suite was alpha: 0.0.2 published the
+        // four forms as `nfc.u17` and so on, before text policies became configurable. The bytes above did
+        // not change. The break is recorded in CHANGELOG.md; nothing else may change these.
+        assertEquals("text.u17+nfc", TextPolicy.NfcU17.id)
+        assertEquals("text.u17+nfd", TextPolicy.NfdU17.id)
+        assertEquals("text.u17+nfkc", TextPolicy.NfkcU17.id)
+        assertEquals("text.u17+nfkd", TextPolicy.NfkdU17.id)
+        assertEquals("text+trim+lower", TextPolicy.TrimLowercase.id)
+        assertEquals("text.u17+trim+casefold+nfc", TextPolicy.CaselessU17.id)
         for (policy in TextPolicy.all) {
             assertEquals(1, policy.version, "FROZEN: ${policy.id} version")
         }

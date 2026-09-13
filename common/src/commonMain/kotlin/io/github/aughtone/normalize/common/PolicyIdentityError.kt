@@ -38,6 +38,14 @@ sealed class PolicyIdentityError(message: String) : Exception(message) {
     /** No resolver knows this link, so the chain cannot be trusted to mean what it appears to mean. */
     class UnknownLink(val id: String, val link: String) : PolicyIdentityError("policy id '$id': no module publishes link '$link'")
 
+    /**
+     * Every link is known, but the chain is not the one spelling its owning module renders for that
+     * configuration - rules out of order, a redundant marker, or a combination that cannot be built.
+     * Refused rather than accepted as equivalent, because one policy with two ids has values that never
+     * match each other.
+     */
+    class NotCanonical(val id: String) : PolicyIdentityError("policy id '$id': not the canonical spelling of any policy")
+
     /** A value given as a portable id contains `+`, so it is not one - see [PolicyId.fromPortable]. */
     class NotPortable(val id: String) : PolicyIdentityError("policy id '$id': not a portable spelling")
 

@@ -1,13 +1,16 @@
 package io.github.aughtone.normalize.unicode
 
+import io.github.aughtone.normalize.common.NormalizationStep
 import io.github.aughtone.normalize.common.Normalized
+import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.types.outcome.Outcome
 import io.github.aughtone.types.outcome.runOutcome
 
 /**
- * Normalize [value] to the Unicode form named by [policy].
+ * Normalize [value] under the text rules configured in [policy], then through any [steps] contributed by
+ * another module - a confusable skeleton, for instance.
  *
- * - **No default policy:** the caller names the form, so text is never normalized under rules nobody
+ * - **No default policy:** the caller names the rules, so text is never normalized under rules nobody
  *   chose - and the choice between a canonical and a compatibility form is not one to make by default.
  * - **Frozen data, never the platform's:** the tables come from a pinned Unicode release and ship with
  *   the library, so the same input yields the same bytes on every platform and in an app built years
@@ -15,18 +18,26 @@ import io.github.aughtone.types.outcome.runOutcome
  * - **Idempotent:** normalizing an already-normalized string returns it unchanged.
  *
  * ```
- * normalizeText(value, TextPolicy.NfcU17)
- *     .onSuccess { normalized -> store(normalized.canonical) }
+ * normalizeText(value, TextPolicy { ascii { trim(); lowercase() } })
+ *     .onSuccess { normalized -> store(normalized.canonical, normalized.policyId, normalized.policyVersion) }
  *     .onFailure { failure -> log(failure.exception) }           // a TextNormalizationError
  * ```
  */
-fun normalizeText(value: String, policy: TextPolicy): Outcome<NormalizedText> = runOutcome {
+fun normalizeText(
+    value: String,
+    policy: TextPolicy,
+    steps: List<NormalizationStep> = emptyList(),
+): Outcome<NormalizedText> = runOutcome {
     if (value.hasUnpairedSurrogate()) throw TextNormalizationError.UnpairedSurrogate()
-    NormalizedText(
-        canonical = policy.apply(value),
-        policyId = policy.id,
-        policyVersion = policy.version,
-    )
+    for (step in steps) {
+        val stepRelease = step.links.first().dataVersion
+        if (policy.release != null && stepRelease != null && stepRelease != policy.release.segment) {
+            throw TextPolicyError.MismatchedRelease(policy.release.segment, stepRelease)
+        }
+    }
+    val policyId = if (steps.isEmpty()) policy.id else PolicyId.of(policy.links + steps.flatMap { it.links }).dataOrThrow().rendered
+    val canonical = steps.fold(policy.apply(value)) { text, step -> step.apply(text) }
+    NormalizedText(canonical = canonical, policyId = policyId, policyVersion = policy.version)
 }
 
 /**
@@ -61,6 +72,9 @@ sealed class TextNormalizationError(message: String) : Exception(message) {
      * into something that differs by target.
      */
     class UnpairedSurrogate : TextNormalizationError("text: unpaired surrogate")
+
+    /** The policy includes `non-empty`, and nothing was left once the other rules had run. */
+    class Empty : TextNormalizationError("text: empty")
 }
 
 /** True if the string contains a high surrogate without a following low surrogate, or vice versa. */

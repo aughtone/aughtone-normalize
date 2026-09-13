@@ -60,8 +60,11 @@ fun normalizeSkeleton(value: String, policy: ConfusablePolicy): Outcome<Normaliz
 class ConfusablePolicy internal constructor(
     override val id: String,
     override val version: Int,
-    override val link: PolicyLink,
+    internal val link: PolicyLink,
 ) : Policy, NormalizationStep {
+
+    /** A group of one: the skeleton takes no qualifiers. */
+    override val links: List<PolicyLink> = listOf(link)
 
     override fun apply(value: String): String = Skeleton.of(value)
 
