@@ -32,12 +32,12 @@ Memory settings are deliberately **not** committed: `gradle.properties` leaves `
 ```
 common/   the shared contract every normalizer reports (io.github.aughtone.normalize:common)
 quodlibet/ normalizers needing no table or dependency      (io.github.aughtone.normalize:quodlibet)
-unicode/   the four Unicode normalization forms             (io.github.aughtone.normalize:unicode)
-ubilibet/  hostnames and domains, UTS-46 and Punycode      (io.github.aughtone.normalize:ubilibet)
+unicode/   configurable text normalization, Unicode rules too (io.github.aughtone.normalize:unicode)
+ubilibet/  hostnames, domains and URLs, UTS-46 and Punycode (io.github.aughtone.normalize:ubilibet)
 confusables/ UTS-39 skeletons, and the bidirectional algorithm (io.github.aughtone.normalize:confusables)
 phone/     phone numbers to E.164                           (io.github.aughtone.normalize:phone)
 ucd/       the pinned Unicode data, checksummed, and the table baselines
-tools/     build tooling, never published - the table generator
+tools/     build tooling, never published on its own - the table generator, and the lint checks bundled into :unicode
 docs/     documentation - see docs/README.md
 ```
 
