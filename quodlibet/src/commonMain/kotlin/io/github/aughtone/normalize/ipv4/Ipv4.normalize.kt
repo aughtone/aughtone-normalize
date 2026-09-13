@@ -1,11 +1,14 @@
 package io.github.aughtone.normalize.ipv4
 
+import io.github.aughtone.normalize.common.ComparableForm
 import io.github.aughtone.normalize.common.LinkKind
 import io.github.aughtone.normalize.common.Normalized
 import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
+import io.github.aughtone.normalize.quodlibet.IpForms
 import io.github.aughtone.types.outcome.Outcome
+import io.github.aughtone.types.outcome.dataOrElse
 import io.github.aughtone.types.outcome.runOutcome
 
 /**
@@ -39,6 +42,16 @@ import io.github.aughtone.types.outcome.runOutcome
  * ```
  */
 fun normalizeIpv4(value: String, policy: Ipv4Policy): Outcome<NormalizedIpv4> = runOutcome {
+    NormalizedIpv4(canonical = formatIpv4(policy.parseAddress(value)), policyId = policy.id, policyVersion = policy.version)
+}
+
+/**
+ * Read [value] as one address under this policy's rules, or refuse it with a typed error. Shared by the
+ * address normalizer and the network normalizers, so an address inside a network can never be read
+ * differently from the same address on its own.
+ */
+internal fun Ipv4Policy.parseAddress(value: String): Long {
+    val policy = this
     if (value.isEmpty()) throw Ipv4NormalizationError.MalformedAddress()
     // Not trimmed: an address is not a sentence, and trimming is a rule that invites more of them.
     val parts = value.split('.')
@@ -59,12 +72,12 @@ fun normalizeIpv4(value: String, policy: Ipv4Policy): Outcome<NormalizedIpv4> = 
 
     var address = 0L
     for (part in leading) address = (address shl 8) or part
-    address = (address shl (8 * trailingBytes)) or trailing
-
-    val canonical = "${(address shr 24) and 0xFF}.${(address shr 16) and 0xFF}." +
-        "${(address shr 8) and 0xFF}.${address and 0xFF}"
-    NormalizedIpv4(canonical = canonical, policyId = policy.id, policyVersion = policy.version)
+    return (address shl (8 * trailingBytes)) or trailing
 }
+
+/** The canonical dotted-quad spelling of a 32-bit address: four decimal octets, no leading zeros. */
+internal fun formatIpv4(address: Long): String =
+    "${(address shr 24) and 0xFF}.${(address shr 16) and 0xFF}.${(address shr 8) and 0xFF}.${address and 0xFF}"
 
 /**
  * A frozen IPv4 normalization policy.
@@ -74,10 +87,36 @@ fun normalizeIpv4(value: String, policy: Ipv4Policy): Outcome<NormalizedIpv4> = 
  * a different rule-set with its own identity rather than a loosened version of the other.
  */
 class Ipv4Policy internal constructor(
-    override val id: String,
-    override val version: Int,
+    /** The base link name, without any opted-in forms: `ipv4.dotted-quad`. */
+    internal val base: String,
     internal val interpretsShorthand: Boolean,
+    internal val optedIn: Set<ComparableForm> = emptySet(),
 ) : Policy {
+
+    override val id: String = chainOf(PolicyLink(base, LinkKind.Base), *optedIn.sorted().map { it.link }.toTypedArray())
+
+    override val version: Int = 1
+
+    /** `dotted-quad` writes the IPv4 address form; `inet-aton` writes it only once a caller opts in. */
+    override val forms: Set<ComparableForm> =
+        if (interpretsShorthand) optedIn else setOf(IpForms.Ipv4Address)
+
+    override val offeredForms: Set<ComparableForm> =
+        if (interpretsShorthand) setOf(IpForms.Ipv4Address) else emptySet()
+
+    /** This policy with [forms] opted into, as an [Ipv4Policy] so `normalizeIpv4` stores the opted-in id. */
+    override fun withForms(forms: Set<ComparableForm>): Ipv4Policy {
+        val refused = forms.firstOrNull { it !in offeredForms }
+        require(refused == null) { "$id does not offer the comparable form $refused" }
+        return if (forms.isEmpty()) this else Ipv4Policy(base, interpretsShorthand, optedIn + forms)
+    }
+
+    /** The same rules with no opted-in forms, which is what a network policy builds on. */
+    internal val plain: Ipv4Policy get() = if (optedIn.isEmpty()) this else Ipv4Policy(base, interpretsShorthand)
+
+    override fun equals(other: Any?): Boolean = other is Ipv4Policy && other.id == id
+
+    override fun hashCode(): Int = id.hashCode()
 
     /** Read one part under this policy's rules, or refuse it. */
     internal fun readPart(part: String): Long {
@@ -112,11 +151,7 @@ class Ipv4Policy internal constructor(
          * Four decimal octets, no leading zeros: the one spelling every stack agrees on. Anything else
          * is refused rather than interpreted, so a token minted here cannot mean two different hosts.
          */
-        val DottedQuad: Ipv4Policy = Ipv4Policy(
-            id = chainOf(PolicyLink("ipv4.dotted-quad", LinkKind.Base)),
-            version = 1,
-            interpretsShorthand = false,
-        )
+        val DottedQuad: Ipv4Policy = Ipv4Policy(base = "ipv4.dotted-quad", interpretsShorthand = false)
 
         /**
          * The classic `inet_aton` rules, applied deliberately: one to four parts with the last absorbing
@@ -125,19 +160,17 @@ class Ipv4Policy internal constructor(
          *
          * **Its output is an interpretation, and the id says so.** Other stacks read the same input
          * differently - Go and Python refuse the octal forms outright - so this policy is a statement
-         * that these particular rules were applied. Values normalized here never match values normalized
-         * under [DottedQuad].
+         * that these particular rules were applied. Values normalized here do not match values normalized
+         * under [DottedQuad] unless a caller opts into the IPv4 address form - `InetAton.withForms(setOf(
+         * IpForms.Ipv4Address))`, id `ipv4.inet-aton+form.ipv4.address` - which makes the comparison a
+         * recorded choice rather than an accident.
          *
          * **Do not reach for this to accept more input.** Canonicalizing an ambiguous address turns an
          * attacker's choice of spelling into a token that may name a host the caller never intended,
          * which is how address-based filters get bypassed. Use it when the data you are matching *came
          * from* a system with these semantics, not to be permissive at the edge.
          */
-        val InetAton: Ipv4Policy = Ipv4Policy(
-            id = chainOf(PolicyLink("ipv4.inet-aton", LinkKind.Base)),
-            version = 1,
-            interpretsShorthand = true,
-        )
+        val InetAton: Ipv4Policy = Ipv4Policy(base = "ipv4.inet-aton", interpretsShorthand = true)
 
         /** The base links these policies are built on, published for resolution. */
         internal val links: List<PolicyLink> = listOf(
@@ -148,10 +181,9 @@ class Ipv4Policy internal constructor(
         internal val all: List<Ipv4Policy> = listOf(DottedQuad, InetAton)
 
         private fun chainOf(vararg links: PolicyLink): String =
-            when (val outcome = PolicyId.of(links.toList())) {
-                is Outcome.Success -> outcome.data.rendered
-                is Outcome.Failure -> error("not a valid policy chain: ${outcome.exception.message}")
-            }
+            PolicyId.of(links.toList())
+                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .rendered
     }
 }
 
@@ -198,4 +230,19 @@ sealed class Ipv4NormalizationError(message: String) : Exception(message) {
 
     /** A shorthand form: fewer than four parts, a hexadecimal part, or a bare integer. */
     class ShorthandNotSupported : Ipv4NormalizationError("ipv4: shorthand form not supported")
+
+    /** CIDR input with no `/` and prefix length. */
+    class MissingPrefix : Ipv4NormalizationError("ipv4: missing prefix length")
+
+    /** A prefix length that is empty, not decimal, or padded with a leading zero. */
+    class MalformedPrefix : Ipv4NormalizationError("ipv4: malformed prefix length")
+
+    /** A prefix length longer than the address family allows. */
+    class PrefixOutOfRange : Ipv4NormalizationError("ipv4: prefix length out of range")
+
+    /**
+     * CIDR input whose address has bits set beyond the prefix - a host inside the network rather than the
+     * network - under the policy that refuses it rather than clearing them.
+     */
+    class HostBitsSet : Ipv4NormalizationError("ipv4: host bits set")
 }

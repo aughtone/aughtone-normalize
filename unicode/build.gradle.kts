@@ -103,6 +103,11 @@ kotlin {
     }
 }
 
+dependencies {
+    // Not transitive: lint supplies the Kotlin runtime, and the configuration accepts exactly one jar.
+    lintPublish(project(":tools:lint-rules")) { isTransitive = false }
+}
+
 mavenPublishing {
     publishToMavenCentral(automaticRelease = true)
 

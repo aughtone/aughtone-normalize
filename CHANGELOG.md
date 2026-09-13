@@ -6,6 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-09-13
+
+### Breaking
+
+- **The subaddress-keeping email policy is no longer called lenient.** `EmailPolicy.ByteStableV1Lenient` becomes `EmailPolicy.ByteStableV1Subaddressed`, and its id moves from `email.byte-stable+lenient` to `email.byte-stable+subaddressed`. It keeps the `+`-subaddress rather than accepting more input, so it was never a lenient policy. Its bytes are unchanged, and `email.byte-stable+lenient` no longer resolves.
+- **The four Unicode normalization forms moved to text policy ids.** `nfc.u17`, `nfd.u17`, `nfkc.u17` and `nfkd.u17` are removed; the same forms are `text.u17+nfc`, `text.u17+nfd`, `text.u17+nfkc` and `text.u17+nfkd`, and `TextPolicy.NfcU17` and its siblings remain as presets under the new ids. Their output bytes are unchanged. Taken during alpha, before any known consumer stored a text id.
+- **`PublishedPolicies.resolve` is final.** A module that rebuilds policies from their ids overrides `resolveBase` instead, so opted-in forms are handled once for every module.
+- **`NormalizationStep` contributes a group of links.** `link: PolicyLink` became `links: List<PolicyLink>`, so a configured policy can compose into another module's chain whole.
+
+### Added
+
+- **`TextPolicyRuleOrder` lint check.** The `:unicode` Android artifact bundles a lint check that warns in the editor when a `TextPolicy { }` builder lists its rules in a different order from the one they run in, naming the order they run. Its rank table is tested against real policies so it cannot drift from the runtime.
+- **Email subaddress as its own piece.** `normalizeEmailWithSubaddress` with `EmailSubaddressPolicy.ByteStableV1` reads an address once and returns the mailbox, identical to `normalizeEmail` under `ByteStableV1`, and the RFC 5233 subaddress under its own identity `email.subaddress` (`NormalizedEmailWithSubaddress`, `NormalizedEmailSubaddress`), so the two can be tokenized separately without re-implementing the email rules.
+- **Domain display conversion.** `toUnicodeDomain` runs UTS-46 ToUnicode under a `DomainPolicy`, validating every label with the policy's Unicode release and flags and reporting per label its U-label, its ASCII form and the first check it failed (`UnicodeDomain`, `UnicodeLabel`). It is display conversion with no policy identity; `normalizeDomain` is unchanged. The UCD generator now also emits the ToUnicode columns of `IdnaTestV2.txt`, and both domain policies are tested against them.
+- **`normalizeText` is a configurable text normalizer.** `TextPolicy { ascii { … } }` and `TextPolicy(UnicodeRelease.U17) { unicode { … }; ascii { … }; nonEmpty() }` configure control stripping, trimming, space collapsing or removal, lowercase, uppercase, full case folding, the four normalization forms and a non-empty check. Rules run in a fixed order regardless of how they are written, and the id renders the configuration: `text+trim+lower`, `text.u17+trim+casefold+nfc`. Rules written out of order produce a `TextPolicyWarning`, reported through a replaceable `TextPolicy.warningHandler`. `UnicodePolicies` resolves any text id by rebuilding it and refuses non-canonical spellings with the new `PolicyIdentityError.NotCanonical`. Convenience presets `TrimLowercase` and `CaselessU17` are provided.
+- **Comparable forms.** A policy can declare the canonical forms it writes, and offer forms a caller may opt into by naming them in the id after every other link (`ipv4.inet-aton+form.ipv4.address`). `PolicyResolver.comparability` reports whether two stored identities are the same policy, comparable in a named form, or not comparable. `LinkKind.Form`, `ComparableForm`, `Comparability`, `OptedInPolicy` and `PolicyIdentityError.FormNotOffered` are new. Forms are additive on a published policy; composed policies and skeletons declare none.
+- **IP network normalization.** `normalizeIpv4Block` and `normalizeIpv6Block` derive the network an address falls in at a prefix named in the policy id (`ipv4.dotted-quad+block-24`), `normalizeIpv4Blocks` and `normalizeIpv6Blocks` derive several prefixes from one reading of an address, and `normalizeIpv4Cidr` and `normalizeIpv6Cidr` canonicalize CIDR input, refusing host bits (`…+cidr`) or clearing them (`…+cidr+masked`). Block derivation and CIDR input share one network formatter.
+- **UUID normalization.** `normalizeUuid` with `UuidPolicy.Hex` (any 128-bit value) and `UuidPolicy.Rfc9562` (variant and version checked, Nil and Max accepted) accepts any case, braces, `urn:uuid:` and the bare form, and writes lowercase hyphenated text under the comparable form `uuid`. The `guidBytes()` mode reads Windows GUID byte dumps, refuses string forms, and offers the `uuid` form for opt-in. `formatUuid` renders braces, URN, uppercase, bare and GUID byte order for display.
+- **MAC address normalization.** `normalizeMac` with `MacPolicy.Eui48` and `MacPolicy.Eui64` accepts colon, hyphen, Cisco dotted and bare spellings in any case, with leading zeros omitted, and writes lowercase colon pairs. The policies declare the comparable forms `mac.eui48` and `mac.eui64`. `formatMac` renders a normalized address in IEEE, Cisco dotted or bare notation for display.
+- **Strict and lenient pairs share a comparable form** where leniency only widens what is accepted: `pan.digits` (`PanForms.Digits`), `iban.compact` (`IbanForms.Compact`), `domain.ascii.u17` and `url.rfc3986.u17` (`DomainForms`). Email has no lenient policy; its subaddress-keeping variant is a parameter, `email.byte-stable+subaddressed`, and is not comparable with `email.byte-stable`.
+- **Phone comparable form.** Every phone policy, with or without a region and strict or lenient, declares the comparable form `phone.e164` (`PhoneForms.E164`), so numbers read under different phone policies are comparable explicitly through `PolicyResolver.comparability`.
+- **IP comparable forms.** `IpForms` names `ipv4.address`, `ipv6.address`, `ipv4.network` and `ipv6.network`. `ipv4.dotted-quad` and the IPv6 policies declare their address forms, with `unmap` and `nat64` also declaring `ipv4.address`; block derivation and CIDR input declare the network forms. `ipv4.inet-aton` and its networks only offer theirs, so `ipv4.inet-aton+form.ipv4.address` records a caller's choice to compare it with `dotted-quad`.
+- **IPv6 modes.** `Ipv6Policy.unmap()` writes IPv4-mapped addresses as IPv4, `nat64()` does the same for `64:ff9b::/96`, and `zone()` keeps zone identifiers; each is named in the id, and a block under `unmap` or `nat64` carries an IPv4 and an IPv6 prefix. IP block, CIDR and mode policies resolve from `QuodlibetPolicies` by rebuilding them from their ids.
+- **Composed chains resolve.** A combined resolver splits an id such as `username.basic+skeleton.u17` or `text.u17+trim+casefold+skeleton.u17` at each group opener, resolves every group with the module that owns it, and returns a `ComposedPolicy` whose `base` and `steps` re-derive the same bytes. A group no module owns fails the whole chain, and a group that cannot run as a step fails with the new `PolicyIdentityError.NotAStep`.
+- **Unicode 17 `CaseFolding.txt` and `PropList.txt` are pinned**, and the generator emits White_Space, control, case folding and simple case mapping tables for the text rules.
+- **A portable spelling for policy ids.** `PolicyId.toPortable` and `PolicyId.fromPortable` convert an id to and from a form that uses `_` in place of `+`, and `PolicyId.portable` renders a parsed chain that way. It is for places that reject `+`: form-encoded query strings, Kubernetes label values, container image tags. The canonical `+` spelling remains the stored identity.
+- **`StepPhase.rank`.** Chain order is validated against an explicit, frozen rank rather than enum declaration order. Every id parses exactly as before.
+
+### Changed
+
+- **Examples and internals use the `Outcome` API instead of hand-written `when` blocks.** The README and KDoc consume results with `onSuccess { }` / `onFailure { }`, `dataOrNull()` and `dataOrThrow()`, and the `normalizeEmailOrNull`, `normalizeDomainOrNull` and `normalizeTextOrNull` helpers are now `dataOrNull()` calls. No canonical output, policy id or signature changed.
+
+### Fixed
+
+- **Combining resolvers no longer loses what a module resolves alone.** `a + b` used to search a merged list of policies, so ids a module rebuilds on demand, such as `phone.e164+region-ca`, failed once combined. Each module's own `resolve` is now asked, and `plus` flattens so `a + b + c` is a single composite.
+
 ## [0.0.2] - 2026-09-12
 
 ### Added
@@ -46,6 +82,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Multiplatform targets**: published for JVM, Android, iOS (`arm64`, `x64`, `simulatorArm64`), JS (browser), wasmJs (browser) and Linux x64. The same test suite runs on each, so the canonical form is verified identical across them rather than assumed.
 - **Shared `Normalized` contract (`:common`)**: the `Normalized` interface (`canonical`, `policyId`, `policyVersion`) is the common result shape every normalizer in the suite reports, so a derived hash can always be stored beside the policy identity that produced it.
 
-[Unreleased]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.2...HEAD
+[Unreleased]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.3...HEAD
+[0.0.3]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/aughtone/aughtone-normalize/releases/tag/v0.0.1

@@ -9,6 +9,7 @@ import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.normalize.common.PublishedPolicies
 import io.github.aughtone.normalize.common.StepPhase
 import io.github.aughtone.types.outcome.Outcome
+import io.github.aughtone.types.outcome.dataOrElse
 import io.github.aughtone.types.outcome.runOutcome
 
 /**
@@ -35,10 +36,9 @@ import io.github.aughtone.types.outcome.runOutcome
  * against one computed under a later release is a comparison with no meaning.
  *
  * ```
- * when (val outcome = normalizeSkeleton(value, ConfusablePolicy.SkeletonU17)) {
- *     is Outcome.Success -> outcome.data.canonical
- *     is Outcome.Failure -> outcome.exception
- * }
+ * normalizeSkeleton(value, ConfusablePolicy.SkeletonU17)
+ *     .onSuccess { normalized -> store(normalized.canonical) }
+ *     .onFailure { failure -> log(failure.exception) }
  * ```
  */
 fun normalizeSkeleton(value: String, policy: ConfusablePolicy): Outcome<NormalizedSkeleton> = runOutcome {
@@ -60,8 +60,11 @@ fun normalizeSkeleton(value: String, policy: ConfusablePolicy): Outcome<Normaliz
 class ConfusablePolicy internal constructor(
     override val id: String,
     override val version: Int,
-    override val link: PolicyLink,
+    internal val link: PolicyLink,
 ) : Policy, NormalizationStep {
+
+    /** A group of one: the skeleton takes no qualifiers. */
+    override val links: List<PolicyLink> = listOf(link)
 
     override fun apply(value: String): String = Skeleton.of(value)
 
@@ -71,10 +74,9 @@ class ConfusablePolicy internal constructor(
         /** The skeleton as defined by UTS-39, frozen against Unicode 17. */
         val SkeletonU17: ConfusablePolicy = run {
             val link = PolicyLink("skeleton.u17", LinkKind.Base, StepPhase.Map)
-            val id = when (val outcome = PolicyId.of(listOf(link))) {
-                is Outcome.Success -> outcome.data.rendered
-                is Outcome.Failure -> error("not a valid policy chain: ${outcome.exception.message}")
-            }
+            val id = PolicyId.of(listOf(link))
+                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .rendered
             ConfusablePolicy(id = id, version = 1, link = link)
         }
 
@@ -100,8 +102,9 @@ sealed class ConfusableNormalizationError(message: String) : Exception(message) 
  * Every policy this module publishes, so a stored id resolves back to the policy that produced it.
  *
  * A caller composing the skeleton into another module's chain resolves the result by combining this
- * resolver with that module's - `QuodlibetPolicies + ConfusablesPolicies` resolves
- * `username.basic+skeleton.u17`.
+ * resolver with the resolvers of every module the chain names. `QuodlibetPolicies + ConfusablesPolicies`
+ * resolves `username.basic+skeleton.u17` to a `ComposedPolicy` whose base and steps re-derive the same
+ * bytes; a chain that also carries a text policy needs `UnicodePolicies` in the combination too.
  */
 object ConfusablesPolicies : PublishedPolicies() {
 

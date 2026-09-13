@@ -1,12 +1,13 @@
 package io.github.aughtone.normalize.ubilibet
 
+import io.github.aughtone.normalize.common.ComparableForm
 import io.github.aughtone.normalize.common.LinkKind
 import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.normalize.common.PublishedPolicies
 import io.github.aughtone.normalize.common.StepPhase
-import io.github.aughtone.types.outcome.Outcome
+import io.github.aughtone.types.outcome.dataOrElse
 
 /**
  * A frozen hostname-normalization policy: a fixed set of UTS-46 checks, pinned to the Unicode release
@@ -37,6 +38,12 @@ class DomainPolicy internal constructor(
     override val version: Int,
     internal val flags: Uts46Flags,
 ) : Policy {
+
+    /**
+     * Leniency relaxes only validation - hyphen placement, DNS length and the STD3 rules - so for a name both
+     * policies accept, they write the same A-label: see [DomainForms].
+     */
+    override val forms: Set<ComparableForm> = setOf(DomainForms.AsciiU17)
 
     override fun toString(): String = id
 
@@ -88,10 +95,9 @@ class DomainPolicy internal constructor(
 
         /** Render a chain through [PolicyId] rather than writing the id out by hand - see `Policy`. */
         private fun chainOf(vararg links: PolicyLink): String =
-            when (val outcome = PolicyId.of(links.toList())) {
-                is Outcome.Success -> outcome.data.rendered
-                is Outcome.Failure -> error("not a valid policy chain: ${outcome.exception.message}")
-            }
+            PolicyId.of(links.toList())
+                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .rendered
     }
 }
 
@@ -107,4 +113,18 @@ object UbilibetPolicies : PublishedPolicies() {
     override val policies: List<Policy> = DomainPolicy.all + UrlPolicy.all
 
     override val links: List<PolicyLink> = listOf(DomainPolicy.Base, UrlPolicy.Base, PolicyLink.Lenient)
+}
+
+/**
+ * The comparable forms domain and URL policies write.
+ *
+ * - [AsciiU17]: a UTS-46 A-label domain under Unicode 17, written by [DomainPolicy.AsciiU17] and its lenient
+ *   sibling. The release is in the name: IDNA mappings may change between releases, so domains normalized
+ *   against different releases never share a form.
+ * - [UrlRfc3986U17]: a URL whose host is such a domain, written by [UrlPolicy.Rfc3986U17] and its lenient
+ *   sibling, whose leniency is the host policy's.
+ */
+object DomainForms {
+    val AsciiU17: ComparableForm = ComparableForm("domain.ascii.u17")
+    val UrlRfc3986U17: ComparableForm = ComparableForm("url.rfc3986.u17")
 }

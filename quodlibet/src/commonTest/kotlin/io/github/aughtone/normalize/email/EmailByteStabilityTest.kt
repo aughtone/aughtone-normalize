@@ -147,25 +147,28 @@ class EmailByteStabilityTest {
             EmailPolicy.ByteStableV1.version,
             "FROZEN: bump this only by minting a NEW policy, never by editing ByteStableV1.",
         )
+        // This id moved twice while the suite was alpha - `email.lenient` in 0.0.1, `email.byte-stable+lenient`
+        // in 0.0.2 - and in 0.0.3 names its rule, because the policy is not lenient. The bytes never moved.
+        // The breaks are recorded in CHANGELOG.md; nothing else may change this.
         assertEquals(
-            "email.byte-stable+lenient",
-            EmailPolicy.ByteStableV1Lenient.id,
+            "email.byte-stable+subaddressed",
+            EmailPolicy.ByteStableV1Subaddressed.id,
             "FROZEN: this id is stored beside every derived token. Renaming it orphans them.",
         )
-        assertEquals(1, EmailPolicy.ByteStableV1Lenient.version, "FROZEN: published policy version.")
+        assertEquals(1, EmailPolicy.ByteStableV1Subaddressed.version, "FROZEN: published policy version.")
     }
 
     /**
-     * [EmailPolicy.ByteStableV1Lenient] is published too, so its bytes are equally frozen. Tokens derived under it are as permanent as any
-     * other policy's, so a change to these bytes orphans them just the same.
+     * [EmailPolicy.ByteStableV1Subaddressed] is published too, so its bytes are equally frozen. Tokens derived under it are as permanent as
+     * any other policy's, so a change to these bytes orphans them just the same.
      *
-     * Its id moved once, from `email.lenient` to `email.byte-stable+lenient`, while the suite was at
-     * `0.0.1` and no consumer had derived anything under it. That was a deliberate alpha break, taken
-     * before adoption rather than after, and it is not a precedent: the canonical bytes below never
+     * Its id moved during alpha, before any consumer had derived anything under it: `email.lenient`, then
+     * `email.byte-stable+lenient`, then `email.byte-stable+subaddressed`. Those were deliberate alpha breaks,
+     * taken before adoption rather than after, and they are not a precedent: the canonical bytes below never
      * changed, and neither an id nor a byte moves once anyone holds a token.
      */
     @Test
-    fun lenientProducesTheFrozenCanonicalBytes() {
+    fun subaddressedProducesTheFrozenCanonicalBytes() {
         val corpus = listOf(
             // trim + ASCII-lowercase ONLY — the subaddress is deliberately kept
             "  User+Tag@Gmail.com  " to "user+tag@gmail.com",
@@ -175,8 +178,8 @@ class EmailByteStabilityTest {
         for ((input, expected) in corpus) {
             assertEquals(
                 expected,
-                canonical(input, EmailPolicy.ByteStableV1Lenient),
-                "FROZEN CORPUS BROKEN for ByteStableV1Lenient, input <$input>. Do NOT update this expectation.",
+                canonical(input, EmailPolicy.ByteStableV1Subaddressed),
+                "FROZEN CORPUS BROKEN for ByteStableV1Subaddressed, input <$input>. Do NOT update this expectation.",
             )
         }
     }

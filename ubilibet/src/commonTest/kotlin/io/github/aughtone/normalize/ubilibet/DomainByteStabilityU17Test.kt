@@ -22,7 +22,7 @@ import kotlin.test.assertTrue
  *
  * Adding cases is allowed. Editing or deleting one is not.
  */
-class DomainByteStabilityTest {
+class DomainByteStabilityU17Test {
 
     private fun canonical(value: String, policy: DomainPolicy): String =
         when (val outcome = normalizeDomain(value, policy)) {

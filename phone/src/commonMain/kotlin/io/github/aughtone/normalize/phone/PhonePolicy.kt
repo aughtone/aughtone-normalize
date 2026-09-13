@@ -1,5 +1,6 @@
 package io.github.aughtone.normalize.phone
 
+import io.github.aughtone.normalize.common.ComparableForm
 import io.github.aughtone.normalize.common.LinkKind
 import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
@@ -7,6 +8,7 @@ import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.normalize.common.PublishedPolicies
 import io.github.aughtone.phonenumber.PhoneNumberUtil
 import io.github.aughtone.types.outcome.Outcome
+import io.github.aughtone.types.outcome.dataOrElse
 
 /**
  * A frozen phone-normalization policy.
@@ -19,12 +21,13 @@ import io.github.aughtone.types.outcome.Outcome
  *   variants normalize it anyway. A number can be well-formed and not exist, and which of those a caller
  *   wants depends on whether they are dialling it or matching it.
  *
- * ## The region is in the identity, and that has a consequence worth reading
+ * ## The region is in the identity, and every phone policy writes one comparable form
  *
- * `phone.e164` and `phone.e164+region-ca` produce **identical bytes** for input already in E.164 form,
- * and are still different identities. Matching is scoped by identity, so two consumers using different
- * policies will not match each other even where the strings agree. Anyone coordinating between systems
- * has to agree on the same constant, not merely on "E.164" - see ADR-0001.
+ * `phone.e164` and `phone.e164+region-ca` are different identities: the region records how national input
+ * was read. But the output is always the E.164 number, so every phone policy - with or without a region,
+ * strict or lenient - declares the comparable form [PhoneForms.E164]. Values from different phone policies
+ * are therefore comparable explicitly, through `PolicyResolver.comparability`, rather than by trusting that
+ * their strings happen to agree. See ADR-0001.
  *
  * ## Why a phone policy carries a version at all
  *
@@ -42,6 +45,12 @@ class PhonePolicy internal constructor(
 ) : Policy {
 
     internal val hasRegion: Boolean get() = region != null
+
+    /**
+     * Every phone policy writes the E.164 number, whatever region read it and however lenient the reading,
+     * so all of them declare [PhoneForms.E164].
+     */
+    override val forms: Set<ComparableForm> = setOf(PhoneForms.E164)
 
     override fun toString(): String = id
 
@@ -127,10 +136,9 @@ class PhonePolicy internal constructor(
         private const val REGION_PROBE = "+12125551234"
 
         private fun chainOf(vararg links: PolicyLink): String =
-            when (val outcome = PolicyId.of(links.toList())) {
-                is Outcome.Success -> outcome.data.rendered
-                is Outcome.Failure -> error("not a valid policy chain: ${outcome.exception.message}")
-            }
+            PolicyId.of(links.toList())
+                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .rendered
     }
 }
 
@@ -147,8 +155,8 @@ object PhonePolicies : PublishedPolicies() {
 
     override val links: List<PolicyLink> = listOf(PhonePolicy.Base, PolicyLink.Lenient)
 
-    override fun resolve(id: String, version: Int): Outcome<Policy> {
-        val region = regionOf(id) ?: return super.resolve(id, version)
+    override fun resolveBase(id: String, version: Int): Outcome<Policy> {
+        val region = regionOf(id) ?: return super.resolveBase(id, version)
         val rebuilt = try {
             if (id.endsWith("+lenient")) {
                 PhonePolicy.e164ForRegionLenient(region)
@@ -156,13 +164,24 @@ object PhonePolicies : PublishedPolicies() {
                 PhonePolicy.e164ForRegion(region)
             }
         } catch (failure: IllegalArgumentException) {
-            return super.resolve(id, version)
+            return super.resolveBase(id, version)
         }
-        return if (rebuilt.id == id && rebuilt.version == version) Outcome.Success(rebuilt) else super.resolve(id, version)
+        return if (rebuilt.id == id && rebuilt.version == version) Outcome.Success(rebuilt) else super.resolveBase(id, version)
     }
 
     /** The region named by a chain like `phone.e164+region-ca+lenient`, if it names one. */
     private fun regionOf(id: String): String? = id.split('+')
         .firstOrNull { it.startsWith("region-") }
         ?.removePrefix("region-")
+}
+
+/**
+ * The comparable forms phone policies write.
+ *
+ * [E164] is the E.164 number: `+` and digits. A region changes only how national-format input is read, and
+ * leniency only widens what is accepted, so a number normalized under any phone policy is the same claim in
+ * this form.
+ */
+object PhoneForms {
+    val E164: ComparableForm = ComparableForm("phone.e164")
 }

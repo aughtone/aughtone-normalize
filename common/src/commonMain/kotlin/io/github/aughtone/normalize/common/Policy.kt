@@ -19,9 +19,32 @@ package io.github.aughtone.normalize.common
  * a rule-set nobody named cannot be reproduced from a stored id later.
  */
 interface Policy {
-    /** The chain, rendered: `email.byte-stable`, `email.byte-stable+lenient`, `domain.ascii.u17`. */
+    /** The chain, rendered: `email.byte-stable`, `email.byte-stable+subaddressed`, `domain.ascii.u17`. */
     val id: String
 
     /** The rules epoch for this [id]. Bumped only when the canonical bytes could differ for some input. */
     val version: Int
+
+    /**
+     * The comparable forms this policy writes, including any a caller opted into. Values from different
+     * policies are comparable only in a form both declare - see [ComparableForm]. Empty by default.
+     */
+    val forms: Set<ComparableForm> get() = emptySet()
+
+    /** The forms a caller may opt into by naming them in the id: `…+form.ipv4.address`. Empty by default. */
+    val offeredForms: Set<ComparableForm> get() = emptySet()
+
+    /**
+     * This policy with [forms] opted into, producing the same bytes under an id that records the choice.
+     *
+     * The default returns an [OptedInPolicy]. A module whose normalizer takes a concrete policy type
+     * overrides this to return that type, so the opted-in id is the one its normalizer stores.
+     *
+     * @throws IllegalArgumentException if a form in [forms] is not in [offeredForms].
+     */
+    fun withForms(forms: Set<ComparableForm>): Policy {
+        val refused = forms.firstOrNull { it !in offeredForms }
+        require(refused == null) { "$id does not offer the comparable form $refused" }
+        return if (forms.isEmpty()) this else OptedInPolicy(this, forms)
+    }
 }

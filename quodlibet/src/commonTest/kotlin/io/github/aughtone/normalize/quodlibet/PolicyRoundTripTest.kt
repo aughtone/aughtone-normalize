@@ -24,7 +24,7 @@ class PolicyRoundTripTest {
         for (policy in QuodlibetPolicies.policies) {
             when (val o = QuodlibetPolicies.resolve(policy.id, policy.version)) {
                 is Outcome.Success -> {
-                    assertSame(policy, o.data, "<${policy.id}> resolved to a different instance")
+                    assertEquals(policy, o.data, "<${policy.id}> resolved to a different policy")
                     assertEquals(policy.id, o.data.id, "<${policy.id}> did not render back to itself")
                 }
 
@@ -41,7 +41,7 @@ class PolicyRoundTripTest {
         val value = "  User+Tag@Example.COM  "
         // This module publishes several normalizers now; the email ones are the ones this value suits.
         // Each normalizer's own frozen corpus covers its bytes, so what matters here is that reaching a
-        // policy by resolution gives the same instance and therefore the same output.
+        // policy by resolution gives an equal policy and therefore the same output.
         for (policy in QuodlibetPolicies.policies.filterIsInstance<EmailPolicy>()) {
             val resolved = (QuodlibetPolicies.resolve(policy.id, policy.version) as Outcome.Success).data
             val viaConstant = normalizeEmail(value, policy)
@@ -56,11 +56,11 @@ class PolicyRoundTripTest {
     }
 
     @Test
-    fun theRelaxedPolicyIsReachedByItsChainedIdentity() {
-        // The identity says what the policy is: the base rule set, then the link that relaxes it.
-        val o = QuodlibetPolicies.resolve("email.byte-stable+lenient", 1)
+    fun theSubaddressedPolicyIsReachedByItsChainedIdentity() {
+        // The identity says what the policy is: the base rule set, then the parameter that keeps the subaddress.
+        val o = QuodlibetPolicies.resolve("email.byte-stable+subaddressed", 1)
         assertTrue(o is Outcome.Success)
-        assertSame(EmailPolicy.ByteStableV1Lenient, o.data)
+        assertSame(EmailPolicy.ByteStableV1Subaddressed, o.data)
     }
 
     @Test
@@ -72,6 +72,10 @@ class PolicyRoundTripTest {
 
         val stale = QuodlibetPolicies.resolve("email.lenient", 1)
         assertTrue(stale is Outcome.Failure && stale.exception is PolicyIdentityError.UnknownLink)
+
+        // Withdrawn in 0.0.3 with a clean break: the policy keeps the subaddress, it does not relax a rule.
+        val withdrawn = QuodlibetPolicies.resolve("email.byte-stable+lenient", 1)
+        assertTrue(withdrawn is Outcome.Failure && withdrawn.exception is PolicyIdentityError, "got $withdrawn")
     }
 
     @Test

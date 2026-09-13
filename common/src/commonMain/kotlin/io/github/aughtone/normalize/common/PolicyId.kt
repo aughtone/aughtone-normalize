@@ -20,14 +20,16 @@ import io.github.aughtone.types.outcome.runOutcome
  * ```
  *
  * Lowercase throughout, so a region reads `region-ca` and never `region-CA`. Examples:
- * `email.byte-stable`, `email.byte-stable+lenient`, `phone.e164+region-ca+lenient`,
+ * `email.byte-stable`, `email.byte-stable+subaddressed`, `phone.e164+region-ca+lenient`,
  * `domain.ascii.u17+lenient`, `email.byte-stable+nfc.u17+punycode.u17`.
  *
  * ## The order
  *
  * A chain is a sequence of **groups**. The first group opens with the [LinkKind.Base]; each later group
  * opens with something that runs at a [StepPhase], and the phases do not go backwards. Within a group
- * come that link's qualifiers: [LinkKind.Parameter]s first, then [LinkKind.Relaxation]s.
+ * come that link's qualifiers: [LinkKind.Parameter]s first, then [LinkKind.Relaxation]s. Any
+ * [LinkKind.Form] links - comparable forms a caller opted into, `form.ipv4.address` - close the chain,
+ * after every group, in form-name order.
  *
  * Grouping is what lets a qualifier say which link it modifies. In `url.rfc3986+domain.ascii.u17+lenient`
  * the leniency belongs to the host policy, not to the URL policy, and a flat ordering could not express
@@ -46,6 +48,12 @@ class PolicyId private constructor(val links: List<PolicyLink>) {
     /** The chain as it appears in [Policy.id] and in storage: links joined by `+`. */
     val rendered: String = links.joinToString(SEPARATOR.toString()) { it.name }
 
+    /**
+     * The chain in its portable spelling: links joined by `_` instead of `+` - see [toPortable].
+     * A transport form only; [rendered] is the identity.
+     */
+    val portable: String = links.joinToString(PORTABLE_SEPARATOR.toString()) { it.name }
+
     /** The base link, which every valid chain has exactly one of, first. */
     val base: PolicyLink get() = links.first()
 
@@ -57,6 +65,7 @@ class PolicyId private constructor(val links: List<PolicyLink>) {
 
     companion object {
         private const val SEPARATOR = '+'
+        private const val PORTABLE_SEPARATOR = '_'
 
         /**
          * Build a chain from [links], validating order and duplicates. Fails with a
@@ -79,12 +88,21 @@ class PolicyId private constructor(val links: List<PolicyLink>) {
             // could not express which link a qualifier modifies.
             var phase = -1
             var sawRelaxation = false
+            var lastForm: String? = null
             for (link in links.drop(1)) {
                 val linkPhase = link.phase
+                // Form links close the chain: a caller's opt-in is about the whole output, so nothing
+                // follows one, and several appear in name order so a set of forms has one spelling.
+                if (lastForm != null && link.kind != LinkKind.Form) throw PolicyIdentityError.OutOfOrder(rendered, link.name)
                 when {
+                    link.kind == LinkKind.Form -> {
+                        if (lastForm != null && link.name <= lastForm) throw PolicyIdentityError.OutOfOrder(rendered, link.name)
+                        lastForm = link.name
+                    }
+
                     linkPhase != null -> {
-                        if (linkPhase.ordinal < phase) throw PolicyIdentityError.OutOfOrder(rendered, link.name)
-                        phase = linkPhase.ordinal
+                        if (linkPhase.rank < phase) throw PolicyIdentityError.OutOfOrder(rendered, link.name)
+                        phase = linkPhase.rank
                         sawRelaxation = false
                     }
 
@@ -112,17 +130,13 @@ class PolicyId private constructor(val links: List<PolicyLink>) {
          */
         fun parse(id: String, known: Collection<PolicyLink>): Outcome<PolicyId> = runOutcome {
             val byName = known.associateBy { it.name }
-            val names = when (val outcome = split(id)) {
-                is Outcome.Success -> outcome.data
-                is Outcome.Failure -> throw outcome.exception
-            }
+            val names = split(id).dataOrThrow()
             val links = names.map { name ->
-                byName[name] ?: throw PolicyIdentityError.UnknownLink(id, name)
+                // A form link is recognized from its name: no module publishes one, and whether the policy
+                // offers that form is the resolver's question, not the grammar's.
+                byName[name] ?: ComparableForm.ofLink(name)?.link ?: throw PolicyIdentityError.UnknownLink(id, name)
             }
-            when (val outcome = of(links)) {
-                is Outcome.Success -> outcome.data
-                is Outcome.Failure -> throw outcome.exception
-            }
+            of(links).dataOrThrow()
         }
 
         /**
@@ -138,5 +152,34 @@ class PolicyId private constructor(val links: List<PolicyLink>) {
             names
         }
 
+        /**
+         * Spell [id] with `_` in place of `+`, for places that refuse `+`.
+         *
+         * `+` is legal in file names, JSON, database columns and URL paths, and the canonical id uses it
+         * everywhere it can. It is not legal everywhere: form-encoded query strings decode it as a space,
+         * and restricted identifier slots - Kubernetes label values, container image tags, some metric and
+         * cloud tag systems - accept only letters, digits, `-`, `_` and `.`. `_` never occurs in the id
+         * grammar, so the mapping is lossless in both directions and [fromPortable] recovers the exact id.
+         *
+         * **Store and compare the canonical id, not this.** The portable spelling is a way to carry an id
+         * through a slot that cannot hold it, and it converts back before anything else happens to it.
+         * Only the lexical grammar is checked, as in [split].
+         */
+        fun toPortable(id: String): Outcome<String> = runOutcome {
+            split(id).dataOrThrow().joinToString(PORTABLE_SEPARATOR.toString())
+        }
+
+        /**
+         * Recover the canonical id from its portable spelling - the inverse of [toPortable].
+         *
+         * A value containing `+` is refused rather than accepted as already canonical: a string that is
+         * half one spelling and half the other was not produced by [toPortable], and accepting it would give
+         * one id two portable spellings.
+         */
+        fun fromPortable(portable: String): Outcome<String> = runOutcome {
+            if (portable.contains(SEPARATOR)) throw PolicyIdentityError.NotPortable(portable)
+            val names = portable.split(PORTABLE_SEPARATOR)
+            split(names.joinToString(SEPARATOR.toString())).dataOrThrow().joinToString(SEPARATOR.toString())
+        }
     }
 }

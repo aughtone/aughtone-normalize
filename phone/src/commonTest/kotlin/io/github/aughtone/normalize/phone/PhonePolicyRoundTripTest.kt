@@ -1,6 +1,10 @@
 package io.github.aughtone.normalize.phone
 
+import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyIdentityError
+import io.github.aughtone.normalize.common.PolicyLink
+import io.github.aughtone.normalize.common.PublishedPolicies
+import io.github.aughtone.normalize.common.plus
 import io.github.aughtone.types.outcome.Outcome
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -63,5 +67,23 @@ class PhonePolicyRoundTripTest {
 
         val wrongVersion = PhonePolicies.resolve("phone.e164", 2)
         assertTrue(wrongVersion is Outcome.Failure && wrongVersion.exception is PolicyIdentityError.VersionMismatch)
+    }
+    @Test
+    fun aRegionPolicyResolvesThroughACompositeAsItDoesAlone() {
+        // A caller combines the resolvers of every module it depends on. Rebuilding a region policy is
+        // this module's job, so the combination has to ask it rather than search a merged list.
+        val otherModule = object : PublishedPolicies() {
+            override val policies: List<Policy> = emptyList()
+            override val links: List<PolicyLink> = emptyList()
+        }
+        val combined = otherModule + PhonePolicies
+        for (id in listOf("phone.e164+region-ca", "phone.e164+region-gb+lenient")) {
+            val alone = PhonePolicies.resolve(id, 1)
+            val through = combined.resolve(id, 1)
+            assertTrue(alone is Outcome.Success && through is Outcome.Success, "<$id> must resolve through a composite")
+            assertEquals(alone.data.id, through.data.id)
+        }
+        val unknownRegion = combined.resolve("phone.e164+region-zz", 1)
+        assertTrue(unknownRegion is Outcome.Failure, "an unknown region must not resolve through a composite either")
     }
 }

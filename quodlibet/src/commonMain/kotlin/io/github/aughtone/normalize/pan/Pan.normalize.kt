@@ -1,11 +1,13 @@
 package io.github.aughtone.normalize.pan
 
+import io.github.aughtone.normalize.common.ComparableForm
 import io.github.aughtone.normalize.common.LinkKind
 import io.github.aughtone.normalize.common.Normalized
 import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.types.outcome.Outcome
+import io.github.aughtone.types.outcome.dataOrElse
 import io.github.aughtone.types.outcome.runOutcome
 
 /**
@@ -21,10 +23,9 @@ import io.github.aughtone.types.outcome.runOutcome
  * data-protection incident, not a debugging aid.
  *
  * ```
- * when (val outcome = normalizePan(value, PanPolicy.Digits)) {
- *     is Outcome.Success -> outcome.data.canonical   // "4111111111111111"
- *     is Outcome.Failure -> outcome.exception        // a typed PanNormalizationError
- * }
+ * normalizePan(value, PanPolicy.Digits)
+ *     .onSuccess { normalized -> store(normalized.canonical) }   // "4111111111111111"
+ *     .onFailure { failure -> log(failure.exception) }           // a typed PanNormalizationError
  * ```
  */
 fun normalizePan(value: String, policy: PanPolicy): Outcome<NormalizedPan> = runOutcome {
@@ -82,6 +83,9 @@ class PanPolicy internal constructor(
     internal val checkLuhn: Boolean,
 ) : Policy {
 
+    /** Leniency only skips the Luhn check, so both policies write the same digits: see [PanForms]. */
+    override val forms: Set<ComparableForm> = setOf(PanForms.Digits)
+
     override fun toString(): String = id
 
     companion object {
@@ -98,10 +102,9 @@ class PanPolicy internal constructor(
         internal val all: List<PanPolicy> = listOf(Digits, DigitsLenient)
 
         private fun chainOf(vararg links: PolicyLink): String =
-            when (val outcome = PolicyId.of(links.toList())) {
-                is Outcome.Success -> outcome.data.rendered
-                is Outcome.Failure -> error("not a valid policy chain: ${outcome.exception.message}")
-            }
+            PolicyId.of(links.toList())
+                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .rendered
     }
 }
 
@@ -129,4 +132,12 @@ sealed class PanNormalizationError(message: String) : Exception(message) {
 
     /** The Luhn check failed, which under a strict policy means the number is not usable. */
     class ChecksumFailed : PanNormalizationError("pan: checksum failed")
+}
+
+/**
+ * The comparable forms payment-card policies write. [Digits] is the card number as digits: [PanPolicy.Digits]
+ * and [PanPolicy.DigitsLenient] both write it, because leniency only skips the Luhn check.
+ */
+object PanForms {
+    val Digits: ComparableForm = ComparableForm("pan.digits")
 }
