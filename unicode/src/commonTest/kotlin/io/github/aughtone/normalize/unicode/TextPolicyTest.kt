@@ -13,8 +13,9 @@ import kotlin.test.assertTrue
 /**
  * How a text policy is built, identified, warned about and resolved.
  *
- * The bytes each configuration produces are pinned in `TextRulesByteStabilityTest`; this file pins the
- * rules around them - which configurations exist, which id each has, and which ids are refused.
+ * The bytes each configuration produces are pinned in `TextAsciiRulesByteStabilityTest` and
+ * `TextRulesByteStabilityU17Test`; this file pins the rules around them - which configurations exist,
+ * which id each has, and which ids are refused.
  */
 class TextPolicyTest {
 

@@ -6,7 +6,9 @@ import io.github.aughtone.normalize.common.PublishedPolicies
 import io.github.aughtone.normalize.email.EmailLinks
 import io.github.aughtone.normalize.email.EmailPolicy
 import io.github.aughtone.normalize.iban.IbanPolicy
+import io.github.aughtone.normalize.ipv4.Ipv4Networks
 import io.github.aughtone.normalize.ipv4.Ipv4Policy
+import io.github.aughtone.normalize.ipv6.Ipv6Networks
 import io.github.aughtone.normalize.ipv6.Ipv6Policy
 import io.github.aughtone.normalize.pan.PanPolicy
 import io.github.aughtone.normalize.username.UsernamePolicy
@@ -33,7 +35,8 @@ object QuodlibetPolicies : PublishedPolicies() {
 
     override val policies: List<Policy> =
         listOf(EmailPolicy.ByteStableV1, EmailPolicy.ByteStableV1Lenient) +
-            PanPolicy.all + IbanPolicy.all + Ipv4Policy.all + Ipv6Policy.all + UsernamePolicy.all
+            PanPolicy.all + IbanPolicy.all + Ipv4Policy.all + Ipv6Policy.all + UsernamePolicy.all +
+            Ipv4Networks.policies + Ipv6Networks.policies
 
     override val links: List<PolicyLink> = listOf(
         EmailLinks.ByteStable,
@@ -42,5 +45,5 @@ object QuodlibetPolicies : PublishedPolicies() {
         Ipv6Policy.Base,
         UsernamePolicy.Base,
         PolicyLink.Lenient,
-    ) + Ipv4Policy.links
+    ) + Ipv4Policy.links + (Ipv4Networks.links + Ipv6Networks.links).distinctBy { it.name }
 }

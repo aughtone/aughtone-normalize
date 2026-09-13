@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
  * frozen corpora here - but the policy is still published, and a caller who did store one deserves the
  * same guarantee. A new Unicode release is a new policy constant, never a change to this one.
  */
-class SkeletonByteStabilityTest {
+class SkeletonByteStabilityU17Test {
 
     private fun skeleton(value: String): String =
         when (val outcome = normalizeSkeleton(value, ConfusablePolicy.SkeletonU17)) {

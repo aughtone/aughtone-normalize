@@ -13,7 +13,7 @@ import kotlin.test.assertTrue
  * and would change which resource some of them address. If one starts failing because the normalizer
  * grew a new rule, the rule is the bug.
  */
-class UrlByteStabilityTest {
+class UrlByteStabilityU17Test {
 
     private fun canonical(value: String, policy: UrlPolicy = UrlPolicy.Rfc3986U17): String =
         when (val outcome = normalizeUrl(value, policy)) {

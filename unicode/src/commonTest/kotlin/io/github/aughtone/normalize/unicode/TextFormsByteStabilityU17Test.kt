@@ -25,7 +25,10 @@ import kotlin.test.assertTrue
  *
  * Adding cases. Deleting or editing an existing expectation is not.
  */
-class TextByteStabilityTest {
+class TextFormsByteStabilityU17Test {
+
+    /** The four normalization forms, each frozen against Unicode 17. */
+    private val forms = listOf(TextPolicy.NfcU17, TextPolicy.NfdU17, TextPolicy.NfkcU17, TextPolicy.NfkdU17)
 
     private fun canonical(value: String, policy: TextPolicy): String =
         when (val outcome = normalizeText(value, policy)) {
@@ -104,7 +107,7 @@ class TextByteStabilityTest {
     @Test
     fun everyFormIsIdempotent() {
         val inputs = listOf(aThenRing, angstrom, hangulJamo, qWithTwoMarks, ligatureFi, fullWidthA, notoSans)
-        for (policy in TextPolicy.all) {
+        for (policy in forms) {
             for (input in inputs) {
                 val once = canonical(input, policy)
                 assertEquals(once, canonical(once, policy), "FROZEN: ${policy.id} is not idempotent for <$input>")
@@ -123,9 +126,9 @@ class TextByteStabilityTest {
         assertEquals("text.u17+nfd", TextPolicy.NfdU17.id)
         assertEquals("text.u17+nfkc", TextPolicy.NfkcU17.id)
         assertEquals("text.u17+nfkd", TextPolicy.NfkdU17.id)
-        assertEquals("text+trim+lower", TextPolicy.TrimLowercase.id)
-        assertEquals("text.u17+trim+casefold+nfc", TextPolicy.CaselessU17.id)
-        for (policy in TextPolicy.all) {
+        // The convenience presets are pinned beside their own corpora: TextAsciiRulesByteStabilityTest and
+        // TextRulesByteStabilityU17Test.
+        for (policy in forms) {
             assertEquals(1, policy.version, "FROZEN: ${policy.id} version")
         }
         assertEquals("17.0.0", UnicodeTables.VERSION)
@@ -138,7 +141,7 @@ class TextByteStabilityTest {
         // test would pass by testing nothing.
         val highOnly = Char(0xD800)
         val lowOnly = Char(0xDC00)
-        for (policy in TextPolicy.all) {
+        for (policy in forms) {
             for (broken in listOf("a" + highOnly + "b", "a" + lowOnly + "b", highOnly.toString())) {
                 val outcome = normalizeText(broken, policy)
                 assertTrue(

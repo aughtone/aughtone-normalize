@@ -46,6 +46,12 @@ sealed class PolicyIdentityError(message: String) : Exception(message) {
      */
     class NotCanonical(val id: String) : PolicyIdentityError("policy id '$id': not the canonical spelling of any policy")
 
+    /**
+     * A composed chain names a group that resolved to a policy which cannot run as a step, so nothing could
+     * apply it after the base.
+     */
+    class NotAStep(val id: String, val group: String) : PolicyIdentityError("policy id '$id': '$group' is not a step")
+
     /** A value given as a portable id contains `+`, so it is not one - see [PolicyId.fromPortable]. */
     class NotPortable(val id: String) : PolicyIdentityError("policy id '$id': not a portable spelling")
 
