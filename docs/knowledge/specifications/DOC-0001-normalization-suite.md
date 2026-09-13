@@ -25,7 +25,7 @@ Group `io.github.aughtone.normalize`. A shared base plus functional modules: **f
 | `:phone` | `io.github.aughtone.normalize:phone` | phone → E.164 | `api(:common)` + `aughtone-phonenumber` | No (region metadata, not Unicode) |
 | `:unicode` | `io.github.aughtone.normalize:unicode` | Unicode normalization forms — NFC, NFD, NFKC, NFKD — and any character property more than one module needs | `api(:common)` | Yes — normalization tables, delta-packaged, plus shared properties |
 | `:confusables` | `io.github.aughtone.normalize:confusables` | UTS-39 skeletons | `api(:unicode)` | Yes — confusable mappings, mirroring, paired brackets |
-| `:ubilibet` | `io.github.aughtone.normalize:ubilibet` | every hostname and domain, ASCII included (UTS-46, Punycode), and URL | `api(:unicode)` | Yes — IDNA mapping, joining type |
+| `:ubilibet` | `io.github.aughtone.normalize:ubilibet` | every hostname and domain, ASCII included (UTS-46, Punycode), URL, and validating ToUnicode for display | `api(:unicode)` | Yes — IDNA mapping, joining type |
 
 `:common` is pure foundation with no concrete normalizer of its own, which is why it is `common` and not `core`. A future usable-standalone convenience module would be the one named `:core`.
 

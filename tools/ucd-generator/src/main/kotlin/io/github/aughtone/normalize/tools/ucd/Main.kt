@@ -207,8 +207,9 @@ fun main(args: Array<String>) {
                 """
                 |/**
                 | * `IdnaTestV2.txt` for Unicode ${source.version}, resolved: one row per case, joined by `;`, with
-                | * three columns separated by `|` - the source, the expected nontransitional ToASCII result, and the
-                | * status codes that result carries, space separated and empty when the case must succeed.
+                | * five columns separated by `|` - the source, the expected nontransitional ToASCII result and its
+                | * status codes, then the expected ToUnicode result and its status codes. Status codes are space
+                | * separated and empty when the case must succeed.
                 | *
                 | * Inherited blank columns and the file's `\uXXXX` escapes are already resolved here, so a test
                 | * compares values rather than notation. Text is space-separated hexadecimal code points. Test-only.
@@ -251,7 +252,9 @@ private fun encodeNormalizationCases(cases: List<ConformanceCase>): String =
     }
 
 /**
- * Encode IDNA conformance rows as `source|toAsciiN|status`, joined by `;`.
+ * Encode IDNA conformance rows as `source|toAsciiN|toAsciiNStatus|toUnicode|toUnicodeStatus`, joined by `;`.
+ *
+ * The ToASCII columns come first so a reader that only wants them keeps its column positions.
  *
  * Three things the file's own format requires, done here so the test compares values rather than
  * notation: characters escaped as `\uXXXX` or `\x{XXXX}` are unescaped, blank columns are resolved to
@@ -271,6 +274,8 @@ private fun encodeIdnaRows(rows: List<List<String>>): String =
             source.codePoints().toArray().joinToString(" ") { hex(it) },
             toAscii.codePoints().toArray().joinToString(" ") { hex(it) },
             status,
+            toUnicode.codePoints().toArray().joinToString(" ") { hex(it) },
+            statusOf(row[2]),
         ).joinToString("|")
     }.joinToString(";")
 

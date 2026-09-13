@@ -183,6 +183,8 @@ normalizeDomain(value, DomainPolicy.AsciiU17)
 
 Every hostname goes through the same function, ASCII included: a second, simpler rule for ASCII names would produce identical bytes under a different policy identity, which is a mismatch waiting to happen. `AsciiU17` applies every UTS-46 check; `AsciiU17Lenient` relaxes hyphen placement, the STD3 character restriction and DNS length, and keeps the bidi and joiner rules — those exist to stop a name that displays as one thing and resolves as another, which is not something leniency should buy.
 
+To show a domain to a person, `toUnicodeDomain(value, policy)` converts it to U-labels under the same checks and reports per label which failed, so a display can show `café.fr` where a label validates and its A-label where it does not. The result is for display, not identity: it carries no policy id, and the canonical form to store and match is always the A-label from `normalizeDomain`.
+
 ### Phone Numbers (`:phone`)
 ```kotlin
 import io.github.aughtone.normalize.phone.PhonePolicy

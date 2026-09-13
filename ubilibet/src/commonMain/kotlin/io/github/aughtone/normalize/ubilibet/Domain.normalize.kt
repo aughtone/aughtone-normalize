@@ -105,7 +105,7 @@ sealed class DomainNormalizationError(message: String) : Exception(message) {
 }
 
 /** True if the string contains a high surrogate without a following low surrogate, or vice versa. */
-private fun String.hasUnpairedSurrogate(): Boolean {
+internal fun String.hasUnpairedSurrogate(): Boolean {
     var index = 0
     while (index < length) {
         val character = this[index]

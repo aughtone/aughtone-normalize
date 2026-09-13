@@ -15,6 +15,9 @@ internal class Uts46Flags(
     val verifyDnsLength: Boolean,
 )
 
+/** One label as ToUnicode leaves it: its U-label, its ASCII form, and the first check it failed. */
+internal class Uts46Label(val unicode: String, val ascii: String, val error: DomainNormalizationError?)
+
 /**
  * UTS-46 processing, nontransitional, ending in an A-label.
  *
@@ -62,29 +65,97 @@ internal object Uts46 {
         return asciiLabels.joinToString(".")
     }
 
-    /** Step 1: replace, remove or refuse each code point by its IDNA status. */
-    private fun map(input: String, flags: Uts46Flags): String {
+    /**
+     * Run the pipeline as ToUnicode does: every label converted and validated, errors recorded per label
+     * rather than thrown, and nothing encoded back to ASCII.
+     *
+     * The steps are the ones [toAscii] runs, in the same order, so a label that fails here is one ToASCII
+     * would refuse. Two differences are the specification's, not this suite's: a disallowed code point
+     * stays in place and fails its own label's validation instead of ending the run, and only the
+     * empty-label part of DNS length verification applies, because lengths are an ASCII concern.
+     */
+    fun toUnicode(input: String, flags: Uts46Flags): List<Uts46Label> {
+        val mapped = map(input, flags, recordErrors = true)
+        val normalized = TextPolicy.NfcU17.apply(mapped)
+        val labels = normalized.split('.')
+
+        val errors = arrayOfNulls<DomainNormalizationError>(labels.size)
+        val unicodeLabels = labels.mapIndexed { index, label ->
+            try {
+                convert(label)
+            } catch (failure: DomainNormalizationError) {
+                errors[index] = failure
+                label
+            }
+        }
+
+        // A label that did not decode is left out of validation, as the specification says: it is still
+        // Punycode, and checking it as if it were the name it failed to become would report nonsense.
+        fun record(index: Int, check: () -> Unit) {
+            if (errors[index] != null) return
+            try {
+                check()
+            } catch (failure: DomainNormalizationError) {
+                errors[index] = failure
+            }
+        }
+
+        if (flags.checkBidi && unicodeLabels.any { it.isBidiLabel() }) {
+            for (index in unicodeLabels.indices) record(index) { unicodeLabels[index].checkBidiRule() }
+        }
+        for (index in unicodeLabels.indices) record(index) { validate(unicodeLabels[index], flags) }
+        if (flags.verifyDnsLength) {
+            // The root label may be empty; any other may not, and neither may a name with no labels at all.
+            for (index in unicodeLabels.indices) {
+                val isRoot = index == unicodeLabels.lastIndex && unicodeLabels.size > 1
+                if (unicodeLabels[index].isEmpty() && !isRoot) record(index) { throw DomainNormalizationError.EmptyLabel() }
+            }
+        }
+
+        return unicodeLabels.mapIndexed { index, unicode ->
+            Uts46Label(unicode = unicode, ascii = asciiFallback(labels[index], unicode), error = errors[index])
+        }
+    }
+
+    /**
+     * The ASCII form of one label, for showing in place of a U-label that should not be shown.
+     *
+     * A label that arrived as Punycode keeps the form it arrived in, so a label that failed to decode is
+     * shown exactly as given. Anything else is encoded. A label that cannot be encoded at all, which no
+     * legitimate label hits, is returned as it is: there is no ASCII form to fall back to.
+     */
+    private fun asciiFallback(source: String, unicode: String): String = when {
+        source.startsWith(PUNYCODE_PREFIX) -> source
+        unicode.toCodePoints().all { it <= 0x7F } -> unicode
+        else -> Punycode.encode(unicode)?.let { PUNYCODE_PREFIX + it } ?: unicode
+    }
+
+    /**
+     * Step 1: replace, remove or refuse each code point by its IDNA status.
+     *
+     * With [recordErrors], a code point that would be refused is kept unchanged instead, as ToUnicode
+     * requires; validation then refuses the label that contains it.
+     */
+    private fun map(input: String, flags: Uts46Flags, recordErrors: Boolean = false): String {
         val out = StringBuilder(input.length)
         for (codePoint in input.toCodePoints()) {
-            val status = mappings.valueAt(codePoint) ?: throw DomainNormalizationError.DisallowedCodePoint()
+            fun refuse() {
+                if (recordErrors) out.appendCodePoint(codePoint) else throw DomainNormalizationError.DisallowedCodePoint()
+            }
+
+            val status = mappings.valueAt(codePoint)
+            if (status == null) {
+                refuse()
+                continue
+            }
             val mapping = status.substringAfter('>', "")
             when (status.substringBefore('>')) {
                 "v", "d" -> out.appendCodePoint(codePoint)
                 "i" -> Unit
                 "m" -> out.append(mapping.toMappedString())
-                "s3v" -> if (flags.useStd3AsciiRules) {
-                    throw DomainNormalizationError.DisallowedCodePoint()
-                } else {
-                    out.appendCodePoint(codePoint)
-                }
-
-                "s3m" -> if (flags.useStd3AsciiRules) {
-                    throw DomainNormalizationError.DisallowedCodePoint()
-                } else {
-                    out.append(mapping.toMappedString())
-                }
-
-                else -> throw DomainNormalizationError.DisallowedCodePoint()
+                "s3v" -> if (flags.useStd3AsciiRules) refuse() else out.appendCodePoint(codePoint)
+                "s3m" -> if (flags.useStd3AsciiRules) refuse() else out.append(mapping.toMappedString())
+                else -> refuse()
             }
         }
         return out.toString()
