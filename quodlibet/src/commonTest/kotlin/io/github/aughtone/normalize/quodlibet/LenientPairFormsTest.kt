@@ -20,8 +20,8 @@ import kotlin.test.assertNotEquals
  *
  * Strict/lenient pairs whose leniency only widens what is accepted declare one comparable form, pinned here
  * twice: the comparability check reports them comparable, and both write identical text for input both
- * accept. The email pair is pinned as NOT comparable, because its lenient policy keeps a subaddress the
- * strict one strips, which changes meaning rather than acceptance.
+ * accept. Email has no lenient policy: its subaddress-keeping policy, `email.byte-stable+subaddressed`,
+ * changes meaning rather than acceptance, and is pinned here as NOT comparable with the strict one.
  *
  * Numbers are the test values issuers and registries publish for documentation.
  */
@@ -46,10 +46,10 @@ class LenientPairFormsTest {
     }
 
     @Test
-    fun theEmailPairIsNotComparableBecauseItsLeniencyChangesMeaning() {
-        assertEquals(Comparability.NotComparable, comparability("email.byte-stable", "email.byte-stable+lenient"))
+    fun theSubaddressedEmailPolicyIsNotComparableWithTheStrictOne() {
+        assertEquals(Comparability.NotComparable, comparability("email.byte-stable", "email.byte-stable+subaddressed"))
         val strict = normalizeEmail("user+tag@example.com", EmailPolicy.ByteStableV1) as Outcome.Success
-        val lenient = normalizeEmail("user+tag@example.com", EmailPolicy.ByteStableV1Lenient) as Outcome.Success
-        assertNotEquals(strict.data.canonical, lenient.data.canonical)
+        val subaddressed = normalizeEmail("user+tag@example.com", EmailPolicy.ByteStableV1Subaddressed) as Outcome.Success
+        assertNotEquals(strict.data.canonical, subaddressed.data.canonical)
     }
 }

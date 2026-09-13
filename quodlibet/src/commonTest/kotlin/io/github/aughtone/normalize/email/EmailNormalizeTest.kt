@@ -68,13 +68,13 @@ class EmailNormalizeTest {
         assertEquals(a, b)
     }
 
-    // --- ByteStableV1Lenient: trim + ASCII-lowercase only ---------------
+    // --- ByteStableV1Subaddressed: trim + ASCII-lowercase only ------------
 
     @Test
-    fun lenientTrimsAndLowercasesOnly() {
-        // No +subaddress strip and no dot handling for the relaxed policy.
-        assertEquals("user+tag@gmail.com", canonical("  User+Tag@Gmail.com  ", EmailPolicy.ByteStableV1Lenient))
-        assertEquals("u.s.e.r@gmail.com", canonical("U.S.E.R@gmail.com", EmailPolicy.ByteStableV1Lenient))
+    fun subaddressedTrimsAndLowercasesOnly() {
+        // The subaddress is kept, and there is no dot handling.
+        assertEquals("user+tag@gmail.com", canonical("  User+Tag@Gmail.com  ", EmailPolicy.ByteStableV1Subaddressed))
+        assertEquals("u.s.e.r@gmail.com", canonical("U.S.E.R@gmail.com", EmailPolicy.ByteStableV1Subaddressed))
     }
 
     // --- explicit, value-free failures ---------------------------------------
@@ -118,8 +118,8 @@ class EmailNormalizeTest {
     fun policyIdentifiersAreStable() {
         assertEquals("email.byte-stable", EmailPolicy.ByteStableV1.id)
         assertEquals(1, EmailPolicy.ByteStableV1.version)
-        assertEquals("email.byte-stable+lenient", EmailPolicy.ByteStableV1Lenient.id)
-        assertEquals(1, EmailPolicy.ByteStableV1Lenient.version)
+        assertEquals("email.byte-stable+subaddressed", EmailPolicy.ByteStableV1Subaddressed.id)
+        assertEquals(1, EmailPolicy.ByteStableV1Subaddressed.version)
     }
 
     @Test

@@ -14,7 +14,7 @@ import io.github.aughtone.types.outcome.dataOrElse
  * [id] and [version] are the byte-stability epoch. They travel with anything derived from a normalized
  * value - a hash, a blind token - so the exact rules can be reproduced later. The [id] is a **chain**:
  * links joined by `+`, the base rule set first and anything qualifying it after, which is why the
- * relaxed policy reads `email.byte-stable+lenient`. An id therefore describes a policy rather than
+ * subaddress-keeping policy reads `email.byte-stable+subaddressed`. An id therefore describes a policy rather than
  * merely labelling it.
  *
  * **Matching is scoped by identity.** Two values normalized under different policies never match, even
@@ -54,20 +54,26 @@ class EmailPolicy internal constructor(
 ) : Policy {
     companion object {
         /**
-         * [ByteStableV1] with subaddress stripping relaxed: trim + ASCII-lowercase only, keeping the
-         * `+`-subaddress. It relaxes that one rule and keeps every guarantee the suite makes: its output
-         * is byte-stable, identical on every platform, frozen for this `id` and [version], and it refuses
-         * the same malformed input. Two addresses collide only if they differ by ASCII case or
-         * surrounding ASCII whitespace.
+         * [ByteStableV1] with the `+`-subaddress kept: trim + ASCII-lowercase only. The email is
+         * subaddressed, so `User+Tag@Example.com` is `user+tag@example.com`.
          *
-         * Its [id] is a chain - the base rule set, then the link that relaxes it - so the identity says
-         * what the policy is rather than only what it is called. Tokens derived under it match only other
-         * tokens derived under `email.byte-stable+lenient`. Like any two policies it never matches
-         * [ByteStableV1]: store `policyId` and `policyVersion` beside every derived value, and match
-         * within a single policy identity.
+         * **What it is for.** A light-touch key for display and dedupe that changes as few bytes as
+         * possible, so the address stays recognizably what was entered and `user+work@` and `user+home@`
+         * stay apart. Keeping the subaddress is an opt-in; [ByteStableV1] strips it and is the default.
+         * Its output is as byte-stable and platform-identical as [ByteStableV1]'s, and it refuses the same
+         * input.
+         *
+         * **It is not comparable with [ByteStableV1], and declares no comparable form.** For a tagged
+         * address the two write different text, and a tag cannot be stripped from a stored token after
+         * the fact, so matching across them would depend on whether someone typed a tag. To match
+         * mailboxes, normalize under [ByteStableV1].
+         *
+         * Its id was `email.lenient` in `0.0.1` and `email.byte-stable+lenient` in `0.0.2`. It is not a
+         * lenient policy - leniency accepts more input and never changes what the output means - so in
+         * `0.0.3` the id names its rule instead. The bytes never changed.
          */
-        val ByteStableV1Lenient: EmailPolicy = EmailPolicy(
-            id = chainOf(EmailLinks.ByteStable, PolicyLink.Lenient), version = 1,
+        val ByteStableV1Subaddressed: EmailPolicy = EmailPolicy(
+            id = chainOf(EmailLinks.ByteStable, EmailLinks.Subaddressed), version = 1,
             stripPlusSubaddress = false,
         )
 
@@ -105,4 +111,7 @@ class EmailPolicy internal constructor(
 /** The links the email policies are built from. Published to the suite by `QuodlibetPolicies`. */
 internal object EmailLinks {
     val ByteStable: PolicyLink = PolicyLink("email.byte-stable", LinkKind.Base)
+
+    /** The parameter that keeps the `+`-subaddress: the email is subaddressed. */
+    val Subaddressed: PolicyLink = PolicyLink("subaddressed", LinkKind.Parameter)
 }

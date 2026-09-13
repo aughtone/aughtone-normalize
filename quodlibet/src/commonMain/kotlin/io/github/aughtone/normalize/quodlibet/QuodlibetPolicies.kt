@@ -38,12 +38,13 @@ import io.github.aughtone.types.outcome.Outcome
 object QuodlibetPolicies : PublishedPolicies() {
 
     override val policies: List<Policy> =
-        listOf(EmailPolicy.ByteStableV1, EmailPolicy.ByteStableV1Lenient) +
+        listOf(EmailPolicy.ByteStableV1, EmailPolicy.ByteStableV1Subaddressed) +
             PanPolicy.all + IbanPolicy.all + Ipv4Policy.all + Ipv6Policy.all + UsernamePolicy.all +
             Ipv4Networks.policies + Ipv6Networks.policies + MacPolicy.all + UuidPolicy.all
 
     override val links: List<PolicyLink> = listOf(
         EmailLinks.ByteStable,
+        EmailLinks.Subaddressed,
         PanPolicy.Base,
         IbanPolicy.Base,
         Ipv6Policy.Base,

@@ -31,7 +31,7 @@ Each module is its own coordinate: depend on the normalizers you use and you car
 
 The example below installs `:quodlibet`, which is the table-free bundle — email, PAN, IBAN, IPv4, IPv6 and usernames. Swap or add coordinates from the table above for the rest.
 
-**Moving from `0.0.1`?** The email normalizer was published as `io.github.aughtone.normalize:email:0.0.1` and now lives in `:quodlibet`. Change the coordinate; nothing else moves. The package, every type name, the canonical output and the policy versions are unchanged, so no stored value is affected. The one rename is `EmailPolicy.Lenient`, now `EmailPolicy.ByteStableV1Lenient`, whose `id` became `email.byte-stable+lenient`. `email:0.0.1` stays on Maven Central.
+**Moving from `0.0.1`?** The email normalizer was published as `io.github.aughtone.normalize:email:0.0.1` and now lives in `:quodlibet`. Change the coordinate; nothing else moves. The package, every type name, the canonical output and the policy versions are unchanged, so no stored value is affected. The relaxed email policy has since been renamed twice: `EmailPolicy.Lenient` (`email.lenient`) became `ByteStableV1Lenient` (`email.byte-stable+lenient`) in `0.0.2`, and in `0.0.3` it is `ByteStableV1Subaddressed` (`email.byte-stable+subaddressed`), because it keeps the `+`-subaddress rather than relaxing a rule. Its bytes never changed; only the name and id did. `email:0.0.1` stays on Maven Central.
 
 ```kotlin
 // build.gradle.kts

@@ -19,7 +19,7 @@ package io.github.aughtone.normalize.common
  * a rule-set nobody named cannot be reproduced from a stored id later.
  */
 interface Policy {
-    /** The chain, rendered: `email.byte-stable`, `email.byte-stable+lenient`, `domain.ascii.u17`. */
+    /** The chain, rendered: `email.byte-stable`, `email.byte-stable+subaddressed`, `domain.ascii.u17`. */
     val id: String
 
     /** The rules epoch for this [id]. Bumped only when the canonical bytes could differ for some input. */

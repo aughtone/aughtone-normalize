@@ -33,7 +33,7 @@ The wider question is whether that constraint generalizes: phone, domain and URL
 ## Findings
 
 - **The constraint generalizes.** Every identifier normalizer wants the same shape: a named policy, a canonical string, and the policy identity travelling with anything derived from it. That shape became the `:common` contract.
-- **Byte-stability and ordinary normalization are the same interface with different policies**, not two systems. `ByteStableV1` and `ByteStableV1Lenient` differ only in their rules.
+- **Byte-stability and ordinary normalization are the same interface with different policies**, not two systems. `ByteStableV1` and `ByteStableV1Subaddressed` differ only in their rules.
 - **A no-table canonical form is achievable for email and is genuinely permanent.** ASCII trim, ASCII-lowercase, RFC 5233 subaddress stripping and a surrogate check need no Unicode data, so the policy cannot drift when Unicode ships a new version. Measured: 17 tests green across jvm, js, wasmJs and iOS simulator.
 - **Determinism has to be designed for, not tested for.** Every rejected option above would have passed a single-platform test suite. The failures only appear across an OS upgrade or an old app build, which is to say in production and without a signal.
 - **Some things that look adjacent are a different concern.** Geo encodings (Open Location Code, geohash, GeoJson) encode coordinates rather than normalizing identity, and stay in their own repositories. Application-coupled formatters stay with their application; one of them is a port of Google's libaddressinput and is a plausible future extraction, but on its own terms rather than as part of this suite.

@@ -20,7 +20,7 @@ import io.github.aughtone.types.outcome.runOutcome
  * ```
  *
  * Lowercase throughout, so a region reads `region-ca` and never `region-CA`. Examples:
- * `email.byte-stable`, `email.byte-stable+lenient`, `phone.e164+region-ca+lenient`,
+ * `email.byte-stable`, `email.byte-stable+subaddressed`, `phone.e164+region-ca+lenient`,
  * `domain.ascii.u17+lenient`, `email.byte-stable+nfc.u17+punycode.u17`.
  *
  * ## The order

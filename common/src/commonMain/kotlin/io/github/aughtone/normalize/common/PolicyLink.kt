@@ -115,7 +115,7 @@ class PolicyLink(
 
         /**
          * The standard relaxation link, shared by every module that ships a relaxed policy, so that
-         * `email.byte-stable+lenient` and `phone.e164+lenient` mean the same thing by construction
+         * `pan.digits+lenient` and `phone.e164+lenient` mean the same thing by construction
          * rather than by coincidence.
          *
          * Declared after [SEGMENT] deliberately: companion properties initialize in declaration order,
