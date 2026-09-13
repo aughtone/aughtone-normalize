@@ -4,15 +4,14 @@ import io.github.aughtone.normalize.common.PolicyIdentityError
 import io.github.aughtone.types.outcome.Outcome
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
  * A stored `(id, version)` must come back as the policy that produced it.
  *
- * The first test is the one that matters when a fifth form or a new Unicode release is added: publish a
- * policy without listing it in [UnicodePolicies] and this fails, which is the only thing standing
- * between a new policy and a value nobody can re-derive.
+ * The first test is the one that matters when a named configuration is added: publish one without
+ * listing it in `TextPolicy.all` and the resolver's own walk misses it. The configured-policy cases live
+ * in `TextPolicyTest`.
  */
 class UnicodePolicyRoundTripTest {
 
@@ -21,7 +20,7 @@ class UnicodePolicyRoundTripTest {
         for (policy in UnicodePolicies.policies) {
             when (val outcome = UnicodePolicies.resolve(policy.id, policy.version)) {
                 is Outcome.Success -> {
-                    assertSame(policy, outcome.data, "<${policy.id}> resolved to a different instance")
+                    assertEquals(policy, outcome.data, "<${policy.id}> resolved to a different policy")
                     assertEquals(policy.id, outcome.data.id)
                 }
 
@@ -35,7 +34,7 @@ class UnicodePolicyRoundTripTest {
 
     @Test
     fun aResolvedPolicyProducesTheSameBytesAsTheConstant() {
-        val value = "ÅÅﬁ"
+        val value = "  \u00C5A\u030A\uFB01  "
         for (policy in UnicodePolicies.policies) {
             val resolved = (UnicodePolicies.resolve(policy.id, policy.version) as Outcome.Success).data
             assertEquals(
@@ -47,20 +46,20 @@ class UnicodePolicyRoundTripTest {
     }
 
     @Test
-    fun aFormFrozenAgainstAnotherReleaseDoesNotResolve() {
-        // `nfc.u18` is a policy this build does not carry. Resolving it to the Unicode 17 tables would
-        // hand back bytes from the wrong release, which is worse than refusing.
-        val outcome = UnicodePolicies.resolve("nfc.u18", 1)
+    fun aPolicyFrozenAgainstAnotherReleaseDoesNotResolve() {
+        // `text.u18` names a release this build does not carry. Resolving it to the Unicode 17 tables
+        // would hand back bytes from the wrong release, which is worse than refusing.
+        val outcome = UnicodePolicies.resolve("text.u18+nfc", 1)
         assertTrue(outcome is Outcome.Failure && outcome.exception is PolicyIdentityError.UnknownLink)
     }
 
     @Test
-    fun aFormIsUsableAsAStepInAnotherModulesChain() {
-        // What lets a table-free module offer NFC without depending on this one: the policy is also a
-        // step, and its link names the transform inside the composed identity.
+    fun aPolicyIsUsableAsAStepInAnotherModulesChain() {
+        // What lets a table-free module offer text rules without depending on this one: the policy is
+        // also a step, and it contributes its whole group of links to the composed identity.
         val step = TextPolicy.NfcU17
-        assertEquals("nfc.u17", step.link.name)
-        assertEquals("u17", step.link.dataVersion)
-        assertEquals("Å", step.apply("Å"))
+        assertEquals(listOf("text.u17", "nfc"), step.links.map { it.name })
+        assertEquals("u17", step.links.first().dataVersion)
+        assertEquals("\u00C5", step.apply("A\u030A"))
     }
 }

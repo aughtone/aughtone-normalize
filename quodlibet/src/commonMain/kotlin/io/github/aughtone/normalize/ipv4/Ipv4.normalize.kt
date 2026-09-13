@@ -40,6 +40,16 @@ import io.github.aughtone.types.outcome.runOutcome
  * ```
  */
 fun normalizeIpv4(value: String, policy: Ipv4Policy): Outcome<NormalizedIpv4> = runOutcome {
+    NormalizedIpv4(canonical = formatIpv4(policy.parseAddress(value)), policyId = policy.id, policyVersion = policy.version)
+}
+
+/**
+ * Read [value] as one address under this policy's rules, or refuse it with a typed error. Shared by the
+ * address normalizer and the network normalizers, so an address inside a network can never be read
+ * differently from the same address on its own.
+ */
+internal fun Ipv4Policy.parseAddress(value: String): Long {
+    val policy = this
     if (value.isEmpty()) throw Ipv4NormalizationError.MalformedAddress()
     // Not trimmed: an address is not a sentence, and trimming is a rule that invites more of them.
     val parts = value.split('.')
@@ -60,12 +70,12 @@ fun normalizeIpv4(value: String, policy: Ipv4Policy): Outcome<NormalizedIpv4> = 
 
     var address = 0L
     for (part in leading) address = (address shl 8) or part
-    address = (address shl (8 * trailingBytes)) or trailing
-
-    val canonical = "${(address shr 24) and 0xFF}.${(address shr 16) and 0xFF}." +
-        "${(address shr 8) and 0xFF}.${address and 0xFF}"
-    NormalizedIpv4(canonical = canonical, policyId = policy.id, policyVersion = policy.version)
+    return (address shl (8 * trailingBytes)) or trailing
 }
+
+/** The canonical dotted-quad spelling of a 32-bit address: four decimal octets, no leading zeros. */
+internal fun formatIpv4(address: Long): String =
+    "${(address shr 24) and 0xFF}.${(address shr 16) and 0xFF}.${(address shr 8) and 0xFF}.${address and 0xFF}"
 
 /**
  * A frozen IPv4 normalization policy.
@@ -198,4 +208,19 @@ sealed class Ipv4NormalizationError(message: String) : Exception(message) {
 
     /** A shorthand form: fewer than four parts, a hexadecimal part, or a bare integer. */
     class ShorthandNotSupported : Ipv4NormalizationError("ipv4: shorthand form not supported")
+
+    /** CIDR input with no `/` and prefix length. */
+    class MissingPrefix : Ipv4NormalizationError("ipv4: missing prefix length")
+
+    /** A prefix length that is empty, not decimal, or padded with a leading zero. */
+    class MalformedPrefix : Ipv4NormalizationError("ipv4: malformed prefix length")
+
+    /** A prefix length longer than the address family allows. */
+    class PrefixOutOfRange : Ipv4NormalizationError("ipv4: prefix length out of range")
+
+    /**
+     * CIDR input whose address has bits set beyond the prefix - a host inside the network rather than the
+     * network - under the policy that refuses it rather than clearing them.
+     */
+    class HostBitsSet : Ipv4NormalizationError("ipv4: host bits set")
 }

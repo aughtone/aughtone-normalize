@@ -63,6 +63,9 @@ class UcdSource(private val directory: File) {
         val compatibility = LinkedHashMap<Int, List<Int>>()
         val combiningClasses = LinkedHashMap<Int, Int>()
         val marks = sortedSetOf<Int>()
+        val controls = sortedSetOf<Int>()
+        val simpleUppercase = LinkedHashMap<Int, Int>()
+        val simpleLowercase = LinkedHashMap<Int, Int>()
 
         File(directory, "UnicodeData.txt").forEachLine { line ->
             if (line.isBlank()) return@forEachLine
@@ -77,6 +80,15 @@ class UcdSource(private val directory: File) {
             // identify them - a spacing mark has class zero and is still a mark.
             if (fields[2].startsWith("M")) marks += codePoint
 
+            // General_Category=Cc: what a text policy's control-stripping rule removes. No control
+            // character lives inside a First/Last range, so skipping those loses nothing.
+            if (fields[2] == "Cc") controls += codePoint
+
+            // Simple (one-to-one) case mappings. The full mappings in SpecialCasing.txt are
+            // context- and language-sensitive, which a frozen, context-free rule cannot honour.
+            fields.getOrNull(12)?.takeIf { it.isNotEmpty() }?.let { simpleUppercase[codePoint] = it.toInt(16) }
+            fields.getOrNull(13)?.takeIf { it.isNotEmpty() }?.let { simpleLowercase[codePoint] = it.toInt(16) }
+
             val ccc = fields[3].toInt()
             if (ccc != 0) combiningClasses[codePoint] = ccc
 
@@ -90,7 +102,7 @@ class UcdSource(private val directory: File) {
                 }
             }
         }
-        return UnicodeData(canonical, compatibility, combiningClasses, marks)
+        return UnicodeData(canonical, compatibility, combiningClasses, marks, controls, simpleUppercase, simpleLowercase)
     }
 
     /**
@@ -204,6 +216,34 @@ class UcdSource(private val directory: File) {
         return entries.sortedBy { it.first }
     }
 
+    /** Read one boolean property out of `PropList.txt`, such as White_Space. */
+    fun readListedProperty(name: String): List<RangeEntry> =
+        readRanges("PropList.txt") { fields -> fields[1] }
+            .filter { it.value == name }
+            .map { RangeEntry(it.first, it.last, "y") }
+            .also { require(it.isNotEmpty()) { "no $name entries found: wrong file?" } }
+
+    /**
+     * Read full case folding from `CaseFolding.txt`: the common (`C`) and full (`F`) entries, which
+     * together are the folding Unicode defines for caseless matching.
+     *
+     * The simple (`S`) entries are the one-to-one alternative to `F`, and the Turkic (`T`) entries are
+     * locale-specific; neither belongs in a context-free frozen rule.
+     */
+    fun readCaseFolding(): Map<Int, List<Int>> {
+        val folds = java.util.TreeMap<Int, List<Int>>()
+        File(directory, "CaseFolding.txt").forEachLine { raw ->
+            val line = raw.substringBefore('#').trim()
+            if (line.isEmpty()) return@forEachLine
+            val fields = line.split(';').map { it.trim() }
+            require(fields.size >= 3) { "malformed CaseFolding line: $raw" }
+            if (fields[1] != "C" && fields[1] != "F") return@forEachLine
+            folds[fields[0].toInt(16)] = fields[2].split(' ').filter { it.isNotEmpty() }.map { it.toInt(16) }
+        }
+        require(folds.isNotEmpty()) { "no case foldings found: wrong file?" }
+        return folds
+    }
+
     /** Read `BidiBrackets.txt`: each bracket, its pair, and whether it opens or closes. */
     fun readBidiBrackets(): List<RangeEntry> {
         val entries = mutableListOf<RangeEntry>()
@@ -295,12 +335,15 @@ class UcdSource(private val directory: File) {
     }
 }
 
-/** The normalization fields of `UnicodeData.txt`, keyed by code point. */
+/** The fields of `UnicodeData.txt` the suite uses, keyed by code point. */
 class UnicodeData(
     val canonicalDecompositions: Map<Int, List<Int>>,
     val compatibilityDecompositions: Map<Int, List<Int>>,
     val combiningClasses: Map<Int, Int>,
     val marks: Set<Int>,
+    val controls: Set<Int>,
+    val simpleUppercase: Map<Int, Int>,
+    val simpleLowercase: Map<Int, Int>,
 )
 
 /** A code point range carrying one property value, as the derived property files publish them. */

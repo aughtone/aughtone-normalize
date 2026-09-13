@@ -43,6 +43,8 @@ Then add `include(":yourmodule")` to `settings.gradle.kts`. Depend on `api(proje
 
 The permutation matrix is the specification. At minimum: each failure mode with its typed error identity, idempotence, and the fact that the same input yields byte-identical output. Use plain camelCase test names.
 
+Pin the outputs in a **frozen corpus** named for what it is frozen against. A policy that uses Unicode data gets a corpus with the release in its name, matching the constant — `DomainByteStabilityU17Test` for `AsciiU17` — so a later release adds `…U18Test` beside it and never edits the old one. A policy that uses no Unicode data gets an unversioned name, `EmailByteStabilityTest`, because no Unicode release can change it. A module with both keeps them in separate files, as `:unicode` does with `TextAsciiRulesByteStabilityTest` and `TextRulesByteStabilityU17Test`.
+
 ```bash
 ./gradlew check
 ```
@@ -53,7 +55,7 @@ Green on every target, not just JVM. A normalizer that passes only on JVM has no
 
 Add every policy to the module's resolver object, the single `PublishedPolicies` subclass that module exposes, along with the links the policies are built from. Build each policy's `id` by rendering a chain through `PolicyId` rather than writing the string out by hand — the written and parsed forms have to agree forever, and one grammar for both is what keeps them agreeing.
 
-Then copy the round-trip test: every published policy must resolve from its own `(id, version)` and come back as the same instance. A policy missing from the resolver still normalizes, so nothing fails at build time — it simply cannot be re-derived from a stored id later, which is discovered by the consumer, years on, with the inputs gone.
+Then copy the round-trip test: every published policy must resolve from its own `(id, version)` and come back as an equal policy. A policy missing from the resolver still normalizes, so nothing fails at build time — it simply cannot be re-derived from a stored id later, which is discovered by the consumer, years on, with the inputs gone.
 
 ## 6. Record it
 

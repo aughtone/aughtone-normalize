@@ -14,12 +14,12 @@ It works just as well for ordinary normalization (search keys, dedupe, display) 
 
 ## 📦 Modules
 
-Every normalizer in the roster is built: email, credit-card/PAN, IBAN, IPv4, IPv6 and usernames in `:quodlibet`; the four Unicode forms in `:unicode`; hostnames, domains and URLs in `:ubilibet`; UTS-39 skeletons in `:confusables`; and phone numbers in `:phone`.
+Every normalizer in the roster is built: email, credit-card/PAN, IBAN, IPv4, IPv6 and usernames in `:quodlibet`; configurable text normalization in `:unicode`; hostnames, domains and URLs in `:ubilibet`; UTS-39 skeletons in `:confusables`; and phone numbers in `:phone`.
 
 | Module | Coordinate | What it does |
 |---|---|---|
 | `:quodlibet` | `io.github.aughtone.normalize:quodlibet` | every normalizer that needs no lookup table and no external dependency: email, credit-card/PAN, IBAN, IPv4, IPv6 and usernames, each with named frozen policies and typed, value-free errors |
-| `:unicode` | `io.github.aughtone.normalize:unicode` | NFC, NFD, NFKC and NFKD against tables frozen from a pinned Unicode release, never the platform's |
+| `:unicode` | `io.github.aughtone.normalize:unicode` | configurable text normalization — trim, spaces, case, case folding, NFC/NFD/NFKC/NFKD — over ASCII or against tables frozen from a pinned Unicode release, never the platform's |
 | `:ubilibet` | `io.github.aughtone.normalize:ubilibet` | every hostname and domain, ASCII included, under UTS-46 with Punycode, and URLs — the full IDNA conformance suite passes on every target |
 | `:confusables` | `io.github.aughtone.normalize:confusables` | UTS-39 skeletons for spoof detection, including the bidirectional algorithm the standard defines them through |
 | `:phone` | `io.github.aughtone.normalize:phone` | phone numbers to E.164, with the region on the policy so a country code is never guessed |
@@ -94,17 +94,30 @@ normalizeEmail(value, EmailPolicy.ByteStableV1)
 val canonical: String? = normalizeEmail(value, EmailPolicy.ByteStableV1).dataOrNull()?.canonical
 ```
 
-### Unicode Normalization (`:unicode`)
+### Text Normalization (`:unicode`)
 ```kotlin
 import io.github.aughtone.normalize.unicode.TextPolicy
+import io.github.aughtone.normalize.unicode.UnicodeRelease
 import io.github.aughtone.normalize.unicode.normalizeText
 
-normalizeText(value, TextPolicy.NfcU17)
-    .onSuccess { normalized -> store(normalized.canonical) }   // identical on every platform, forever
+// ASCII rules only: text+trim+lower. Names no Unicode release, so it never goes stale.
+val field = TextPolicy { ascii { trim(); lowercase() } }
+
+// Unicode rules against frozen Unicode 17 data: text.u17+trim+casefold+nfc
+val caseless = TextPolicy(UnicodeRelease.U17) { unicode { trim(); casefold(); nfc() } }
+
+normalizeText(value, caseless)
+    .onSuccess { normalized -> store(normalized.canonical, normalized.policyId, normalized.policyVersion) }
     .onFailure { failure -> log(failure.exception) }          // a typed, value-free TextNormalizationError
 ```
 
-`NfcU17` and `NfdU17` are canonical and lossless. `NfkcU17` and `NfkdU17` are compatibility forms and deliberately lossy — a ligature becomes its letters and cannot be turned back — so they are useful for search and wrong for a token you expect to round-trip. The tables are frozen against Unicode 17.0.0 and shipped with the library, so a new OS release cannot change what your application produces; a new Unicode release is a new policy, `NfcU18`, never a changed `NfcU17`.
+`normalizeText` is one configurable normalizer for general text fields. The rules are `stripControl`, `trim`, `collapseSpace`, `removeSpace`, `lowercase`, `uppercase`, `casefold`, the four normalization forms and `nonEmpty`, and each runs over the character set of the block it sits in: `ascii { }` touches only ASCII, `unicode { }` uses tables frozen from the named Unicode release and shipped with the library, never the platform's. A new OS release cannot change what your application produces, and a new Unicode release is a new policy (`text.u18…`), never a changed one.
+
+**Rules always run in one fixed order** — strip control characters, trim, spaces, case, normalization form, then the non-empty check — however you write them, so the same rules always produce the same bytes and one configuration has one id. Writing them in a different order still works, and is reported through `policy.warnings` and `TextPolicy.warningHandler` (printed by default, replaceable or silenceable).
+
+The id states the Unicode release once and only when a rule uses it: `text+trim+lower` is all ASCII, `text.u17+trim+lower.ascii` marks the one ASCII rule inside a Unicode policy. `NfkcU17`, `NfkdU17` and the `nfkc`/`nfkd` rules are deliberately lossy — a ligature becomes its letters and cannot be turned back — so they are for search, not for a token you expect to round-trip. Named presets such as `TextPolicy.NfcU17`, `TrimLowercase` and `CaselessU17` are conveniences for common configurations, nothing more.
+
+This is not an identifier normalizer: emails, domains, phone numbers and handles have their own.
 
 ### Hostname and Domain Normalization (`:ubilibet`)
 ```kotlin

@@ -13,7 +13,7 @@ Everything is checked in on purpose. A build that downloads the data it freezes 
 
 ## Moving to a new Unicode release
 
-1. **Add the data.** Create `ucd/<new-version>/`, download that release's `UnicodeData.txt`, `CompositionExclusions.txt`, `DerivedNormalizationProps.txt` and `NormalizationTest.txt` from `https://www.unicode.org/Public/<new-version>/ucd/`, and write `SHA256SUMS` for them (`shasum -a 256 *.txt > SHA256SUMS`).
+1. **Add the data.** Create `ucd/<new-version>/`, download that release's copy of every file the current `ucd/<version>/` directory holds from `https://www.unicode.org/Public/<new-version>/` (the IDNA files are under `idna/`, `confusables.txt` under `security/`, the rest under `ucd/`; where a file is only published under `latest/`, confirm the version in its header before pinning it), and write `SHA256SUMS` for them (`shasum -a 256 *.txt > SHA256SUMS`). The generator refuses a file the checksums do not cover, and a checksum for a file that is missing.
 2. **Copy the previous baselines** into `ucd/<new-version>/baseline/`. This is what the regeneration is compared against, and it is how a modified entry is noticed at all — without it every entry looks new.
 3. **Point the generator at the new directory** in `tools/ucd-generator/build.gradle.kts`.
 4. **Regenerate:**
@@ -23,6 +23,7 @@ Everything is checked in on purpose. A build that downloads the data it freezes 
    ```
 
 5. **Read the material-change report** it prints, then run `./gradlew check`.
+6. **Mint new policies, never edit old ones.** A new release is a new identity: `AsciiU18` beside `AsciiU17`, `text.u18` beside `text.u17`. Each gets its own frozen corpus beside the existing one — `DomainByteStabilityU18Test` next to `DomainByteStabilityU17Test`, `TextRulesByteStabilityU18Test` next to `TextRulesByteStabilityU17Test` — and the U17 corpora are not touched, because the U17 policies go on producing those bytes. Unversioned corpora such as `TextAsciiRulesByteStabilityTest` cover rules that use no Unicode data and need nothing for a new release.
 
 ## Reading the report
 
@@ -30,7 +31,7 @@ The generator classifies every difference between the previous baseline and the 
 
 - **Additions only** is the ordinary outcome. New characters got decompositions; nothing already normalized changed. The diff is the delta.
 - **A modification or removal in a normalization table stops the build**, and that is the point. The Unicode stability policy forbids changing an existing decomposition or combining class, so if one appears to have changed, either the input is not what it claims to be or an assumption this suite is built on has failed. Investigate it; never regenerate past it. A genuine upstream change of this kind is a new policy, not a rewritten table — every value already derived under the old data would otherwise silently stop matching.
-- **Other table families report modifications without failing.** UTS-46 permits a previously disallowed character to change, and UTS-39 permits any confusable mapping to change, so their modules decide what a change means for their policies rather than the generator refusing on their behalf.
+- **Other table families report modifications without failing.** UTS-46 permits a previously disallowed character to change, UTS-39 permits any confusable mapping to change, and the text tables (whitespace, controls, case folding and case mappings) belong to policies that name their release, so their modules decide what a change means for their policies rather than the generator refusing on their behalf.
 
 ## When `verifyUnicodeTables` fails
 

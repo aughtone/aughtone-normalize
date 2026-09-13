@@ -60,8 +60,11 @@ fun normalizeSkeleton(value: String, policy: ConfusablePolicy): Outcome<Normaliz
 class ConfusablePolicy internal constructor(
     override val id: String,
     override val version: Int,
-    override val link: PolicyLink,
+    internal val link: PolicyLink,
 ) : Policy, NormalizationStep {
+
+    /** A group of one: the skeleton takes no qualifiers. */
+    override val links: List<PolicyLink> = listOf(link)
 
     override fun apply(value: String): String = Skeleton.of(value)
 
@@ -99,8 +102,9 @@ sealed class ConfusableNormalizationError(message: String) : Exception(message) 
  * Every policy this module publishes, so a stored id resolves back to the policy that produced it.
  *
  * A caller composing the skeleton into another module's chain resolves the result by combining this
- * resolver with that module's - `QuodlibetPolicies + ConfusablesPolicies` resolves
- * `username.basic+skeleton.u17`.
+ * resolver with the resolvers of every module the chain names. `QuodlibetPolicies + ConfusablesPolicies`
+ * resolves `username.basic+skeleton.u17` to a `ComposedPolicy` whose base and steps re-derive the same
+ * bytes; a chain that also carries a text policy needs `UnicodePolicies` in the combination too.
  */
 object ConfusablesPolicies : PublishedPolicies() {
 

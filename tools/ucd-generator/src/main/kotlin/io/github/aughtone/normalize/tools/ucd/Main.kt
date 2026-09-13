@@ -51,7 +51,13 @@ fun main(args: Array<String>) {
     val defaultIgnorable = rangeTable("default-ignorable", Family.Confusables, source.readCoreProperty("Default_Ignorable_Code_Point"))
     val brackets = rangeTable("bidi-brackets", Family.Idna, source.readBidiBrackets())
     val mirroring = rangeTable("bidi-mirroring", Family.Idna, source.readBidiMirroring())
-    val tables = normalization + listOf(bidiClasses, idnaMappings, joiningTypes, marks, confusables, defaultIgnorable, brackets, mirroring)
+    val whiteSpace = rangeTable("white-space", Family.Text, source.readListedProperty("White_Space"))
+    val controls = Table("controls", Family.Text, unicodeData.controls.sorted().associate { hex(it) to "" })
+    val caseFolding = mappingTable("case-folding", Family.Text, source.readCaseFolding())
+    val simpleLowercase = mappingTable("simple-lowercase", Family.Text, unicodeData.simpleLowercase.mapValues { listOf(it.value) })
+    val simpleUppercase = mappingTable("simple-uppercase", Family.Text, unicodeData.simpleUppercase.mapValues { listOf(it.value) })
+    val text = listOf(whiteSpace, controls, caseFolding, simpleLowercase, simpleUppercase)
+    val tables = normalization + listOf(bidiClasses, idnaMappings, joiningTypes, marks, confusables, defaultIgnorable, brackets, mirroring) + text
 
     val baselineDirectory = File(ucdDirectory, "baseline")
     val diffs = tables.map { table ->
@@ -110,6 +116,21 @@ fun main(args: Array<String>) {
                     brackets.name to brackets.encode(),
                     mirroring.name to mirroring.encode(),
                 ),
+            ),
+        )
+        put(
+            generated(root, "unicode", "commonMain", "TextTables.kt"),
+            Emit.encodedObject(
+                source.version, "io.github.aughtone.normalize.unicode.generated", "TextTables",
+                """
+                |/**
+                | * The frozen data behind the configurable text rules for Unicode ${source.version}: the White_Space
+                | * and control (General_Category Cc) code points, full case folding (statuses C and F), and the
+                | * simple one-to-one case mappings. Membership tables are ranges `first-last:y` or bare code
+                | * points; mappings are `codepoint>mapping`. Entries are joined by `;`.
+                | */
+                """.trimMargin(),
+                text.map { it.name to it.encode() },
             ),
         )
         put(

@@ -27,15 +27,22 @@ import io.github.aughtone.types.outcome.runOutcome
  * ```
  */
 fun normalizeIpv6(value: String, policy: Ipv6Policy): Outcome<NormalizedIpv6> = runOutcome {
+    NormalizedIpv6(canonical = renderIpv6(parseIpv6Address(value)), policyId = policy.id, policyVersion = policy.version)
+}
+
+/**
+ * Read [value] as one address into its eight 16-bit fields, or refuse it with a typed error. Shared by
+ * the address normalizer and the network normalizers, so an address inside a network can never be read
+ * differently from the same address on its own.
+ */
+internal fun parseIpv6Address(value: String): IntArray {
     // Every refusal below exists because the alternative would either lie about the address or lose
     // part of it, and this normalizer's output is something a caller matches on.
     if (value.contains('%')) throw Ipv6NormalizationError.ZoneIdentifier()
     if (value.contains('[') || value.contains(']')) throw Ipv6NormalizationError.Bracketed()
     if (value.contains('/')) throw Ipv6NormalizationError.PrefixLength()
     if (!value.contains(':')) throw Ipv6NormalizationError.NotIpv6()
-
-    val fields = parse(value)
-    NormalizedIpv6(canonical = render(fields), policyId = policy.id, policyVersion = policy.version)
+    return parse(value)
 }
 
 /** Parse into eight 16-bit fields, expanding `::` and any trailing dotted-quad. */
@@ -100,7 +107,7 @@ private fun String.toFields(): List<Int> {
 }
 
 /** Render the RFC 5952 form: lowercase, no leading zeros, longest zero run compressed. */
-private fun render(fields: IntArray): String {
+internal fun renderIpv6(fields: IntArray): String {
     if (fields.isIpv4Mapped()) {
         val high = fields[6]
         val low = fields[7]
@@ -193,4 +200,19 @@ sealed class Ipv6NormalizationError(message: String) : Exception(message) {
 
     /** Not a well-formed address: wrong field count, two `::`, or a field out of range. */
     class MalformedAddress : Ipv6NormalizationError("ipv6: malformed address")
+
+    /** CIDR input with no `/` and prefix length. */
+    class MissingPrefix : Ipv6NormalizationError("ipv6: missing prefix length")
+
+    /** A prefix length that is empty, not decimal, or padded with a leading zero. */
+    class MalformedPrefix : Ipv6NormalizationError("ipv6: malformed prefix length")
+
+    /** A prefix length longer than the address family allows. */
+    class PrefixOutOfRange : Ipv6NormalizationError("ipv6: prefix length out of range")
+
+    /**
+     * CIDR input whose address has bits set beyond the prefix - a host inside the network rather than the
+     * network - under the policy that refuses it rather than clearing them.
+     */
+    class HostBitsSet : Ipv6NormalizationError("ipv6: host bits set")
 }
