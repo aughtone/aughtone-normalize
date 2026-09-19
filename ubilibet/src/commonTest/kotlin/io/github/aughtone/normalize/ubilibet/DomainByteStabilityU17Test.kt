@@ -134,8 +134,9 @@ class DomainByteStabilityU17Test {
 
     @Test
     fun policyIdentitiesAreFrozen() {
+        // Renamed in 0.0.4 with the suite-wide id sweep (#29): the identity changed, the bytes did not.
         assertEquals("domain.ascii.u17", DomainPolicy.AsciiU17.id)
-        assertEquals("domain.ascii.u17+lenient", DomainPolicy.AsciiU17Lenient.id)
+        assertEquals("domain.ascii.u17:lenient", DomainPolicy.AsciiU17Lenient.id)
         assertEquals(1, DomainPolicy.AsciiU17.version)
         assertEquals(1, DomainPolicy.AsciiU17Lenient.version)
     }

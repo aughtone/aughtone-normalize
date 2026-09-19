@@ -49,7 +49,7 @@ class UnicodePolicyRoundTripTest {
     fun aPolicyFrozenAgainstAnotherReleaseDoesNotResolve() {
         // `text.u18` names a release this build does not carry. Resolving it to the Unicode 17 tables
         // would hand back bytes from the wrong release, which is worse than refusing.
-        val outcome = UnicodePolicies.resolve("text.u18+nfc", 1)
+        val outcome = UnicodePolicies.resolve("text.u18:nfc", 1)
         assertTrue(outcome is Outcome.Failure && outcome.exception is PolicyIdentityError.UnknownLink)
     }
 

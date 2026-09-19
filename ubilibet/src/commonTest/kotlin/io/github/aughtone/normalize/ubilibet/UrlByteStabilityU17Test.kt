@@ -111,8 +111,8 @@ class UrlByteStabilityU17Test {
     fun theHostPolicyIsPartOfTheIdentity() {
         // Two URL policies that differ only in how the host is validated are different identities,
         // because they can produce different bytes for the same input.
-        assertEquals("url.rfc3986+domain.ascii.u17", UrlPolicy.Rfc3986U17.id)
-        assertEquals("url.rfc3986+domain.ascii.u17+lenient", UrlPolicy.Rfc3986U17Lenient.id)
+        assertEquals("url.rfc3986:domain.ascii.u17", UrlPolicy.Rfc3986U17.id)
+        assertEquals("url.rfc3986:domain.ascii.u17:lenient", UrlPolicy.Rfc3986U17Lenient.id)
 
         // An underscore in a host is refused by the strict policy and accepted by the lenient one.
         assertRefused<UrlNormalizationError.InvalidHost>("https://exa_mple.com/")

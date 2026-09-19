@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
  *
  * That is the interesting case here. There are hundreds of regions and a caller uses one or two, so the
  * module does not publish a constant per region; resolution rebuilds the policy from the `region-xx`
- * link instead. If it could not, a value normalized under `phone.e164+region-ca` would be impossible to
+ * link instead. If it could not, a value normalized under `phone.e164:region.ca` would be impossible to
  * re-derive from what the caller stored, which is the whole point of keeping the identity.
  */
 class PhonePolicyRoundTripTest {
@@ -35,16 +35,16 @@ class PhonePolicyRoundTripTest {
 
     @Test
     fun aRegionPolicyResolvesAndNormalizesIdentically() {
-        for (id in listOf("phone.e164+region-ca", "phone.e164+region-gb+lenient")) {
+        for (id in listOf("phone.e164:region.ca", "phone.e164:region.gb:lenient")) {
             val outcome = PhonePolicies.resolve(id, 1)
             assertTrue(outcome is Outcome.Success, "<$id> must resolve")
             assertEquals(id, outcome.data.id)
 
             val resolved = outcome.data as PhonePolicy
-            val direct = if (id.endsWith("+lenient")) {
-                PhonePolicy.e164ForRegionLenient(id.substringAfter("region-").substringBefore('+'))
+            val direct = if (id.endsWith(":lenient")) {
+                PhonePolicy.e164ForRegionLenient(id.substringAfter("region.").substringBefore(':'))
             } else {
-                PhonePolicy.e164ForRegion(id.substringAfter("region-"))
+                PhonePolicy.e164ForRegion(id.substringAfter("region."))
             }
             val value = "+12125550123"
             assertEquals(
@@ -59,10 +59,10 @@ class PhonePolicyRoundTripTest {
     fun anUnusableIdentityIsRefusedRatherThanApproximated() {
         // A region with no metadata cannot be rebuilt, and must not fall back to a policy for somewhere
         // else - a token derived under it would be a real number in the wrong country.
-        val unknownRegion = PhonePolicies.resolve("phone.e164+region-zz", 1)
+        val unknownRegion = PhonePolicies.resolve("phone.e164:region.zz", 1)
         assertTrue(unknownRegion is Outcome.Failure, "an unknown region must not resolve")
 
-        val unknownLink = PhonePolicies.resolve("phone.e164+strict", 1)
+        val unknownLink = PhonePolicies.resolve("phone.e164:strict", 1)
         assertTrue(unknownLink is Outcome.Failure && unknownLink.exception is PolicyIdentityError.UnknownLink)
 
         val wrongVersion = PhonePolicies.resolve("phone.e164", 2)
@@ -77,13 +77,13 @@ class PhonePolicyRoundTripTest {
             override val links: List<PolicyLink> = emptyList()
         }
         val combined = otherModule + PhonePolicies
-        for (id in listOf("phone.e164+region-ca", "phone.e164+region-gb+lenient")) {
+        for (id in listOf("phone.e164:region.ca", "phone.e164:region.gb:lenient")) {
             val alone = PhonePolicies.resolve(id, 1)
             val through = combined.resolve(id, 1)
             assertTrue(alone is Outcome.Success && through is Outcome.Success, "<$id> must resolve through a composite")
             assertEquals(alone.data.id, through.data.id)
         }
-        val unknownRegion = combined.resolve("phone.e164+region-zz", 1)
+        val unknownRegion = combined.resolve("phone.e164:region.zz", 1)
         assertTrue(unknownRegion is Outcome.Failure, "an unknown region must not resolve through a composite either")
     }
 }

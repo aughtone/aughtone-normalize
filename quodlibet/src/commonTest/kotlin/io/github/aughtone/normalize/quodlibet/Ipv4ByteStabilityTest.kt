@@ -123,8 +123,9 @@ class Ipv4ByteStabilityTest {
 
     @Test
     fun policyIdentitiesAreFrozen() {
-        assertEquals("ipv4.dotted-quad", Ipv4Policy.DottedQuad.id)
-        assertEquals("ipv4.inet-aton", Ipv4Policy.InetAton.id)
+        // Renamed in 0.0.4 with the suite-wide id sweep (#29): the identity changed, the bytes did not.
+        assertEquals("ipv4.quad.dotted", Ipv4Policy.DottedQuad.id)
+        assertEquals("ipv4.inet.aton", Ipv4Policy.InetAton.id)
         assertEquals(1, Ipv4Policy.DottedQuad.version)
         assertEquals(1, Ipv4Policy.InetAton.version)
     }

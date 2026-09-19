@@ -20,7 +20,7 @@ import io.github.aughtone.types.outcome.runOutcome
  *
  * A policy declares a form in [Policy.forms] where its rules guarantee the meaning - a strict/lenient
  * pair, for instance. Where a comparison is an interpretation instead, the policy offers the form in
- * [Policy.offeredForms] and a caller opts in by naming it in the id: `ipv4.inet-aton+form.ipv4.address`.
+ * [Policy.offeredForms] and a caller opts in by naming it in the id: `ipv4.inet.aton:form.ipv4.address`.
  * Either way the declaration comes back when a stored id is resolved, so nothing extra has to be stored.
  *
  * ## Frozen, and additive
@@ -70,7 +70,7 @@ class ComparableForm(val name: String) : Comparable<ComparableForm> {
  */
 class OptedInPolicy internal constructor(val policy: Policy, val optedIn: Set<ComparableForm>) : Policy {
 
-    override val id: String = (listOf(policy.id) + optedIn.sorted().map { it.link.name }).joinToString("+")
+    override val id: String = (listOf(policy.id) + optedIn.sorted().map { it.link.name }).joinToString(":")
 
     override val version: Int = policy.version
 

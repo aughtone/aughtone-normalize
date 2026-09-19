@@ -56,33 +56,39 @@ class PolicyRoundTripTest {
     }
 
     @Test
-    fun theSubaddressedPolicyIsReachedByItsChainedIdentity() {
-        // The identity says what the policy is: the base rule set, then the parameter that keeps the subaddress.
-        val o = QuodlibetPolicies.resolve("email.byte-stable+subaddressed", 1)
+    fun theSubaddressRemovingPolicyIsReachedByItsChainedIdentity() {
+        // The identity says what the policy is: the base rule set, then the option that removes the tag.
+        val o = QuodlibetPolicies.resolve("email:subaddress.removed", 1)
         assertTrue(o is Outcome.Success)
-        assertSame(EmailPolicy.ByteStableV1Subaddressed, o.data)
+        assertSame(EmailPolicy.SubaddressRemoved, o.data)
     }
 
     @Test
     fun anUnknownPolicyIsRefusedRatherThanApproximated() {
         // Every one of these is a well-formed chain of links this module publishes, or a link it does
         // not. None of them may resolve to something close enough.
-        val o = QuodlibetPolicies.resolve("email.byte-stable+nfc.u17", 1)
+        val o = QuodlibetPolicies.resolve("email:nfc.u17", 1)
         assertTrue(o is Outcome.Failure && o.exception is PolicyIdentityError.UnknownLink)
 
         val stale = QuodlibetPolicies.resolve("email.lenient", 1)
         assertTrue(stale is Outcome.Failure && stale.exception is PolicyIdentityError.UnknownLink)
 
         // Withdrawn in 0.0.3 with a clean break: the policy keeps the subaddress, it does not relax a rule.
-        val withdrawn = QuodlibetPolicies.resolve("email.byte-stable+lenient", 1)
+        val withdrawn = QuodlibetPolicies.resolve("email.byte-stable:lenient", 1)
         assertTrue(withdrawn is Outcome.Failure && withdrawn.exception is PolicyIdentityError, "got $withdrawn")
+
+        // Withdrawn in 0.0.4: every `+`-joined id, and the base that used to strip the subaddress by default.
+        for (id in listOf("email.byte-stable", "email.byte-stable+subaddressed", "text.u17+trim+lower")) {
+            val gone = QuodlibetPolicies.resolve(id, 1)
+            assertTrue(gone is Outcome.Failure && gone.exception is PolicyIdentityError, "<$id> must not resolve, got $gone")
+        }
     }
 
     @Test
     fun aVersionThisBuildDoesNotCarryIsRefused() {
         // Same id, different rules epoch: resolving it to v1 would hand back bytes the caller's stored
         // values were never derived under.
-        val o = QuodlibetPolicies.resolve("email.byte-stable", 2)
+        val o = QuodlibetPolicies.resolve("email:subaddress.removed", 2)
         assertTrue(o is Outcome.Failure, "a version that does not exist must not resolve")
         val error = o.exception
         assertTrue(

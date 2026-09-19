@@ -79,13 +79,13 @@ class TextRulesByteStabilityU17Test {
             ascii { lowercase() }
             nonEmpty()
         }
-        assertEquals("text.u17+trim+lower.ascii+non-empty", policy.id)
+        assertEquals("text.u17:space.trimmed:case.lower.ascii:empty.refused", policy.id)
         assertEquals("\u00C4b", canonical("\u3000\u00C4B\u00A0", policy))
     }
 
     @Test
     fun theUnicodeConvenienceConfigurationIsFrozen() {
-        assertEquals("text.u17+trim+casefold+nfc", TextPolicy.CaselessU17.id)
+        assertEquals("text.u17:space.trimmed:case.folded:nfc", TextPolicy.CaselessU17.id)
         val once = canonical("  Stra\u00DFe  ", TextPolicy.CaselessU17)
         assertEquals(once, canonical(once, TextPolicy.CaselessU17), "FROZEN: CaselessU17 is not idempotent")
     }

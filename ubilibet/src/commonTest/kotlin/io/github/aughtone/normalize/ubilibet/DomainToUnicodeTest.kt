@@ -97,7 +97,10 @@ class DomainToUnicodeTest {
 
     @Test
     fun anUnpairedSurrogateFailsTheWholeCall() {
-        val outcome = toUnicodeDomain("a\ud800.example", DomainPolicy.AsciiU17)
+        // Built at run time rather than written as a literal: a lone surrogate cannot be encoded in the
+        // compiler's output, so a literal one is emitted as `?` whenever the compile runs in a non-UTF-8
+        // JVM, and the case silently stops being tested.
+        val outcome = toUnicodeDomain("a" + 0xD800.toChar() + ".example", DomainPolicy.AsciiU17)
         assertTrue(outcome is Outcome.Failure)
         assertIs<DomainNormalizationError.UnpairedSurrogate>(outcome.exception)
     }

@@ -29,7 +29,7 @@ import io.github.aughtone.types.outcome.runOutcome
  * ## Confusable folding is a chain, and a different identity
  *
  * A caller wanting anti-spoofing passes the skeleton step from `:confusables`, producing the chained
- * policy `username.basic+skeleton.u17`. That fold is deliberately many-to-one - it exists to make a
+ * policy `username.basic:skeleton.u17`. That fold is deliberately many-to-one - it exists to make a
  * lookalike collide with its target - so **it is a check, never an account key**. Storing a folded
  * handle as an identity merges genuinely different accounts.
  *

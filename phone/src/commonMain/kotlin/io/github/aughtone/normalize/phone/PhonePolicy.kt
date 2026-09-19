@@ -23,7 +23,7 @@ import io.github.aughtone.types.outcome.dataOrElse
  *
  * ## The region is in the identity, and every phone policy writes one comparable form
  *
- * `phone.e164` and `phone.e164+region-ca` are different identities: the region records how national input
+ * `phone.e164` and `phone.e164:region.ca` are different identities: the region records how national input
  * was read. But the output is always the E.164 number, so every phone policy - with or without a region,
  * strict or lenient - declares the comparable form [PhoneForms.E164]. Values from different phone policies
  * are therefore comparable explicitly, through `PolicyResolver.comparability`, rather than by trusting that
@@ -107,7 +107,7 @@ class PhonePolicy internal constructor(
             }
             val links = buildList {
                 add(Base)
-                add(PolicyLink("region-$normalized", LinkKind.Parameter))
+                add(PolicyLink("region.$normalized", LinkKind.Parameter))
                 if (lenient) add(PolicyLink.Lenient)
             }
             return PhonePolicy(
@@ -158,7 +158,7 @@ object PhonePolicies : PublishedPolicies() {
     override fun resolveBase(id: String, version: Int): Outcome<Policy> {
         val region = regionOf(id) ?: return super.resolveBase(id, version)
         val rebuilt = try {
-            if (id.endsWith("+lenient")) {
+            if (id.endsWith(":lenient")) {
                 PhonePolicy.e164ForRegionLenient(region)
             } else {
                 PhonePolicy.e164ForRegion(region)
@@ -169,10 +169,10 @@ object PhonePolicies : PublishedPolicies() {
         return if (rebuilt.id == id && rebuilt.version == version) Outcome.Success(rebuilt) else super.resolveBase(id, version)
     }
 
-    /** The region named by a chain like `phone.e164+region-ca+lenient`, if it names one. */
-    private fun regionOf(id: String): String? = id.split('+')
-        .firstOrNull { it.startsWith("region-") }
-        ?.removePrefix("region-")
+    /** The region named by a chain like `phone.e164:region.ca:lenient`, if it names one. */
+    private fun regionOf(id: String): String? = id.split(':')
+        .firstOrNull { it.startsWith("region.") }
+        ?.removePrefix("region.")
 }
 
 /**

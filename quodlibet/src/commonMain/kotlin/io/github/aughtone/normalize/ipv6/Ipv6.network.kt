@@ -18,13 +18,13 @@ import io.github.aughtone.types.outcome.runOutcome
 /**
  * Derive the network [value] falls in, at the prefix [policy] names.
  *
- * `2001:db8::1` under `ipv6.rfc5952+block-64` is `2001:db8::/64`. Many-to-one by design, so a block is a
+ * `2001:db8::1` under `ipv6.rfc5952:block.64` is `2001:db8::/64`. Many-to-one by design, so a block is a
  * grouping key and never a stand-in for the address. To match an address against a range from a list,
  * run both through the same block policy at the same prefix - see `normalizeIpv4Block` for the reasoning.
  *
  * Under the default policy an IPv4-mapped address (`::ffff:192.0.2.5`) stays IPv6, so it never matches
  * `192.0.2.5` under an IPv4 policy. A policy with the `unmap` or `nat64` mode folds those addresses out to
- * IPv4 instead, which is why its block policy carries two prefixes: `ipv6.rfc5952+unmap+block-v4-24+block-v6-64`
+ * IPv4 instead, which is why its block policy carries two prefixes: `ipv6.rfc5952:ipv4.mapped:block.v4.24:block.v6.64`
  * buckets a mapped address at `/24` as IPv4 and any other address at `/64` as IPv6.
  */
 fun normalizeIpv6Block(value: String, policy: Ipv6BlockPolicy): Outcome<NormalizedIpv6Network> = runOutcome {
@@ -155,7 +155,7 @@ class Ipv6CidrPolicy internal constructor(
 }
 
 /**
- * The block derivation at [prefixLength]: `ipv6.rfc5952+block-64`.
+ * The block derivation at [prefixLength]: `ipv6.rfc5952:block.64`.
  *
  * @throws IllegalArgumentException if [prefixLength] is not between 0 and 128, or if this policy folds
  * IPv4 out and so needs an IPv4 prefix as well - use the overload taking both.
@@ -167,7 +167,7 @@ fun Ipv6Policy.block(prefixLength: Int): Ipv6BlockPolicy {
 }
 
 /**
- * The block derivation for a policy that folds IPv4 out: `ipv6.rfc5952+unmap+block-v4-24+block-v6-64`.
+ * The block derivation for a policy that folds IPv4 out: `ipv6.rfc5952:ipv4.mapped:block.v4.24:block.v6.64`.
  *
  * @throws IllegalArgumentException if this policy does not fold IPv4 out, or a prefix is out of range.
  */
@@ -178,10 +178,10 @@ fun Ipv6Policy.block(ipv4PrefixLength: Int, ipv6PrefixLength: Int): Ipv6BlockPol
     return Ipv6BlockPolicy(this, ipv6PrefixLength, ipv4PrefixLength)
 }
 
-/** CIDR input, refusing host bits set: `ipv6.rfc5952+cidr`. */
+/** CIDR input, refusing host bits set: `ipv6.rfc5952:cidr`. */
 fun Ipv6Policy.cidr(): Ipv6CidrPolicy = Ipv6CidrPolicy(this, masked = false)
 
-/** CIDR input, clearing host bits: `ipv6.rfc5952+cidr+masked`. */
+/** CIDR input, clearing host bits: `ipv6.rfc5952:cidr:host.zeroed`. */
 fun Ipv6Policy.cidrMasked(): Ipv6CidrPolicy = Ipv6CidrPolicy(this, masked = true)
 
 /**
@@ -218,9 +218,9 @@ private const val FIELD_BITS = 16
 /** The prefix length at which a network sits wholly inside `::ffff:0:0/96` or `64:ff9b::/96`. */
 private const val FOLDED_PREFIX = 96
 
-internal fun ipv4BlockLink(prefixLength: Int): PolicyLink = PolicyLink("block-v4-$prefixLength", LinkKind.Parameter)
+internal fun ipv4BlockLink(prefixLength: Int): PolicyLink = PolicyLink("block.v4.$prefixLength", LinkKind.Parameter)
 
-internal fun ipv6BlockLink(prefixLength: Int): PolicyLink = PolicyLink("block-v6-$prefixLength", LinkKind.Parameter)
+internal fun ipv6BlockLink(prefixLength: Int): PolicyLink = PolicyLink("block.v6.$prefixLength", LinkKind.Parameter)
 
 /** Clear every bit after the first [prefixLength], field by field. */
 private fun mask(fields: IntArray, prefixLength: Int): IntArray = IntArray(fields.size) { index ->

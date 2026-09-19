@@ -124,10 +124,11 @@ class PhoneByteStabilityTest {
 
     @Test
     fun policyIdentitiesAreFrozen() {
+        // Renamed in 0.0.4 with the suite-wide id sweep (#29): the identity changed, the bytes did not.
         assertEquals("phone.e164", PhonePolicy.E164.id)
-        assertEquals("phone.e164+lenient", PhonePolicy.E164Lenient.id)
-        assertEquals("phone.e164+region-ca", PhonePolicy.e164ForRegion("ca").id)
-        assertEquals("phone.e164+region-ca+lenient", PhonePolicy.e164ForRegionLenient("ca").id)
+        assertEquals("phone.e164:lenient", PhonePolicy.E164Lenient.id)
+        assertEquals("phone.e164:region.ca", PhonePolicy.e164ForRegion("ca").id)
+        assertEquals("phone.e164:region.ca:lenient", PhonePolicy.e164ForRegionLenient("ca").id)
         // The region is normalized into the identity, so two spellings of one region are one policy.
         assertEquals(PhonePolicy.e164ForRegion("ca").id, PhonePolicy.e164ForRegion("CA").id)
     }

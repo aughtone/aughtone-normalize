@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Breaking
+
+- **Every policy id is renamed. No canonical bytes change.** Links join with `:` instead of `+`, link names carry no hyphens, and a link that acts on the value is named `<subject>.<what was done>`. `text.u17+trim+casefold+nfc` becomes `text.u17:space.trimmed:case.folded:nfc`; `ipv4.dotted-quad+block-24` becomes `ipv4.quad.dotted:block.24`; `phone.e164+region-ca+lenient` becomes `phone.e164:region.ca:lenient`. A `0.0.3` id is refused rather than aliased, so a stored id fails loudly instead of resolving to something else. `PolicyId.toPortable` now maps `:`→`_` in place of `+`→`_`.
+- **The email base keeps the `+`-subaddress; removing it is now an option.** `EmailPolicy.ByteStableV1` becomes `EmailPolicy.SubaddressRemoved` (id `email:subaddress.removed`) and `ByteStableV1Subaddressed` becomes `EmailPolicy.Address` (id `email`), which is the identity anchor. Neither policy's bytes change — what changes is which one a caller gets by default. Some mail systems treat the subaddress as part of an account and no domain can be asked which behaviour it has, so the tagged address is taken as the whole address: an assumption that never merges two people, and one a caller can narrow later. `EmailSubaddressPolicy.ByteStableV1` becomes `EmailSubaddressPolicy.V1`, and its mailbox is now `SubaddressRemoved`.
+- **Renamed links, by the same rule.** `strip-control` → `control.removed`, `remove-space` → `space.removed`, `trim` → `space.trimmed`, `collapse-space` → `space.collapsed`, `lower`/`upper`/`casefold` → `case.lower`/`case.upper`/`case.folded`, `non-empty` → `empty.refused`, `guid-bytes` → `bytes.guid`, `region-ca` → `region.ca`, `block-24` → `block.24`, `block-v4-24`/`block-v6-64` → `block.v4.24`/`block.v6.64`, `ipv4.dotted-quad` → `ipv4.quad.dotted`, `ipv4.inet-aton` → `ipv4.inet.aton`, `zone` → `zone.kept`.
+- **`unmap` and `nat64` become `ipv4.mapped` and `ipv4.nat64`**, naming what they produce rather than the mechanism, and showing that they are the same operation on different prefixes.
+- **`masked` becomes `host.zeroed`.** Masking a CIDR zeroes host bits and is lossless; masking a PAN replaces digits for display and is lossy by design. One word, opposite meanings, both in this family of libraries.
+- **A link name may no longer contain a hyphen.** The grammar is `[a-z0-9]+` segments joined by `.`, so a Unicode minor release is spelled `u15.1` rather than `u15-1`.
+
+
 ## [0.0.3] - 2026-09-13
 
 ### Breaking

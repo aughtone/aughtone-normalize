@@ -20,7 +20,7 @@ import io.github.aughtone.types.outcome.runOutcome
  *
  * Consume:
  * ```
- * normalizeEmail(value, EmailPolicy.ByteStableV1)
+ * normalizeEmail(value, EmailPolicy.Address)
  *     .onSuccess { normalized -> store(hash(normalized.canonical), normalized.policyId, normalized.policyVersion) }
  *     .onFailure { failure -> log(failure.exception) }   // a typed, value-free EmailNormalizationError
  * ```

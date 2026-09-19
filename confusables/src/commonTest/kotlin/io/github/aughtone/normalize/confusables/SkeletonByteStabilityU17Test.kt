@@ -98,6 +98,7 @@ class SkeletonByteStabilityU17Test {
 
     @Test
     fun policyIdentityIsFrozen() {
+        // Renamed in 0.0.4 with the suite-wide id sweep (#29): the identity changed, the bytes did not.
         assertEquals("skeleton.u17", ConfusablePolicy.SkeletonU17.id)
         assertEquals(1, ConfusablePolicy.SkeletonU17.version)
     }

@@ -49,13 +49,13 @@ class IpNetworkPolicyTest {
 
     @Test
     fun anyOtherSpellingIsRefused() {
-        val reordered = QuodlibetPolicies.resolve("ipv4.dotted-quad+masked+cidr", 1)
+        val reordered = QuodlibetPolicies.resolve("ipv4.quad.dotted:host.zeroed:cidr", 1)
         assertTrue(reordered is Outcome.Failure && reordered.exception is PolicyIdentityError, "got $reordered")
-        val padded = QuodlibetPolicies.resolve("ipv4.dotted-quad+block-024", 1)
+        val padded = QuodlibetPolicies.resolve("ipv4.quad.dotted:block.024", 1)
         assertTrue(padded is Outcome.Failure && padded.exception is PolicyIdentityError.UnknownLink, "got $padded")
-        val tooLong = QuodlibetPolicies.resolve("ipv4.dotted-quad+block-33", 1)
+        val tooLong = QuodlibetPolicies.resolve("ipv4.quad.dotted:block.33", 1)
         assertTrue(tooLong is Outcome.Failure && tooLong.exception is PolicyIdentityError, "got $tooLong")
-        val v6TooLong = QuodlibetPolicies.resolve("ipv6.rfc5952+block-129", 1)
+        val v6TooLong = QuodlibetPolicies.resolve("ipv6.rfc5952:block.129", 1)
         assertTrue(v6TooLong is Outcome.Failure && v6TooLong.exception is PolicyIdentityError.UnknownLink, "got $v6TooLong")
     }
 
@@ -81,11 +81,11 @@ class IpNetworkPolicyTest {
             assertEquals(policy, outcome.data)
         }
         for (id in listOf(
-            "ipv6.rfc5952+zone+unmap",
-            "ipv6.rfc5952+unmap+block-64",
-            "ipv6.rfc5952+block-v4-24+block-v6-64",
-            "ipv6.rfc5952+unmap+block-v6-64+block-v4-24",
-            "ipv6.rfc5952+unmap+block-v4-33+block-v6-64",
+            "ipv6.rfc5952:zone.kept:ipv4.mapped",
+            "ipv6.rfc5952:ipv4.mapped:block.64",
+            "ipv6.rfc5952:block.v4.24:block.v6.64",
+            "ipv6.rfc5952:ipv4.mapped:block.v6.64:block.v4.24",
+            "ipv6.rfc5952:ipv4.mapped:block.v4.33:block.v6.64",
         )) {
             val outcome = QuodlibetPolicies.resolve(id, 1)
             assertTrue(outcome is Outcome.Failure && outcome.exception is PolicyIdentityError, "<$id> must be refused, got $outcome")

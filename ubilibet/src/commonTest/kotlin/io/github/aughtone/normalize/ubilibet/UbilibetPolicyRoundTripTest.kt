@@ -51,7 +51,7 @@ class UbilibetPolicyRoundTripTest {
     @Test
     fun theLenientPolicyIsReachedByItsChainedIdentity() {
         // The identity says what the policy is: the base rule set, then the link that relaxes it.
-        val outcome = UbilibetPolicies.resolve("domain.ascii.u17+lenient", 1)
+        val outcome = UbilibetPolicies.resolve("domain.ascii.u17:lenient", 1)
         assertTrue(outcome is Outcome.Success)
         assertSame(DomainPolicy.AsciiU17Lenient, outcome.data)
     }
