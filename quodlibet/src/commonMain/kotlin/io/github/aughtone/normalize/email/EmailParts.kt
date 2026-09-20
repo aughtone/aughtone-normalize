@@ -5,6 +5,9 @@ import io.github.aughtone.normalize.common.Normalized
 import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
+import io.github.aughtone.normalize.ubilibet.DomainPolicy
+import io.github.aughtone.normalize.ubilibet.NormalizedDomain
+import io.github.aughtone.normalize.ubilibet.normalizeDomain
 import io.github.aughtone.types.outcome.Outcome
 import io.github.aughtone.types.outcome.dataOrElse
 import io.github.aughtone.types.outcome.runOutcome
@@ -14,27 +17,43 @@ import io.github.aughtone.types.outcome.runOutcome
  *
  * A caller that tokenizes more than the mailbox has to get the pieces from somewhere, and splitting the
  * canonical string by hand means reproducing rules this module already owns - which `@` is the boundary,
- * that the domain is raw bytes rather than an IDNA form, that lowercasing is ASCII-only. It is also how
- * pieces drift: a hand-split domain records no policy, so nothing says which reading produced the token
- * and nothing can re-derive it. This returns all four pieces from one reading of the address.
+ * that the lowercasing is ASCII-only - and then normalizing the domain with rules it does not own at all.
+ * It is also how pieces drift: a hand-split piece records no policy, so nothing says which reading
+ * produced the token and nothing can re-derive it. This returns every piece from one reading.
  *
  * - **[NormalizedEmailParts.mailbox] is exactly [normalizeEmail] under the same [EmailPolicy]** - same
- *   bytes, id and version. It is the only piece the policy changes.
+ *   bytes, id and version. It is the only piece the [EmailPolicy] changes.
  * - **[NormalizedEmailParts.local] is the whole local part**, subaddress included, because that is what
  *   the address says. Under [EmailPolicy.SubaddressRemoved] the mailbox drops the tag and this does not.
- * - **[NormalizedEmailParts.domain] is the raw bytes after the last `@`**, ASCII-lowercased, with no
- *   ToASCII conversion - so it is the same value whichever email policy read the address.
+ * - **[NormalizedEmailParts.domain] is a real domain token**: exactly what [normalizeDomain] writes for
+ *   that domain under [domainPolicy], carrying `domain.ascii.u17`. A domain taken out of an address is a
+ *   domain, so it matches one read from a URL or a block list rather than only matching other addresses.
  * - **[NormalizedEmailParts.subaddress] is read whether or not the policy removes it**, so a caller can
  *   keep the tagged mailbox and still match on the tag.
- * - **Refusals are [normalizeEmail]'s**, unchanged.
+ * - **The address refuses exactly where [normalizeEmail] refuses.** The domain is the one piece that can
+ *   fail on its own, and it fails without taking the address with it - see [NormalizedEmailParts.domain].
  *
  * ```
- * normalizeEmailParts(value, EmailPolicy.Address)
+ * normalizeEmailParts(value, EmailPolicy.Address, DomainPolicy.AsciiU17)
  *     .onSuccess { parts ->
  *         store(hash(parts.mailbox.canonical), parts.mailbox.policyId, parts.mailbox.policyVersion)
- *         store(hash(parts.domain.canonical), parts.domain.policyId, parts.domain.policyVersion)
+ *         parts.domain.onSuccess { domain ->
+ *             store(hash(domain.canonical), domain.policyId, domain.policyVersion)
+ *         }
  *     }
  * ```
+ *
+ * ## The domain piece is bound to a Unicode release; nothing else here is
+ *
+ * The mailbox, the local part and the subaddress are ASCII-level and Unicode-version-independent, so they
+ * cannot drift when Unicode ships a new version. The domain is normalized under UTS-46 against the tables
+ * of the release named in [domainPolicy], which is why that release is part of its id (`domain.ascii.u17`).
+ *
+ * For a caller storing tokens this is the thing to know: a future Unicode release is a **new domain
+ * policy** with a new id, and domain tokens derived under it are a different set from those derived under
+ * this one - while mailbox tokens beside them are unaffected. That is the same rule every Unicode-bound
+ * policy in this suite follows; it is called out here because the other pieces of the same call do not
+ * follow it, and one return value carrying both kinds is easy to misread.
  *
  * ## Provider behaviour stays with the caller
  *
@@ -43,7 +62,11 @@ import io.github.aughtone.types.outcome.runOutcome
  * behaviour rather than a standard, and a frozen provider list cannot grow without splitting the tokens
  * minted before a domain joined it from those minted after. See RAD-0001.
  */
-fun normalizeEmailParts(value: String, policy: EmailPolicy): Outcome<NormalizedEmailParts> = runOutcome {
+fun normalizeEmailParts(
+    value: String,
+    policy: EmailPolicy,
+    domainPolicy: DomainPolicy,
+): Outcome<NormalizedEmailParts> = runOutcome {
     val reading = readEmail(value, policy)
     NormalizedEmailParts(
         mailbox = reading.mailbox,
@@ -52,11 +75,7 @@ fun normalizeEmailParts(value: String, policy: EmailPolicy): Outcome<NormalizedE
             policyId = EmailLocalPolicy.V1.id,
             policyVersion = EmailLocalPolicy.V1.version,
         ),
-        domain = NormalizedEmailDomain(
-            canonical = reading.domain,
-            policyId = EmailDomainPolicy.V1.id,
-            policyVersion = EmailDomainPolicy.V1.version,
-        ),
+        domain = normalizeDomain(reading.domain, domainPolicy),
         subaddress = reading.subaddress?.let { tag ->
             NormalizedEmailSubaddress(
                 canonical = tag,
@@ -75,9 +94,21 @@ fun normalizeEmailParts(value: String, policy: EmailPolicy): Outcome<NormalizedE
  * local parts come from a small vocabulary, so a token of one alone is guessable from its distribution
  * even under a keyed hash - the same warning [EmailSubaddressPolicy] carries. It is published because a
  * caller applying its own provider rules needs the piece those rules act on, not because it is a match
- * key. Pair it with [EmailDomainPolicy], or use the mailbox.
+ * key. Pair it with the domain beside it, or use the mailbox.
  *
  * It declares no comparable form: a local part compares with nothing else this suite writes.
+ *
+ * ## Why this piece has an identity and the domain does not
+ *
+ * Not because of where it sits in the address. **A piece gets its own identity when nothing else in the
+ * suite reads the same thing.** A local part is meaningful only inside the address it came from, nothing
+ * else produces one, and there is no competing reading of it to be confused with - so the email rules are
+ * the only rules it has, and the identity says so.
+ *
+ * A domain is the opposite: `normalizeDomain` already reads one, properly, under UTS-46. Publishing a
+ * second reading here would mint two identities for one concept, agreeing on every ASCII domain and
+ * diverging on the rest - which is a silent mismatch rather than a choice. So the domain beside this
+ * carries the domain identity, and this module publishes no reading of its own.
  */
 class EmailLocalPolicy internal constructor(
     override val id: String,
@@ -99,41 +130,6 @@ class EmailLocalPolicy internal constructor(
     }
 }
 
-/**
- * The domain of an address, as its own frozen identity: the raw bytes after the last `@`, ASCII-
- * lowercased, with **no** ToASCII conversion.
- *
- * **It is not comparable with `domain.ascii.u17`, and the two must never be matched against each other.**
- * `normalizeDomain` runs UTS-46 under a named Unicode release and writes A-labels; this writes the bytes
- * the address carried. For an all-ASCII domain they agree, which is most input and is exactly what makes
- * the mismatch dangerous: a Unicode domain written as U-labels canonicalizes to `xn--` there and to
- * itself here, so a store mixing the two matches on the easy cases and silently misses the rest. An email
- * domain is read as bytes on purpose - the local part beside it is opaque to everyone but the receiving
- * server, and an address is not a host name.
- *
- * The value is identical under every email policy, because removing a subaddress rewrites the local part
- * and never the domain, so there is one identity rather than one per base.
- */
-class EmailDomainPolicy internal constructor(
-    override val id: String,
-    override val version: Int,
-) : Policy {
-
-    override fun toString(): String = id
-
-    companion object {
-        internal val Base: PolicyLink = PolicyLink("email.domain", LinkKind.Base)
-
-        /** The domain, version 1. */
-        val V1: EmailDomainPolicy = EmailDomainPolicy(
-            id = PolicyId.of(listOf(Base)).dataOrElse { error("not a valid policy chain: ${it.message}") }.rendered,
-            version = 1,
-        )
-
-        internal val all: List<EmailDomainPolicy> = listOf(V1)
-    }
-}
-
 /** Every piece of one address, each with the identity that produced it. */
 data class NormalizedEmailParts(
     /** The address under the policy that read it - exactly what [normalizeEmail] writes for the same input. */
@@ -142,8 +138,17 @@ data class NormalizedEmailParts(
     /** Everything before the last `@`, subaddress included, whatever the policy did with it. */
     val local: NormalizedEmailLocal,
 
-    /** Everything after the last `@`: raw bytes, ASCII-lowercased, never an IDNA form. */
-    val domain: NormalizedEmailDomain,
+    /**
+     * The domain, normalized as a domain: **the same identity and the same bytes as any other domain token
+     * in the system**, so an address's domain matches one read from a URL, a host list or a block list.
+     * There is no second domain identity, because a domain taken out of an address is still a domain.
+     *
+     * It is an [Outcome] because a domain that will not convert is information rather than a reason to
+     * refuse the whole address. `user@[192.0.2.1]` carries an address literal and not a domain, and a
+     * label can fail a UTS-46 check that an address carried happily. The mailbox is still valid and still
+     * the thing to match on, so the address reads and this says why it has no token.
+     */
+    val domain: Outcome<NormalizedDomain>,
 
     /** The RFC 5233 tag, or `null` when the address carried no `+`. Empty for `user+@example.com`. */
     val subaddress: NormalizedEmailSubaddress?,
@@ -151,13 +156,6 @@ data class NormalizedEmailParts(
 
 /** A normalized local part plus its policy identity. Store all three beside anything derived from it. */
 data class NormalizedEmailLocal(
-    override val canonical: String,
-    override val policyId: String,
-    override val policyVersion: Int,
-) : Normalized
-
-/** A normalized email domain plus its policy identity. Store all three beside anything derived from it. */
-data class NormalizedEmailDomain(
     override val canonical: String,
     override val policyId: String,
     override val policyVersion: Int,

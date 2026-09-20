@@ -27,6 +27,18 @@ import io.github.aughtone.types.outcome.dataOrElse
  * joiner rules, which exist to stop a name that displays as one thing and resolves as another. Relaxing
  * those would not be leniency; it would be accepting a name that cannot be represented unambiguously.
  *
+ * ## An address's domain is a domain, and reaches its token through here
+ *
+ * `normalizeEmailParts` in `:quodlibet` returns the domain of an address normalized by **this** policy,
+ * under this id. There is deliberately no second, email-flavoured domain identity: a domain taken out of
+ * an address is a domain, and a token minted from one has to match a token minted from a URL or a host
+ * list, or it is worth nothing.
+ *
+ * That means an address's domain can fail to normalize while the address itself is perfectly valid - an
+ * address may carry an address literal (`user@[192.0.2.1]`), and a label may fail a check here that the
+ * address carried happily. The email reader reports that rather than refusing the address or handing back
+ * something weaker.
+ *
  * ## A new Unicode release is a new constant
  *
  * UTS-46 guarantees that a character already valid keeps its mapping, so a newer table can accept what
@@ -125,7 +137,7 @@ object UbilibetPolicies : PublishedPolicies() {
  *   sibling, whose leniency is the host policy's.
  */
 object DomainForms {
-    /** A domain as A-labels under UTS-46 for Unicode 17. Not comparable with a domain read as raw bytes. */
+    /** A domain as A-labels under UTS-46 for Unicode 17 - the one identity a domain has, wherever it came from. */
     val AsciiU17: ComparableForm = ComparableForm("domain.ascii.u17")
 
     /** An RFC 3986 URL whose host was read under Unicode 17. */

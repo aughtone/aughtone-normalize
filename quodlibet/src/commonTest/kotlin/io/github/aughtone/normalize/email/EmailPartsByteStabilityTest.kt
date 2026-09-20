@@ -1,5 +1,7 @@
 package io.github.aughtone.normalize.email
 
+import io.github.aughtone.normalize.ubilibet.DomainPolicy
+import io.github.aughtone.normalize.ubilibet.normalizeDomain
 import io.github.aughtone.types.outcome.Outcome
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -15,8 +17,10 @@ import kotlin.test.assertTrue
  */
 class EmailPartsByteStabilityTest {
 
+    private val domainPolicy = DomainPolicy.AsciiU17
+
     private fun read(value: String, policy: EmailPolicy = EmailPolicy.Address): NormalizedEmailParts {
-        val outcome = normalizeEmailParts(value, policy)
+        val outcome = normalizeEmailParts(value, policy, domainPolicy)
         assertTrue(outcome is Outcome.Success, "FROZEN CORPUS BROKEN: <$value> must normalize, got $outcome")
         return outcome.data
     }
@@ -37,9 +41,9 @@ class EmailPartsByteStabilityTest {
         arrayOf("\"a b\"@example.com", "\"a b\"", "example.com", null),
         arrayOf("a@b", "a", "b", null),
         arrayOf("user@sub.example.co.uk", "user", "sub.example.co.uk", null),
-        // Raw bytes, ASCII-lowercased: the ASCII letters fold and nothing else is touched. A domain here
-        // is NOT put through ToASCII - that is `domain.ascii.u17`, a different identity.
-        arrayOf("user@Bücher.Example", "user", "bücher.example", null),
+        // The domain is normalized as a domain, so the two spellings of one name give ONE token - which
+        // is the whole point of not having a second domain identity. Read as raw bytes these differ.
+        arrayOf("user@Bücher.Example", "user", "xn--bcher-kva.example", null),
         arrayOf("user@XN--BCHER-KVA.example", "user", "xn--bcher-kva.example", null),
     )
 
@@ -48,7 +52,9 @@ class EmailPartsByteStabilityTest {
         for ((input, local, domain, subaddress) in corpus.map { it.toList() }) {
             val parts = read(input!!)
             assertEquals(local, parts.local.canonical, "FROZEN CORPUS BROKEN for <$input>: local part")
-            assertEquals(domain, parts.domain.canonical, "FROZEN CORPUS BROKEN for <$input>: domain")
+            val domainToken = parts.domain
+            assertTrue(domainToken is Outcome.Success, "FROZEN CORPUS BROKEN for <$input>: domain, got $domainToken")
+            assertEquals(domain, domainToken.data.canonical, "FROZEN CORPUS BROKEN for <$input>: domain")
             assertEquals(subaddress, parts.subaddress?.canonical, "FROZEN CORPUS BROKEN for <$input>: subaddress")
         }
     }
@@ -57,24 +63,38 @@ class EmailPartsByteStabilityTest {
     fun theIdentitiesAreFrozen() {
         assertEquals("email.local", EmailLocalPolicy.V1.id)
         assertEquals(1, EmailLocalPolicy.V1.version)
-        assertEquals("email.domain", EmailDomainPolicy.V1.id)
-        assertEquals(1, EmailDomainPolicy.V1.version)
 
         val parts = read("user+work@example.com")
         assertEquals("email.local", parts.local.policyId)
         assertEquals(1, parts.local.policyVersion)
-        assertEquals("email.domain", parts.domain.policyId)
-        assertEquals(1, parts.domain.policyVersion)
         assertEquals("email.subaddress", parts.subaddress?.policyId)
         assertEquals("email", parts.mailbox.policyId)
     }
 
     @Test
-    fun neitherPieceDeclaresAComparableForm() {
-        // A local part compares with nothing. A domain here is raw bytes and `domain.ascii.u17` is a
-        // ToASCII form under a Unicode release: they agree on ASCII input, which is most of it, and differ
-        // exactly where a silent mismatch would cost the most.
+    fun theDomainCarriesTheDomainIdentityAndNothingEmailSpecific() {
+        // The point of this issue: one domain, one identity. A domain from an address is byte-identical
+        // and identity-identical to the same domain read anywhere else, so tokens match.
+        val parts = read("user@Bücher.Example")
+        val fromAddress = parts.domain
+        val direct = normalizeDomain("Bücher.Example", domainPolicy)
+        assertTrue(fromAddress is Outcome.Success && direct is Outcome.Success)
+        assertEquals(direct.data, fromAddress.data, "an address's domain must be the domain")
+        assertEquals("domain.ascii.u17", fromAddress.data.policyId)
+    }
+
+    @Test
+    fun aDomainThatIsNotADomainIsReportedRatherThanRefusingTheAddress() {
+        // An address literal is not a domain. The mailbox is still valid and still the thing to match on,
+        // so the address reads and the domain says why it has no token.
+        val parts = read("user@[192.0.2.1]")
+        assertEquals("user@[192.0.2.1]", parts.mailbox.canonical)
+        assertTrue(parts.domain is Outcome.Failure, "an address literal must not yield a domain token")
+    }
+
+    @Test
+    fun theLocalPartDeclaresNoComparableForm() {
+        // A local part compares with nothing else this suite writes.
         assertEquals(emptySet(), EmailLocalPolicy.V1.forms)
-        assertEquals(emptySet(), EmailDomainPolicy.V1.forms)
     }
 }

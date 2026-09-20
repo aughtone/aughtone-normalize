@@ -100,9 +100,13 @@ val canonical: String? = normalizeEmail(value, EmailPolicy.Address).dataOrNull()
 
 To match on both, read them from one parse: `normalizeEmailWithSubaddress(value, EmailSubaddressPolicy.V1)` returns the mailbox, byte-identical to `normalizeEmail` under `SubaddressRemoved`, and the subaddress (`tag` for `user+tag@example.com`, `null` without a `+`). The subaddress carries its own id, `email.subaddress`, so a stored tag token records what it is.
 
-**For every piece at once, `normalizeEmailParts(value, policy)`** returns the mailbox, the local part (`email.local`), the domain (`email.domain`) and the subaddress from one reading. Use it instead of splitting the canonical string by hand: a hand-split piece records no policy, so nothing says which reading produced the token. The local part keeps its subaddress whatever the policy does with it, and the domain is the same value under either policy, because removing a tag rewrites the local part and never the domain.
+**For every piece at once, `normalizeEmailParts(value, emailPolicy, domainPolicy)`** returns the mailbox, the local part (`email.local`), the domain and the subaddress from one reading. Use it instead of splitting the canonical string by hand: a hand-split piece records no policy, so nothing says which reading produced the token. The local part keeps its subaddress whatever the policy does with it.
 
-The email domain is **raw bytes, ASCII-lowercased, with no ToASCII** — `user@Bücher.Example` gives `bücher.example`, not `xn--bcher-kva.example`. That is deliberately not `normalizeDomain`'s reading, and the two are not comparable: they agree on ASCII domains, which is most input, and differ exactly where mixing them would cost the most. Provider rules — collapsing dots, removing a tag only on domains known to support them — stay with you; this hands you the pieces to apply them to.
+**The domain is a domain.** It comes back normalized by `normalizeDomain` under the `DomainPolicy` you pass, carrying `domain.ascii.u17` — the same identity and the same bytes as a domain read from a URL or a block list, so the tokens match. `user@Bücher.Example` and `user@XN--BCHER-KVA.example` both give `xn--bcher-kva.example`. There is deliberately no email-flavoured domain identity: two readings of one concept would agree on every ASCII domain and diverge on the rest, which is a silent mismatch rather than a choice.
+
+It is an `Outcome`, because an address can be valid while its domain is not one — `user@[192.0.2.1]` carries an address literal, and a label can fail a UTS-46 check the address carried happily. The address still reads; the domain says why it has no token.
+
+Provider rules — collapsing dots, removing a tag only on domains known to support them — stay with you; this hands you the pieces to apply them to.
 
 ### Text Normalization (`:unicode`)
 ```kotlin

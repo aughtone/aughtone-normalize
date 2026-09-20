@@ -79,6 +79,11 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 api(project(":common"))
+                // The email reader returns a domain as a real domain token, which needs the IDNA tables.
+                // A caller using nothing from here that touches a domain does not ship them: unused code
+                // is eliminated. Correctness is the default; weight is handled by the toolchain. See
+                // ADR-0003, amended.
+                api(project(":ubilibet"))
                 api(libs.aughtone.types)
             }
         }

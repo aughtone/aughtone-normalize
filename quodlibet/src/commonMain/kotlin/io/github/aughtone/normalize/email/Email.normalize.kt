@@ -13,6 +13,9 @@ import io.github.aughtone.types.outcome.runOutcome
  * - **No Unicode table, ever:** every step here is ASCII-level and Unicode-version-independent, which is
  *   what makes the output identical on every platform and every build. Anything needing a Unicode table
  *   belongs in another module and reaches this one as a caller-composed step, never as a rule added here.
+ *   [normalizeEmailParts] is where that shows: it normalizes the domain as a domain, under a domain policy
+ *   the caller names, so the Unicode-bound work is a separate piece with its own id - and this function's
+ *   output is untouched by it.
  *
  * [NormalizedEmail.canonical] is what a caller hashes; [NormalizedEmail.policyId] and
  * [NormalizedEmail.policyVersion] are stored beside that hash, because they are the only record of which
