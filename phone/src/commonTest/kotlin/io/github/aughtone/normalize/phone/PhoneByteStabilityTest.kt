@@ -90,8 +90,14 @@ class PhoneByteStabilityTest {
         assertRefused<PhoneNormalizationError.MisplacedPlus>("+1 212+555 0123", PhonePolicy.E164)
         assertRefused<PhoneNormalizationError.NoDigits>("+", PhonePolicy.E164)
         assertRefused<PhoneNormalizationError.UnpairedSurrogate>("+1212555012" + Char(0xD800), PhonePolicy.E164)
-        // A non-breaking space is not ASCII formatting; the strict policy will not guess at it.
-        assertRefused<PhoneNormalizationError.UnsupportedCharacter>("+1 212 5550123", PhonePolicy.E164)
+        // CHANGED IN 0.0.4 (#39), and the only expectation in this file that has ever changed.
+        // It used to read: "a non-breaking space is not ASCII formatting; the strict policy will not
+        // guess at it" - and refused. There is no guess. A no-break space is a space, and this module
+        // already reads a decimal digit from every Nd block, so it accepted a fullwidth digit while
+        // refusing the fullwidth space beside it. Worse, the same narrowness made the trailing-group
+        // guard blind: an en dash slipped past it and returned a folded, wrong number under leniency.
+        // The separator class is now as wide as the digit class, and this input normalizes.
+        assertEquals("+12125550123", canonical("+1 212 5550123", PhonePolicy.E164))
     }
 
     @Test
