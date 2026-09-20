@@ -204,7 +204,7 @@ sealed class TextPolicyError(message: String) : IllegalArgumentException(message
 
     /**
      * A step composed after this policy was frozen against a different Unicode release. One chain runs
-     * against one release's data, so `text.u17+…+skeleton.u18` is refused rather than mixed.
+     * against one release's data, so `text.u17:…:skeleton.u18` is refused rather than mixed.
      */
     class MismatchedRelease(val policyRelease: String, val stepRelease: String) :
         TextPolicyError("text policy: a $stepRelease step cannot follow a $policyRelease policy")

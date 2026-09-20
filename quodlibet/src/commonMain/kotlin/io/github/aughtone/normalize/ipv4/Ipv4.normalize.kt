@@ -87,7 +87,7 @@ internal fun formatIpv4(address: Long): String =
  * a different rule-set with its own identity rather than a loosened version of the other.
  */
 class Ipv4Policy internal constructor(
-    /** The base link name, without any opted-in forms: `ipv4.dotted-quad`. */
+    /** The base link name, without any opted-in forms: `ipv4.quad.dotted`. */
     internal val base: String,
     internal val interpretsShorthand: Boolean,
     internal val optedIn: Set<ComparableForm> = emptySet(),
@@ -97,7 +97,7 @@ class Ipv4Policy internal constructor(
 
     override val version: Int = 1
 
-    /** `dotted-quad` writes the IPv4 address form; `inet-aton` writes it only once a caller opts in. */
+    /** `ipv4.quad.dotted` writes the IPv4 address form; `ipv4.inet.aton` writes it only once a caller opts in. */
     override val forms: Set<ComparableForm> =
         if (interpretsShorthand) optedIn else setOf(IpForms.Ipv4Address)
 

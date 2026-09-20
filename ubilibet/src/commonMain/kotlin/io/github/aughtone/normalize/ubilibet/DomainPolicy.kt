@@ -125,6 +125,9 @@ object UbilibetPolicies : PublishedPolicies() {
  *   sibling, whose leniency is the host policy's.
  */
 object DomainForms {
+    /** A domain as A-labels under UTS-46 for Unicode 17. Not comparable with a domain read as raw bytes. */
     val AsciiU17: ComparableForm = ComparableForm("domain.ascii.u17")
+
+    /** An RFC 3986 URL whose host was read under Unicode 17. */
     val UrlRfc3986U17: ComparableForm = ComparableForm("url.rfc3986.u17")
 }

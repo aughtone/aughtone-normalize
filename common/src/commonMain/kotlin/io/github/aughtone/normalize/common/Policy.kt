@@ -7,7 +7,7 @@ package io.github.aughtone.normalize.common
  * derived from a normalized value, because the value itself is usually discarded, and the pair is then
  * the only record of which rules produced those bytes.
  *
- * [id] is a **chain** of links joined by `+` - the base rule set first, then anything qualifying it,
+ * [id] is a **chain** of links joined by `:` - the base rule set first, then anything qualifying it,
  * then any steps contributed by other modules - so an id describes a policy rather than labelling it.
  * See [PolicyId] for the grammar and the ordering rules, and [PolicyResolver] for turning a stored id
  * back into the policy that produced it.
@@ -19,7 +19,7 @@ package io.github.aughtone.normalize.common
  * a rule-set nobody named cannot be reproduced from a stored id later.
  */
 interface Policy {
-    /** The chain, rendered: `email.byte-stable`, `email:subaddress.removed`, `domain.ascii.u17`. */
+    /** The chain, rendered: `email`, `email:subaddress.removed`, `phone.e164:region.ca:lenient`. */
     val id: String
 
     /** The rules epoch for this [id]. Bumped only when the canonical bytes could differ for some input. */
@@ -31,7 +31,7 @@ interface Policy {
      */
     val forms: Set<ComparableForm> get() = emptySet()
 
-    /** The forms a caller may opt into by naming them in the id: `…+form.ipv4.address`. Empty by default. */
+    /** The forms a caller may opt into by naming them in the id: `…:form.ipv4.address`. Empty by default. */
     val offeredForms: Set<ComparableForm> get() = emptySet()
 
     /**

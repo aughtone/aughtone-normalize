@@ -237,18 +237,18 @@ class Ipv6Policy internal constructor(
 
     /**
      * Every IPv6 policy writes the IPv6 address form; one that folds IPv4 out also writes the IPv4 address
-     * form, so a mapped or NAT64 address is explicitly comparable with the same host under `ipv4.dotted-quad`.
+     * form, so a mapped or NAT64 address is explicitly comparable with the same host under `ipv4.quad.dotted`.
      */
     override val forms: Set<ComparableForm> =
         if (unmap || nat64) setOf(IpForms.Ipv4Address, IpForms.Ipv6Address) else setOf(IpForms.Ipv6Address)
 
-    /** This policy, also writing IPv4-mapped addresses as IPv4: `…+unmap`. */
+    /** This policy, also writing IPv4-mapped addresses as IPv4: `…:ipv4.mapped`. */
     fun unmap(): Ipv6Policy = Ipv6Policy(unmap = true, nat64 = nat64, zone = zone)
 
-    /** This policy, also writing NAT64 addresses (`64:ff9b::/96`) as IPv4: `…+nat64`. */
+    /** This policy, also writing NAT64 addresses (`64:ff9b::/96`) as IPv4: `…:ipv4.nat64`. */
     fun nat64(): Ipv6Policy = Ipv6Policy(unmap = unmap, nat64 = true, zone = zone)
 
-    /** This policy, also keeping zone identifiers: `…+zone`. */
+    /** This policy, also keeping zone identifiers: `…:zone.kept`. */
     fun zone(): Ipv6Policy = Ipv6Policy(unmap = unmap, nat64 = nat64, zone = true)
 
     /** True when a mode can fold an address out to IPv4, so a block needs an IPv4 prefix as well. */

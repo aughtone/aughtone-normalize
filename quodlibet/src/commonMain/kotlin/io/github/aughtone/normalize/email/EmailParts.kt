@@ -136,9 +136,16 @@ class EmailDomainPolicy internal constructor(
 
 /** Every piece of one address, each with the identity that produced it. */
 data class NormalizedEmailParts(
+    /** The address under the policy that read it - exactly what [normalizeEmail] writes for the same input. */
     val mailbox: NormalizedEmail,
+
+    /** Everything before the last `@`, subaddress included, whatever the policy did with it. */
     val local: NormalizedEmailLocal,
+
+    /** Everything after the last `@`: raw bytes, ASCII-lowercased, never an IDNA form. */
     val domain: NormalizedEmailDomain,
+
+    /** The RFC 5233 tag, or `null` when the address carried no `+`. Empty for `user+@example.com`. */
     val subaddress: NormalizedEmailSubaddress?,
 )
 
