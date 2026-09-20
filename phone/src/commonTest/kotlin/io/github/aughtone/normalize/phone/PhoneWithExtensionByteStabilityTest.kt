@@ -42,6 +42,14 @@ class PhoneWithExtensionByteStabilityTest {
         Triple("+1 212 555 0123;ext=4", "+12125550123", "4"),
         Triple("+1 212 555 0123 x 4", "+12125550123", "4"),
 
+        // A marker introducing nothing leaves the number alone and reads no extension - the behaviour the
+        // phonenumber library takes from the release fixing aughtone/aughtone-phonenumber#23 and #24.
+        Triple("+1 212 555 0123#", "+12125550123", null),
+        Triple("+1 212 555 0123 ext", "+12125550123", null),
+        Triple("+1 212 555 0123 x", "+12125550123", null),
+        Triple("+1 212 555 0123,", "+12125550123", null),
+        Triple("+1 212 555 0123;ext=", "+12125550123", null),
+
         // A space-separated trailing group is refused only when the whole number is invalid with it, so
         // this one is accepted as a number and an extension - the same reading `normalizePhone` gives the
         // text before the marker. #30 narrowed the rule deliberately; see its corpus.
@@ -64,8 +72,10 @@ class PhoneWithExtensionByteStabilityTest {
 
     @Test
     fun theNumberIsExactlyWhatNormalizePhoneWritesWhereItAcceptsTheInput() {
-        for ((input, _, extension) in corpus) {
-            if (extension != null) continue
+        for ((input, _, _) in corpus) {
+            // Marker-free input only: with a marker the number comes from the text before it, which is
+            // what `PhoneExtensionAgreementTest` compares. A null extension no longer means no marker.
+            if (findMarker(input) != null) continue
             val direct = normalizePhone(input, PhonePolicy.E164)
             assertTrue(direct is Outcome.Success, "<$input>")
             assertEquals(direct.data, read(input).number, "<$input> differs from normalizePhone")
@@ -83,13 +93,16 @@ class PhoneWithExtensionByteStabilityTest {
     }
 
     @Test
-    fun aMarkerWithNoDigitsIsNotAMarker() {
-        // A marker is only a marker when digits follow it. Without that there is no extension to read, so
-        // the input is ordinary input - and ordinary input carrying `ext` or `#` is refused.
+    fun aMarkerWithNoDigitsReadsNoExtensionRatherThanAnEmptyOne() {
+        // The number is complete and the marker introduces nothing, so it is dropped - it cannot be told
+        // from an input that never carried one, which is the cost recorded on the function.
         for (input in listOf("+1 212 555 0123 ext", "+1 212 555 0123#", "+1 212 555 0123 x")) {
-            val outcome = normalizePhoneWithExtension(input, ExtensionPolicy.E164)
-            assertTrue(outcome is Outcome.Failure, "<$input> must be refused, got $outcome")
+            assertEquals(null, read(input).extension, "<$input> must read no extension")
+            assertEquals("+12125550123", read(input).number.canonical, "<$input> must keep the number")
         }
+        // `normalizePhone` still refuses the same text, because it reads no extensions at all and a marker
+        // there could only mean digits it would have to splice onto the number.
+        assertTrue(normalizePhone("+1 212 555 0123#", PhonePolicy.E164) is Outcome.Failure)
     }
 
     @Test

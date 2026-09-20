@@ -39,9 +39,9 @@ import io.github.aughtone.types.outcome.runOutcome
  * came back as `+431580580` rather than a refusal.
  *
  * - **The extension carries its own identity**, because a stored extension token has to record what it is.
- * - **No extension is `null`**, never an empty string: a marker is only a marker when digits follow it.
- * - **A marker with no digits after it is not a marker.** `+1 212 555 0123 ext` and `+1 212 555 0123#`
- *   are read as ordinary input, and refused as ordinary input, rather than read as an empty extension.
+ * - **A missing extension is `null`**, never an empty string.
+ * - **A marker with nothing after it introduces nothing**, so the number is returned without it and the
+ *   extension is `null`: `+1 212 555 0123#` and `+1 212 555 0123 ext` are that number and no extension.
  * - **The extension folds across scripts** by the number's own rule, so an extension written in any
  *   decimal digits has one spelling. Separators are allowed between the marker and the first digit, and
  *   nothing but digits after it.
@@ -64,13 +64,14 @@ fun normalizePhoneWithExtension(
             extension = null,
         )
 
+    val number = normalizePhone(value.substring(0, marker.start), policy.number).dataOrThrow()
+    val extension = readExtension(value, marker.end)
+
     NormalizedPhoneWithExtension(
-        number = normalizePhone(value.substring(0, marker.start), policy.number).dataOrThrow(),
-        extension = NormalizedExtension(
-            canonical = readExtension(value, marker.end),
-            policyId = policy.id,
-            policyVersion = policy.version,
-        ),
+        number = number,
+        extension = extension?.let {
+            NormalizedExtension(canonical = it, policyId = policy.id, policyVersion = policy.version)
+        },
     )
 }
 
@@ -93,11 +94,7 @@ internal fun findMarker(value: String): MarkerMatch? {
         if (!value[index].couldStartMarker()) continue
         val marker = MARKERS.firstOrNull { value.regionMatches(index, it, 0, it.length, ignoreCase = true) }
             ?: continue
-        // A marker is only a marker when digits follow it. Without that, `+1 212 555 0123 ext` would be an
-        // extension-less extension and `+1 212 555 0123#` a number ending in a marker; both are read as
-        // ordinary input instead, which refuses them.
-        val end = index + marker.length
-        if (hasDigitAfter(value, end)) return MarkerMatch(index, end)
+        return MarkerMatch(index, index + marker.length)
     }
     return null
 }
@@ -110,13 +107,20 @@ private fun Char.couldStartMarker(): Boolean =
     this == '#' || this == ',' || this == ';' || this == 'x' || this == 'X' || this == 'e' || this == 'E'
 
 /**
- * The extension digits from [from] to the end of [value], folded to ASCII.
+ * The extension digits from [from] to the end of [value], folded to ASCII, or `null` when the marker has
+ * nothing after it.
  *
  * Separators are allowed between the marker and the first digit, because `x 4` and `ext. 4` are ordinary
  * spellings. After the first digit there are only digits: an extension is a number, and anything else in
  * it is something this module does not understand rather than something to drop.
+ *
+ * **A marker with nothing after it leaves the number alone.** `+1 212 555 0123#` is the number and a
+ * marker introducing nothing, so the number is complete and there is no extension to read. Dropping that
+ * marker invents nothing, which is the test every relaxation here has to pass, and it is what the
+ * phonenumber library does from the release that fixes aughtone/aughtone-phonenumber#23 and #24. What it
+ * gives up is a truncation signal: an extension lost upstream now reads the same as one never written.
  */
-private fun readExtension(value: String, from: Int): String {
+private fun readExtension(value: String, from: Int): String? {
     val digits = StringBuilder()
     var index = from
     while (index < value.length) {
@@ -131,22 +135,7 @@ private fun readExtension(value: String, from: Int): String {
         }
         index += width
     }
-    // findMarker only returns a marker with a digit after it, so this cannot be reached through the public
-    // function. It is here so the helper is total rather than relying on its one caller.
-    if (digits.isEmpty()) throw PhoneNormalizationError.NoDigits()
-    return digits.toString()
-}
-
-/** Whether any digit follows [from], allowing the separators a marker is usually written with. */
-private fun hasDigitAfter(value: String, from: Int): Boolean {
-    var index = from
-    while (index < value.length) {
-        val codePoint = value.codePointAtIndex(index)
-        if (decimalDigitValue(codePoint) != null) return true
-        if (!codePoint.isMarkerSeparator()) return false
-        index += if (codePoint >= 0x10000) 2 else 1
-    }
-    return false
+    return digits.toString().takeIf { it.isNotEmpty() }
 }
 
 /** What may sit between a marker and the first digit of the extension: ` `, `.`, `-`, `:` and `=`. */

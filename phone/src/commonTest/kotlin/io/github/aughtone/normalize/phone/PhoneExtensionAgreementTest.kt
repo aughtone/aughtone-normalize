@@ -45,6 +45,11 @@ class PhoneExtensionAgreementTest {
         "+1 212\$555 0123 x4" to "+1 212\$555 0123",
         "+1 212 555 0123 FLOWERS x4" to "+1 212 555 0123 FLOWERS",
 
+        // A marker introducing nothing: the number in front of it is read as usual.
+        "+1 212 555 0123#" to "+1 212 555 0123",
+        "+1 212 555 0123 ext" to "+1 212 555 0123",
+        "+43 1 58058-0#" to "+43 1 58058-0",
+
         // A marker with the number after it leaves nothing in front of it.
         "#12125550123" to "",
         ",12125550123" to "",
