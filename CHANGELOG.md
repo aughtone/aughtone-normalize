@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **A phone extension can be kept as its own piece.** `normalizePhoneWithExtension` with `ExtensionPolicy.E164` returns the E.164 number and the extension beside it (`NormalizedPhoneWithExtension`, `NormalizedExtension`), the extension under its own identity `phone.extension`. It delegates to the phonenumber library only for input carrying a recognised marker followed by digits, so ordinary numbers keep the existing path and behaviour; `normalizePhone` still refuses an extension, since E.164 cannot carry one. A test pins the dependency's marker set, so a version bump that moves the number/extension boundary fails the build.
+
 ### Breaking
 
 - **A phone extension is refused rather than folded into the number.** `#`, `,` and `;` are refused under every policy (`ExtensionNotSupported`), and a trailing digit group written with ordinary formatting is refused when the number is already valid without it (`AmbiguousTrailingGroup`) — the `+43 1 58058-0` Durchwahl style. Previously the lenient policies dropped the marker and spliced the digits onto the subscriber number, and the strict ones did the same wherever the folded result was still valid, producing a different, valid-looking number. Ordinary numbers written with separators are unaffected.

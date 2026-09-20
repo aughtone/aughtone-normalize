@@ -147,9 +147,9 @@ class PhonePolicy internal constructor(
  */
 object PhonePolicies : PublishedPolicies() {
 
-    override val policies: List<Policy> = PhonePolicy.all
+    override val policies: List<Policy> = PhonePolicy.all + ExtensionPolicy.all
 
-    override val links: List<PolicyLink> = listOf(PhonePolicy.Base, PolicyLink.Lenient)
+    override val links: List<PolicyLink> = listOf(PhonePolicy.Base, ExtensionPolicy.Base, PolicyLink.Lenient)
 
     override fun resolveBase(id: String, version: Int): Outcome<Policy> {
         val region = regionOf(id) ?: return super.resolveBase(id, version)

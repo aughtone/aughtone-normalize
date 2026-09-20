@@ -125,6 +125,8 @@ A normalizer in one module may need a step that lives in another — email optio
 
 **Keeping the subaddress is the default because it cannot be known whether dropping it is safe.** Some mail systems treat the tag as part of an individual's account: RFC 5233 is optional, RFC 5321 makes the local part opaque to everyone but the receiving server, and a default Postfix treats `+` as a literal character. Where that cannot be discovered, the tagged address **is** the whole address — an assumption that never merges two people, and one a caller can narrow later, where merging two accounts into one token cannot be undone.
 
+This is not only theoretical. **Firebase Auth treats `a+one@example.com` and `a@example.com` as two distinct users**, so an application keyed on that store and tokenizing with the subaddress removed would hold a token that disagrees with its own identity provider, and contact matching could resolve to the wrong account. The duplicate signup a tag-keeping rule allows is a nuisance someone notices; the merge a tag-removing rule causes is an identity error nobody can detect afterwards.
+
 It collapses **no** Unicode variants and encodes **no** provider-specific behaviour — notably not Gmail's treatment of dots as insignificant. The line is: **a universal standard, yes; a single-provider behaviour, no.**
 
 `SubaddressRemoved` (id `email:subaddress.removed`, version 1) removes the `+`-subaddress (RFC 5233), for a caller who knows the provider treats it as a tag — which is the caller's knowledge, not something this library can discover. Its bytes are frozen and identical on every platform. It is not comparable with `Address` and declares no comparable form: for a tagged address the two write different text, and a tag cannot be removed from a stored token after the fact. Its id was `email.lenient` in `0.0.1`, `email.byte-stable+lenient` in `0.0.2`, and `email.byte-stable` in `0.0.3`, where removing the tag was the default; in `0.0.4` it is the option and the id says so. Its bytes never changed.
@@ -142,6 +144,16 @@ An extension is data — it changes who is reached — and E.164 has no room for
 The hard case is that an extension is usually written with ordinary formatting — `+43 1 58058-0`, the Durchwahl convention of German-speaking countries. `-`, `.`, `/`, `(`, `)` and the space separate parts of ordinary numbers as well, so **no character test distinguishes them**. What can be asked is whether the number is already valid without its last group, which needs the national number plan and therefore lives beside the metadata rather than in a character filter. After a hyphen a complete number before the group is enough to refuse; after any other separator the whole number must also be invalid, because in a variable-length plan an ordinary number often has a valid number as its leading part: `+49 89 636 48018` is one number, not two.
 
 **This refuses some legitimately written numbers**, where a number's leading part is itself valid and the writer separated the last group with a hyphen. That is the trade: a refusal the caller sees and can correct, against a wrong number nobody sees. The dependency folds extensions in the same way upstream libphonenumber does, so the marker half is being fixed there ([aughtone/aughtone-phonenumber#5](https://github.com/aughtone/aughtone-phonenumber/issues/5)) while the formatting half stays here.
+
+### Keeping an extension
+
+`normalizePhoneWithExtension` with `ExtensionPolicy.E164` returns the E.164 number and, when the input carries one, the extension under its own identity (id `phone.extension`, version 1). The number is exactly what `normalizePhone` writes, so its tokens match either way; the extension declares no comparable form, because an extension only means something beside its own number.
+
+**It delegates only where an extension can actually be.** Input carrying a recognised marker — `x`, `ext`, `ext.`, `extn`, `xtn`, `#`, `,`, `;`, each followed by digits — is handed to the phonenumber library, which owns the marker vocabulary and splits number from extension against the national number plan. Everything else goes down the ordinary path untouched. That gate is deliberate: the library's own trailing-group guard refuses some plainly written numbers whose leading part is also valid, so input with no marker must never reach it, and the two entry points then agree for every ordinary number.
+
+**A marker with no digits after it is refused rather than delegated**, because the library mis-reads those: `+1 212 555 0123 ext` becomes `+12125550123398` when `ext` goes through keypad conversion, and `+1 212 555 0123#` splits as `+1212555` with extension `0123`. Both are reported upstream.
+
+**Two vocabularies have to agree, so a test pins them.** Ours decides whether to delegate; theirs decides where the number ends. `PhoneExtensionMarkerTest` asks the dependency directly what it does with each spelling, so a version bump that moves that boundary fails the build rather than silently re-keying every extension token derived under the old split.
 
 ## Changing any of this
 

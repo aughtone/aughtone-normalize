@@ -104,22 +104,7 @@ fun normalizePhone(value: String, policy: PhonePolicy): Outcome<NormalizedPhone>
     val parsed = try {
         PhoneNumberUtil.parse(prepared, region)
     } catch (failure: PhoneNumberUtil.NumberParseException) {
-        // Every error type is mapped deliberately rather than through an `else`: the dependency added four
-        // of these in 0.0.3, and an `else` would have swallowed them silently. A new one should break this
-        // build, because an unmapped failure reaching a caller as the wrong type is worse than a compile
-        // error we can see.
-        throw when (failure.errorType) {
-            PhoneNumberUtil.ErrorType.INVALID_COUNTRY_CODE -> PhoneNormalizationError.UnknownCountryCode()
-            PhoneNumberUtil.ErrorType.NOT_A_NUMBER -> PhoneNormalizationError.NotANumber()
-            PhoneNumberUtil.ErrorType.TOO_SHORT_AFTER_IDD,
-            PhoneNumberUtil.ErrorType.TOO_SHORT_NSN,
-            PhoneNumberUtil.ErrorType.TOO_LONG,
-            -> PhoneNormalizationError.NotValidForRegion()
-            // The dependency reached the same conclusion our own guard does, by its own route. It should
-            // not normally get here: our check runs first, and we hand it digits with no formatting left
-            // for it to read a trailing group from.
-            PhoneNumberUtil.ErrorType.AMBIGUOUS_TRAILING_GROUP -> PhoneNormalizationError.AmbiguousTrailingGroup(null)
-        }
+        throw failure.toNormalizationError()
     }
 
     // An extension written with ordinary formatting - the Durchwahl style `+43 1 58058-0`, or a trailing
@@ -164,7 +149,28 @@ fun normalizePhone(value: String, policy: PhonePolicy): Outcome<NormalizedPhone>
  * consulted for anything it could change - and a frozen corpus test pins that, because "it does not
  * matter" is the kind of claim that quietly stops being true.
  */
-private const val NEUTRAL_REGION = "US"
+/**
+ * The typed error one of the dependency's failures becomes.
+ *
+ * Every error type is mapped deliberately rather than through an `else`: the dependency added four of
+ * these in 0.0.3, and an `else` would have swallowed them silently. A new one should break this build,
+ * because an unmapped failure reaching a caller as the wrong type is worse than a compile error.
+ */
+internal fun PhoneNumberUtil.NumberParseException.toNormalizationError(): PhoneNormalizationError =
+    when (errorType) {
+        PhoneNumberUtil.ErrorType.INVALID_COUNTRY_CODE -> PhoneNormalizationError.UnknownCountryCode()
+        PhoneNumberUtil.ErrorType.NOT_A_NUMBER -> PhoneNormalizationError.NotANumber()
+        PhoneNumberUtil.ErrorType.TOO_SHORT_AFTER_IDD,
+        PhoneNumberUtil.ErrorType.TOO_SHORT_NSN,
+        PhoneNumberUtil.ErrorType.TOO_LONG,
+        -> PhoneNormalizationError.NotValidForRegion()
+        // The dependency reached the same conclusion our own guard does, by its own route: on the plain
+        // path we hand it digits with no formatting to read a trailing group from, so this is the
+        // extension path, where the raw input does reach it.
+        PhoneNumberUtil.ErrorType.AMBIGUOUS_TRAILING_GROUP -> PhoneNormalizationError.AmbiguousTrailingGroup(null)
+    }
+
+internal const val NEUTRAL_REGION = "US"
 
 /** ASCII characters that are presentation rather than data: grouping, spacing and separators. */
 private fun Int.isFormatting(): Boolean =
@@ -267,7 +273,7 @@ private fun String.codePointAtIndex(index: Int): Int {
     return high.code
 }
 
-private fun String.hasUnpairedSurrogate(): Boolean {
+internal fun String.hasUnpairedSurrogate(): Boolean {
     var index = 0
     while (index < length) {
         val character = this[index]
