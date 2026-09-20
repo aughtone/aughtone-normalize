@@ -26,9 +26,26 @@ import io.github.aughtone.types.outcome.runOutcome
  * cannot be dialled without a keypad mapping, and inventing one would produce a token for a number the
  * caller never typed.
  *
+ * ## An extension is refused, never folded in
+ *
+ * E.164 has no room for an extension, and dropping the characters that introduce one would splice its
+ * digits onto the subscriber number - `+1 212 555 0123 #4` would become `+121255501234`, a different and
+ * entirely plausible number. So `#`, `,` and `;` are refused under every policy, leniency included:
+ * leniency widens what is accepted and may never invent data.
+ *
+ * The harder half is that an extension is usually written with ordinary formatting. `+43 1 58058-0` is
+ * the Durchwahl convention of German-speaking countries, and `-`, `.`, `/`, `(`, `)` and the space all
+ * separate parts of ordinary numbers too, so no character test tells them apart. What can be asked is
+ * whether the number is already **valid without its last group**: if it is, the input says two things at
+ * once and is refused with [PhoneNormalizationError.AmbiguousTrailingGroup]. After a hyphen that is
+ * enough on its own; after any other separator the whole number must also be invalid, because in a
+ * variable-length plan an ordinary number often has a valid number as its leading part - `+49 89 636
+ * 48018` is one number, not two.
+ *
  * ```
  * normalizePhone("+1 (212) 555-1234", PhonePolicy.E164)                  // "+12125551234"
  * normalizePhone("(212) 555-1234", PhonePolicy.e164ForRegion("us"))      // "+12125551234"
+ * normalizePhone("+43 1 58058-0", PhonePolicy.E164)                      // refused: AmbiguousTrailingGroup
  * ```
  */
 fun normalizePhone(value: String, policy: PhonePolicy): Outcome<NormalizedPhone> = runOutcome {
@@ -37,15 +54,27 @@ fun normalizePhone(value: String, policy: PhonePolicy): Outcome<NormalizedPhone>
     val digits = StringBuilder(value.length)
     var leadingPlus = false
     var index = 0
+    // Digits written after the last formatting character. An extension is usually written exactly this
+    // way, so the count is what lets the check below ask whether the number is complete without them.
+    var trailingGroup = 0
+    var lastSeparator = 0
     while (index < value.length) {
         val codePoint = value.codePointAtIndex(index)
         val width = if (codePoint >= 0x10000) 2 else 1
 
         val digit = decimalDigitValue(codePoint)
         when {
-            digit != null -> digits.append('0' + digit)
+            digit != null -> {
+                digits.append('0' + digit)
+                trailingGroup++
+            }
 
-            codePoint.isFormatting() -> Unit
+            codePoint.isExtensionMarker() -> throw PhoneNormalizationError.ExtensionNotSupported(index, codePoint)
+
+            codePoint.isFormatting() -> {
+                trailingGroup = 0
+                lastSeparator = codePoint
+            }
 
             codePoint.isPlus() -> {
                 // A plus means "what follows is a country code", so it is only meaningful first. In the
@@ -75,9 +104,44 @@ fun normalizePhone(value: String, policy: PhonePolicy): Outcome<NormalizedPhone>
     val parsed = try {
         PhoneNumberUtil.parse(prepared, region)
     } catch (failure: PhoneNumberUtil.NumberParseException) {
+        // Every error type is mapped deliberately rather than through an `else`: the dependency added four
+        // of these in 0.0.3, and an `else` would have swallowed them silently. A new one should break this
+        // build, because an unmapped failure reaching a caller as the wrong type is worse than a compile
+        // error we can see.
         throw when (failure.errorType) {
             PhoneNumberUtil.ErrorType.INVALID_COUNTRY_CODE -> PhoneNormalizationError.UnknownCountryCode()
             PhoneNumberUtil.ErrorType.NOT_A_NUMBER -> PhoneNormalizationError.NotANumber()
+            PhoneNumberUtil.ErrorType.TOO_SHORT_AFTER_IDD,
+            PhoneNumberUtil.ErrorType.TOO_SHORT_NSN,
+            PhoneNumberUtil.ErrorType.TOO_LONG,
+            -> PhoneNormalizationError.NotValidForRegion()
+            // The dependency reached the same conclusion our own guard does, by its own route. It should
+            // not normally get here: our check runs first, and we hand it digits with no formatting left
+            // for it to read a trailing group from.
+            PhoneNumberUtil.ErrorType.AMBIGUOUS_TRAILING_GROUP -> PhoneNormalizationError.AmbiguousTrailingGroup(null)
+        }
+    }
+
+    // An extension written with ordinary formatting - the Durchwahl style `+43 1 58058-0`, or a trailing
+    // group after a space - cannot be told from a number by the characters alone: `-`, `.`, `/`, `(`, `)`
+    // and the space all separate parts of ordinary numbers too. What can be asked is whether the number is
+    // already complete without that last group. If it is, the input says two things at once, and a
+    // normalizer that must not invent data refuses rather than choosing one of them. Folding the group in
+    // is the alternative, and it produces a different, valid-looking number that nothing reports.
+    if (trailingGroup in 1 until digits.length) {
+        val withoutTrailingGroup = digits.substring(0, digits.length - trailingGroup)
+        val base = if (leadingPlus) "+$withoutTrailingGroup" else withoutTrailingGroup
+        if (PhoneNumberUtil.isValid(base, region)) {
+            // A hyphen before the last group is how German-speaking countries write an extension - the
+            // Durchwahl, `+43 1 58058-0` - so a complete number before it is taken as ambiguous. After any
+            // other separator, groups are ordinary formatting and only refused when the whole number is
+            // not valid, which means the last group cannot belong to it. Without that second condition a
+            // plainly written number would be refused wherever its leading part is also a valid number,
+            // which in variable-length plans is common: `+49 89 636 48018` is one number, not two.
+            val hyphenated = lastSeparator == HYPHEN
+            if (hyphenated || !PhoneNumberUtil.isValid(prepared, region)) {
+                throw PhoneNormalizationError.AmbiguousTrailingGroup(trailingGroup)
+            }
         }
     }
 
@@ -111,6 +175,16 @@ private fun Int.isFormatting(): Boolean =
 private fun Int.isPlus(): Boolean = this == 0x2B || this == 0xFF0B
 
 private fun Int.isAsciiLetter(): Boolean = this in 0x41..0x5A || this in 0x61..0x7A
+
+/**
+ * `#`, `,` and `;`, each of which says that what follows is not part of the number: an extension, a DTMF
+ * sequence, or a dialling pause. Refused under every policy, because leniency widens what is accepted and
+ * may never invent data - dropping the marker would splice the digits after it onto the subscriber number.
+ */
+private fun Int.isExtensionMarker(): Boolean = this == 0x23 || this == 0x2C || this == 0x3B
+
+/** `-`, the separator German-speaking countries write an extension after. */
+private const val HYPHEN = 0x2D
 
 /** The canonical E.164 string plus the policy identity that produced it. */
 data class NormalizedPhone(
@@ -154,6 +228,28 @@ sealed class PhoneNormalizationError(message: String) : Exception(message) {
 
     /** Parsed, but the metadata says no such number exists in that region. */
     class NotValidForRegion : PhoneNormalizationError("phone: not valid for its region")
+
+    /**
+     * A marker that introduces something other than the number - `#`, `,` or `;`. The digits after it are
+     * an extension or a dialling sequence, and E.164 has no room for either, so the input is refused
+     * rather than silently folded into the subscriber number.
+     */
+    class ExtensionNotSupported(val index: Int, val codePoint: Int) :
+        PhoneNormalizationError("phone: extension marker at index $index (U+${codePoint.toHex()})")
+
+    /**
+     * A trailing group of digits after ordinary formatting, where the number is already valid without it -
+     * `+43 1 58058-0`. The input names a number and something else, and which is which cannot be decided
+     * from the characters: the same separators appear inside ordinary numbers. Refused rather than folded.
+     *
+     * @property digits how many digits the trailing group held, or `null` when the dependency refused it
+     * first and did not say. Not part of the number, and not enough of one to identify anybody.
+     */
+    class AmbiguousTrailingGroup(val digits: Int?) :
+        PhoneNormalizationError(
+            if (digits == null) "phone: trailing group after a complete number"
+            else "phone: trailing group of $digits digits after a complete number",
+        )
 
     /** Half a character: an unpaired surrogate has no valid UTF-8 form. */
     class UnpairedSurrogate : PhoneNormalizationError("phone: unpaired surrogate")

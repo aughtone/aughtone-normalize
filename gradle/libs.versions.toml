@@ -15,7 +15,7 @@ vanniktech = "0.37.0"
 kotlinBrowser = "2026.7.1"
 
 aughtone-types = "3.4.0"
-aughtone-phonenumber = "0.0.2"
+aughtone-phonenumber = "0.0.3"
 
 [libraries]
 lint-api = { module = "com.android.tools.lint:lint-api", version.ref = "lint" }

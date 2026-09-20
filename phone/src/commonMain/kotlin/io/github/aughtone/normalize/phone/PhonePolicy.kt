@@ -122,18 +122,14 @@ class PhonePolicy internal constructor(
         /**
          * Whether the library carries metadata for a region.
          *
-         * It exposes no list of regions, so this asks the only question it answers: parsing anything
-         * against an unknown region fails immediately, before the number itself is considered. The probe
-         * is a well-formed international number, so a failure can only mean the region.
+         * It publishes the set directly since `phonenumber` 0.0.3, so this is a lookup rather than an
+         * inference. It used to probe by parsing `+12125551234` against the region and treating a failure
+         * as "no such region". That worked against 0.0.2 and silently stopped working at 0.0.3, where a
+         * number beginning with `+` carries its own calling code and is parsed whatever the region says -
+         * so every region, real or invented, began passing the check. A guard that cannot fail is worse
+         * than no guard, because it reads as one: see [ADR-0001] for what an unusable region costs.
          */
-        private fun hasMetadata(region: String): Boolean = try {
-            PhoneNumberUtil.parse(REGION_PROBE, region)
-            true
-        } catch (failure: PhoneNumberUtil.NumberParseException) {
-            false
-        }
-
-        private const val REGION_PROBE = "+12125551234"
+        private fun hasMetadata(region: String): Boolean = region in PhoneNumberUtil.getSupportedRegions()
 
         private fun chainOf(vararg links: PolicyLink): String =
             PolicyId.of(links.toList())
