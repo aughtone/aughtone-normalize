@@ -17,6 +17,11 @@ import kotlin.test.assertTrue
  * read their release notes, then either add the spelling to `findMarker` or record why not. The marker set
  * is pinned per release there and a change to it is a called-out byte change.
  *
+ * **It detects divergence; it does not prove coverage.** The list below is one we maintain, so a spelling
+ * neither side thought of is invisible here - which is exactly how the absence of every localised label
+ * went unnoticed while an acceptance criterion claimed one was pinned. Read it as "these agree", never as
+ * "nothing is missing". Localised labels are refused deliberately and `PhoneLocalisedLabelTest` says so.
+ *
  * Pinned against `io.github.aughtone:phonenumber:0.0.3`.
  */
 class PhoneExtensionMarkerTest {

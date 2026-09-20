@@ -18,7 +18,7 @@ Every normalizer in the roster is built: email, credit-card/PAN, IBAN, IPv4, IPv
 
 | Module | Coordinate | What it does |
 |---|---|---|
-| `:quodlibet` | `io.github.aughtone.normalize:quodlibet` | every normalizer that needs no lookup table and no external dependency: email and its subaddress, credit-card/PAN, IBAN, IPv4, IPv6 and networks, MAC addresses, UUIDs and usernames, each with named frozen policies and typed, value-free errors |
+| `:quodlibet` | `io.github.aughtone.normalize:quodlibet` | every normalizer that carries no lookup table of its own: email and its pieces, credit-card/PAN, IBAN, IPv4, IPv6 and networks, MAC addresses, UUIDs and usernames, each with named frozen policies and typed, value-free errors. It depends on `:ubilibet`, because an address's domain is normalized as a domain — a caller touching no domain ships none of those tables |
 | `:unicode` | `io.github.aughtone.normalize:unicode` | configurable text normalization — trim, spaces, case, case folding, NFC/NFD/NFKC/NFKD — over ASCII or against tables frozen from a pinned Unicode release, never the platform's; its Android artifact bundles a lint check for rules written out of order |
 | `:ubilibet` | `io.github.aughtone.normalize:ubilibet` | every hostname and domain, ASCII included, under UTS-46 with Punycode, URLs, and validating ToUnicode for display — the full IDNA conformance suite passes on every target |
 | `:confusables` | `io.github.aughtone.normalize:confusables` | UTS-39 skeletons for spoof detection, including the bidirectional algorithm the standard defines them through |

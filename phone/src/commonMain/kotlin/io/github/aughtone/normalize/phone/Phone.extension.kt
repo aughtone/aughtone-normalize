@@ -88,6 +88,34 @@ internal class MarkerMatch(val start: Int, val end: Int)
  *
  * Longest first at each position, so `ext.` is not cut short by `ext`, and `;ext=` is matched whole rather
  * than as a bare `;` that would leave the `ext=` behind in the number.
+ *
+ * ## No localised label, deliberately
+ *
+ * `Durchwahl`, `poste`, `anexo`, `ramal`, `interno` and the rest are how extensions are written in most of
+ * the world, and none of them is recognised here. Input carrying one is refused on its letters, and a
+ * caller whose input has them strips the label before calling - in the place that knows the language.
+ *
+ * Three reasons, in the order they matter:
+ *
+ * 1. **The set has no end and no owner.** There is no principle that admits German and stops; there is
+ *    only a list that grows whenever somebody reports a number that refused. The list would have to be
+ *    versioned, because it decides where a number ends - "which release of the label list split this
+ *    token?" is the same question a Unicode release asks, and `phone.extension` is free of it today.
+ * 2. **A letter marker is a hole in the letter refusal.** Letters are refused here so that the keypad
+ *    conversion in the dependency can never turn a word into digits. Every label admitted is a carve-out
+ *    in that rule, in a language nobody maintaining this reads.
+ * 3. **The obvious list to copy is partial, and its gaps produce wrong numbers.** Measured against
+ *    `phonenumber` 0.0.3: `anexo` and `extensión` are read as labels and split correctly, while `poste`
+ *    and `ramal` are not recognised and their letters go through keypad conversion instead -
+ *    `+1 212 555 0123 poste 4` parses as `+12125550123767834`, a different, valid-looking number.
+ *    Adopting that list wholesale would mean adopting its gaps, and its gaps are the defect this module
+ *    exists to avoid. `PhoneLocalisedLabelTest` pins this rather than describing it.
+ *
+ * **The vocabulary does not have to avoid these words, and could not.** Some labels contain a marker -
+ * `anexo` holds an `x`, `extensión` begins with `ext` - so a marker is matched inside the word and the
+ * split lands mid-label. That is harmless: whichever side the remaining letters fall on is refused,
+ * because [normalizePhone] refuses a letter in the number and [readExtension] refuses one in the
+ * extension. The letter rule is what makes every label safe, in every language, without a list.
  */
 internal fun findMarker(value: String): MarkerMatch? {
     for (index in value.indices) {
