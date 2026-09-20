@@ -18,7 +18,7 @@ Feeds from [RAD-0001](../research/RAD-0001-identifier-and-text-normalization.md)
 - **`PhonePolicy.E164`** — id `phone.e164`. For input that already carries its own country code. National-format input is refused with a typed failure, not defaulted.
 - **`PhonePolicy.e164ForRegion(region)`** — id `phone.e164:region.<region>`, e.g. `phone.e164:region.ca`. For national-format input, interpreted against the region the caller named deliberately.
 
-*Corrected 2026-09-11:* the ids and the factory name were restated to match the suite-wide policy grammar in DOC-0001 — a policy identity is an ordered chain of links joined by `+`, with the region as a qualifier link and any relaxation last, lowercase throughout. The decision itself is unchanged: the region rides on the policy identity.
+*Corrected 2026-09-11:* the ids and the factory name were restated to match the suite-wide policy grammar in DOC-0001 — a policy identity is an ordered chain of links joined by `:`, with the region as a qualifier link and any relaxation last, lowercase throughout. The decision itself is unchanged: the region rides on the policy identity.
 
 The region is part of the policy `id`, so it travels with every derived token. The two-argument contract `normalizeX(value, policy)` is unchanged.
 
