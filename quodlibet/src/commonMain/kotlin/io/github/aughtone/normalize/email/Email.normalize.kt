@@ -1,5 +1,6 @@
 package io.github.aughtone.normalize.email
 
+import io.github.aughtone.normalize.quodlibet.trimWhitespace
 import io.github.aughtone.types.outcome.Outcome
 import io.github.aughtone.types.outcome.runOutcome
 
@@ -55,7 +56,7 @@ internal class EmailReading(
 internal fun readEmail(value: String, policy: EmailPolicy): EmailReading {
     if (value.hasUnpairedSurrogate()) throw EmailNormalizationError.UnpairedSurrogate()
 
-    val trimmed = value.trimAsciiWhitespace()
+    val trimmed = value.trimWhitespace()
     val at = trimmed.lastIndexOf('@')
     if (at < 0) throw EmailNormalizationError.MissingAtSign()
 
@@ -111,16 +112,6 @@ private fun String.hasUnpairedSurrogate(): Boolean {
     return false
 }
 
-private fun Char.isAsciiWhitespace(): Boolean =
-    this == ' ' || this == '\t' || this == '\n' || this == '\r' || this == '\u000B' || this == '\u000C'
-
-private fun String.trimAsciiWhitespace(): String {
-    var start = 0
-    var end = length
-    while (start < end && this[start].isAsciiWhitespace()) start++
-    while (end > start && this[end - 1].isAsciiWhitespace()) end--
-    return substring(start, end)
-}
 
 /** Lowercases ASCII `A`–`Z` only; every other code unit (including all non-ASCII) is left untouched. */
 private fun String.asciiLowercase(): String {
