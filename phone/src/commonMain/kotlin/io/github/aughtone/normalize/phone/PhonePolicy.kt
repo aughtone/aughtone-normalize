@@ -142,7 +142,7 @@ class PhonePolicy internal constructor(
  * Every policy this module publishes without a region, and the links every phone policy is built from.
  *
  * A region policy is built on demand rather than enumerated - there are hundreds of regions and a caller
- * uses one or two - so resolution accepts any `region-xx` link whose metadata exists, and rebuilds the
+ * uses one or two - so resolution accepts any `region.xx` link whose metadata exists, and rebuilds the
  * policy from it. That keeps the round trip total: anything this module can produce, it can resolve.
  */
 object PhonePolicies : PublishedPolicies() {
@@ -179,5 +179,8 @@ object PhonePolicies : PublishedPolicies() {
  * this form.
  */
 object PhoneForms {
+    /** The E.164 number. Every phone policy writes it, whatever region read the input and however
+     * leniently, so values from different phone policies compare through this form rather than by their
+     * strings happening to agree. */
     val E164: ComparableForm = ComparableForm("phone.e164")
 }

@@ -140,5 +140,6 @@ sealed class IbanNormalizationError(message: String) : Exception(message) {
  * [IbanPolicy.CompactLenient] both write it, because leniency only skips the mod-97 check.
  */
 object IbanForms {
+    /** The ISO 13616 compact electronic format: no spaces, uppercase. The standard's own canonical form. */
     val Compact: ComparableForm = ComparableForm("iban.compact")
 }

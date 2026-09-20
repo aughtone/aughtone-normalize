@@ -62,8 +62,13 @@ enum class StepPhase(val rank: Int) {
  * disagree - a step must declare a phase and nothing else may.
  */
 class PolicyLink(
+    /** The link as it appears in an id: `phone.e164`, `region.ca`, `space.trimmed`, `lenient`. */
     val name: String,
+
+    /** What this link is, which fixes where it may sit in a chain. */
     val kind: LinkKind,
+
+    /** For a step, when it runs relative to other steps; `null` for anything that is not a step. */
     val phase: StepPhase? = null,
 ) {
     init {

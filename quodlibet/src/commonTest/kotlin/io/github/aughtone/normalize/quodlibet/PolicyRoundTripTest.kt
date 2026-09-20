@@ -79,7 +79,9 @@ class PolicyRoundTripTest {
         assertTrue(withdrawn is Outcome.Failure && withdrawn.exception is PolicyIdentityError, "got $withdrawn")
 
         // Withdrawn in 0.0.4: every `+`-joined id, and the base that used to strip the subaddress by default.
-        for (id in listOf("email.byte-stable", "email.byte-stable+subaddressed", "text.u17+trim+lower")) {
+        // `email.domain` never shipped: a domain taken out of an address is a domain, so it resolves as
+        // `domain.ascii.u17` through `:ubilibet` and this module publishes no second reading of one.
+        for (id in listOf("email.byte-stable", "email.byte-stable+subaddressed", "text.u17+trim+lower", "email.domain")) {
             val gone = QuodlibetPolicies.resolve(id, 1)
             assertTrue(gone is Outcome.Failure && gone.exception is PolicyIdentityError, "<$id> must not resolve, got $gone")
         }

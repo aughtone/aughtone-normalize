@@ -73,7 +73,7 @@ sealed class TextNormalizationError(message: String) : Exception(message) {
      */
     class UnpairedSurrogate : TextNormalizationError("text: unpaired surrogate")
 
-    /** The policy includes `non-empty`, and nothing was left once the other rules had run. */
+    /** The policy includes `empty.refused`, and nothing was left once the other rules had run. */
     class Empty : TextNormalizationError("text: empty")
 }
 

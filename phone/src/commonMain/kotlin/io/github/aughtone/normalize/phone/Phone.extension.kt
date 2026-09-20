@@ -177,7 +177,10 @@ class ExtensionPolicy internal constructor(
 
 /** A number and, when the input carried one, its extension - each with the identity that produced it. */
 data class NormalizedPhoneWithExtension(
+    /** The E.164 number - exactly what [normalizePhone] writes for the text before the marker. */
     val number: NormalizedPhone,
+
+    /** The extension digits, or `null` when the input carried no marker, or a marker introducing nothing. */
     val extension: NormalizedExtension?,
 )
 

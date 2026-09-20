@@ -139,5 +139,6 @@ sealed class PanNormalizationError(message: String) : Exception(message) {
  * and [PanPolicy.DigitsLenient] both write it, because leniency only skips the Luhn check.
  */
 object PanForms {
+    /** The digits alone, with issuer grouping removed. It is the digits the Luhn check runs on. */
     val Digits: ComparableForm = ComparableForm("pan.digits")
 }

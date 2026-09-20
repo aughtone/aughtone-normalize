@@ -85,7 +85,10 @@ class EmailSubaddressPolicy internal constructor(
 
 /** An address's mailbox and, when it has one, its subaddress, each with the identity that produced it. */
 data class NormalizedEmailWithSubaddress(
+    /** The address with the tag removed - exactly what [normalizeEmail] writes under the same policy. */
     val mailbox: NormalizedEmail,
+
+    /** The RFC 5233 tag, or `null` when the address carried no `+`. Empty for `user+@example.com`. */
     val subaddress: NormalizedEmailSubaddress?,
 )
 

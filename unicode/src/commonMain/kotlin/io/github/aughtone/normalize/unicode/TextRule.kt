@@ -9,7 +9,7 @@ package io.github.aughtone.normalize.unicode
  * @property link The rule's name in a policy id.
  * @property unicodeOnly True for a rule that has no ASCII meaning and needs a Unicode release.
  * @property characterSet True for a rule whose behaviour depends on the character set it runs in;
- * false for one, like `non-empty`, that means the same thing in either.
+ * false for one, like `empty.refused`, that means the same thing in either.
  */
 internal enum class TextRule(
     val rank: Int,

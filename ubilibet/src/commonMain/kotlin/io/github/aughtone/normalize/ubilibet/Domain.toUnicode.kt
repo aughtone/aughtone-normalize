@@ -65,8 +65,13 @@ class UnicodeDomain internal constructor(val labels: List<UnicodeLabel>) {
  * error in this suite.
  */
 class UnicodeLabel internal constructor(
+    /** The label for display: its U-label where it converts, otherwise the label as it arrived. */
     val unicode: String,
+
+    /** The label's A-label form, which is what [normalizeDomain] writes and what DNS carries. */
     val ascii: String,
+
+    /** The first check this label failed, or `null` when it passed every one. */
     val error: DomainNormalizationError?,
 ) {
     /** True when the label passed every check [error] would report. */

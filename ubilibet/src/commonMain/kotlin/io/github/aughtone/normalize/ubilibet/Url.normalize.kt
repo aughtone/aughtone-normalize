@@ -301,7 +301,7 @@ sealed class UrlNormalizationError(message: String) : Exception(message) {
      *
      * Those spellings are read differently by different stacks, so rewriting one here would bury a
      * choice of interpretation inside a URL. **Normalize the address deliberately instead** - with
-     * `normalizeIpv4` under `ipv4.dotted-quad` or `ipv4.inet-aton` - and rebuild the URL from the
+     * `normalizeIpv4` under `ipv4.quad.dotted` or `ipv4.inet.aton` - and rebuild the URL from the
      * result, so the identity records which reading was applied.
      */
     class AmbiguousAddressHost : UrlNormalizationError("url: ambiguous address host")

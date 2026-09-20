@@ -25,7 +25,7 @@ import io.github.aughtone.types.outcome.runOutcome
  * Both values then carry one id, and matching stays scoped by policy identity.
  *
  * The address is read under [Ipv4BlockPolicy.address]'s own rules, which is why they appear in the id:
- * `inet-aton` reads `010` as 8 and `dotted-quad` refuses it.
+ * `ipv4.inet.aton` reads `010` as 8 and `ipv4.quad.dotted` refuses it.
  *
  * ```
  * normalizeIpv4Block("192.0.2.57", Ipv4Policy.DottedQuad.block(24))   // "192.0.2.0/24"
@@ -215,7 +215,7 @@ private fun networkResult(network: Long, prefixLength: Int, policy: Policy): Nor
 private fun chain(address: Ipv4Policy, optedIn: Set<ComparableForm>, vararg parameters: PolicyLink): String =
     PolicyId.of(listOf(PolicyLink(address.base, LinkKind.Base)) + parameters + optedIn.sorted().map { it.link }).dataOrThrow().rendered
 
-/** `dotted-quad` networks write the IPv4 network form; `inet-aton` networks only once a caller opts in. */
+/** `ipv4.quad.dotted` networks write the IPv4 network form; `ipv4.inet.aton` networks only once a caller opts in. */
 private fun networkForms(address: Ipv4Policy, optedIn: Set<ComparableForm>): Set<ComparableForm> =
     if (address.interpretsShorthand) optedIn else setOf(IpForms.Ipv4Network)
 

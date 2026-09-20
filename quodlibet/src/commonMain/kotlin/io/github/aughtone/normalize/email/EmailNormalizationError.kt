@@ -8,6 +8,11 @@ package io.github.aughtone.normalize.email
  * The messages are **value-free** — they never echo the input, so a rejected address cannot leak into a
  * log. Rejection is routine per-record flow, not an exceptional event.
  *
+ * **A domain does not fail with one of these.** `normalizeEmailParts` normalizes the domain as a domain,
+ * so the failure inside its domain piece is a `DomainNormalizationError` from `:ubilibet` - a different
+ * hierarchy, because it is a different normalizer refusing for its own reasons. A caller matching only on
+ * this type will not recognise it. The address itself still refuses with one of these, and only these.
+ *
  * **The type is the contract; the message text is not.** Match on the subclass - a test or a caller
  * that matches on message strings will break for no reason. Adding a subclass is allowed; removing one,
  * or changing which input produces which subclass, is a published-behaviour change.
