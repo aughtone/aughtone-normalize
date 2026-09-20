@@ -80,7 +80,9 @@ fun normalizePhone(value: String, policy: PhonePolicy): Outcome<NormalizedPhone>
 
             codePoint.isExtensionMarker() -> throw PhoneNormalizationError.ExtensionNotSupported(index, codePoint)
 
-            codePoint.isFormatting() -> pendingSeparator = codePoint
+            // A dash is recorded as THE hyphen, whichever of the family was written, so the guard below
+            // reads one separator rather than nine spellings of it.
+            codePoint.isFormatting() -> pendingSeparator = if (codePoint.isDash()) HYPHEN else codePoint
 
             codePoint.isPlus() -> {
                 // A plus means "what follows is a country code", so it is only meaningful first. In the
@@ -178,10 +180,50 @@ internal fun PhoneNumberUtil.NumberParseException.toNormalizationError(): PhoneN
 
 internal const val NEUTRAL_REGION = "US"
 
-/** ASCII characters that are presentation rather than data: grouping, spacing and separators. */
-private fun Int.isFormatting(): Boolean =
-    this == 0x20 || this == 0x09 || this == 0x2D || this == 0x2E ||
-        this == 0x28 || this == 0x29 || this == 0x2F
+/**
+ * Characters that are presentation rather than data: grouping, spacing and separators.
+ *
+ * **This class has to be as wide as the digit class, and that is the whole point of it.** A decimal digit
+ * is read from every `Nd` block, so a number written in one script has digits this module understands. If
+ * the separators between them are ASCII-only, the same number has separators it does not - and a rule that
+ * reads separators, such as the trailing-group guard, goes blind exactly where the separator was the
+ * evidence. That is how an en dash returned `+431580580` where the ASCII hyphen refused.
+ *
+ * The set replicates upstream libphonenumber's `VALID_PUNCTUATION` rather than being reasoned out here.
+ * Two characters say why: `U+00AD` soft hyphen and `U+30FC` katakana-hiragana prolonged sound mark are
+ * both in it, both appear in real numbers, and neither occurs to anyone writing a list from first
+ * principles - the dependency tried and missed exactly those two. A set somebody maintains against real
+ * input beats one either project reasons out.
+ *
+ * What is deliberately **not** here: `x` and the wait-for-dial-tone characters, which upstream keeps in
+ * the same regex class. `x` is a letter and introduces an extension; the tildes say what follows is not
+ * the number at all. Both are handled as markers, not as spacing.
+ */
+private fun Int.isFormatting(): Boolean = isDash() || isSeparatorSpace() || isGrouping()
+
+/**
+ * The dash family, every member treated **as a hyphen**.
+ *
+ * Not merely recorded as "a separator": the trailing-group guard asks whether the last separator was a
+ * hyphen, because a hyphen before a final group is how German-speaking countries write an extension. A
+ * typographic dash is that hyphen, typed by a word processor's autocorrect or pasted from a formatted
+ * page. Recording it would let the guard see a separator; treating it as a hyphen makes the guard fire.
+ *
+ * `U+30FC` is here because it is written as a dash in Japanese numbers, not only as a vowel mark.
+ */
+private fun Int.isDash(): Boolean =
+    this == 0x2D || this in 0x2010..0x2015 || this == 0x2212 || this == 0xFF0D || this == 0x30FC
+
+/** Spacing, visible and invisible alike - an invisible one still ends a digit group. */
+private fun Int.isSeparatorSpace(): Boolean =
+    this == 0x20 || this == 0x09 || this == 0xA0 || this == 0xAD ||
+        this == 0x200B || this == 0x2060 || this == 0x3000
+
+/** Grouping punctuation, ASCII and fullwidth alike. */
+private fun Int.isGrouping(): Boolean =
+    this == 0x2E || this == 0x28 || this == 0x29 || this == 0x2F || this == 0x5B || this == 0x5D ||
+        this == 0xFF0E || this == 0xFF0F || this == 0xFF08 || this == 0xFF09 ||
+        this == 0xFF3B || this == 0xFF3D
 
 /** ASCII `+` and its fullwidth twin, both of which mean "a country code follows". */
 private fun Int.isPlus(): Boolean = this == 0x2B || this == 0xFF0B
@@ -193,7 +235,12 @@ internal fun Int.isAsciiLetter(): Boolean = this in 0x41..0x5A || this in 0x61..
  * sequence, or a dialling pause. Refused under every policy, because leniency widens what is accepted and
  * may never invent data - dropping the marker would splice the digits after it onto the subscriber number.
  */
-private fun Int.isExtensionMarker(): Boolean = this == 0x23 || this == 0x2C || this == 0x3B
+private fun Int.isExtensionMarker(): Boolean =
+    this == 0x23 || this == 0x2C || this == 0x3B ||
+        // Wait for a dial tone: `~`, and the three characters that are written for it in other scripts.
+        // Dropping one and running the digits together folds a wrong number exactly as a comma would, so
+        // they are refused for the same reason rather than left to fall through as unsupported.
+        this == 0x7E || this == 0x2053 || this == 0x223C || this == 0xFF5E
 
 /** `-`, the separator German-speaking countries write an extension after. */
 private const val HYPHEN = 0x2D

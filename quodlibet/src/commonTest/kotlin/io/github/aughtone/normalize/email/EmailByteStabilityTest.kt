@@ -65,7 +65,9 @@ class EmailByteStabilityTest {
         "User@Example.COM" to "user@example.com",
         "USER@EXAMPLE.COM" to "user@example.com",
 
-        // ASCII whitespace trimmed — exactly space, tab, LF, CR, VT, FF and nothing else
+        // Whitespace trimmed from both ends - the ASCII set, the rest of Unicode's whitespace, and the
+        // invisible format characters that arrive by the same accidents. Frozen list, never a property
+        // lookup; `TrimableWhitespaceTest` pins the set and the reason.
         "  user@example.com  " to "user@example.com",
         "\tuser@example.com\r\n" to "user@example.com",
         "\u000Buser@example.com\u000C" to "user@example.com",
@@ -94,10 +96,15 @@ class EmailByteStabilityTest {
         // the separator is the LAST one, so a local part may legally contain one
         "A@B@C.com" to "a@b@c.com",
 
-        // Unicode whitespace is NOT trimmed. The trim is ASCII-only on purpose: Char.isWhitespace()
-        // is Unicode-version dependent and would drift between platforms and over time.
-        "\u3000user@example.com" to "\u3000user@example.com",
-        "user@example.com\u00A0" to "user@example.com\u00A0",
+        // CHANGED IN 0.0.4 (#40). This used to read "Unicode whitespace is NOT trimmed. The trim is
+        // ASCII-only on purpose: Char.isWhitespace() is Unicode-version dependent and would drift between
+        // platforms and over time" - and kept both. The concern was right and the conclusion did not
+        // follow: it argues against a PROPERTY LOOKUP, not against trimming. A frozen list of code points
+        // cannot drift, so the promise survives and the accident does not: an address copied out of a
+        // formatted page kept its no-break space, an address read from a file kept its byte-order mark,
+        // and the same address pasted two ways gave two tokens with nothing to report it.
+        "\u3000user@example.com" to "user@example.com",
+        "user@example.com\u00A0" to "user@example.com",
 
         // no IDNA, no ToASCII, no punycode — the domain is raw bytes, ASCII-lowercased only
         "user@café.fr" to "user@café.fr",
