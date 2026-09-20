@@ -100,6 +100,10 @@ val canonical: String? = normalizeEmail(value, EmailPolicy.Address).dataOrNull()
 
 To match on both, read them from one parse: `normalizeEmailWithSubaddress(value, EmailSubaddressPolicy.V1)` returns the mailbox, byte-identical to `normalizeEmail` under `SubaddressRemoved`, and the subaddress (`tag` for `user+tag@example.com`, `null` without a `+`). The subaddress carries its own id, `email.subaddress`, so a stored tag token records what it is.
 
+**For every piece at once, `normalizeEmailParts(value, policy)`** returns the mailbox, the local part (`email.local`), the domain (`email.domain`) and the subaddress from one reading. Use it instead of splitting the canonical string by hand: a hand-split piece records no policy, so nothing says which reading produced the token. The local part keeps its subaddress whatever the policy does with it, and the domain is the same value under either policy, because removing a tag rewrites the local part and never the domain.
+
+The email domain is **raw bytes, ASCII-lowercased, with no ToASCII** — `user@Bücher.Example` gives `bücher.example`, not `xn--bcher-kva.example`. That is deliberately not `normalizeDomain`'s reading, and the two are not comparable: they agree on ASCII domains, which is most input, and differ exactly where mixing them would cost the most. Provider rules — collapsing dots, removing a tag only on domains known to support them — stay with you; this hands you the pieces to apply them to.
+
 ### Text Normalization (`:unicode`)
 ```kotlin
 import io.github.aughtone.normalize.unicode.TextPolicy

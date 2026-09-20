@@ -13,10 +13,11 @@ import io.github.aughtone.types.outcome.runOutcome
  * Normalize an address into its mailbox and its RFC 5233 subaddress, from one reading of it.
  *
  * `email:subaddress.removed` removes the subaddress, so every address for one mailbox yields one token. A
- * caller that also wants to match on the tag - to tell `user:work@` from `user:home@` without losing
+ * caller that also wants to match on the tag - to tell `user+work@` from `user+home@` without losing
  * mailbox matching - needs the tag as a second token, and cutting it out by hand means reproducing the
  * exact rules the mailbox was read by: the last `@`, the first `+`, ASCII-only lowercasing and trimming.
- * This returns both pieces from the same reading, so they cannot drift apart.
+ * This returns both pieces from the same reading, so they cannot drift apart. [normalizeEmailParts] is
+ * the wider view over that same reading, adding the local part and the domain.
  *
  * - **The mailbox is exactly [normalizeEmail] under [EmailPolicy.SubaddressRemoved]:** the same bytes, id
  *   and version, so a mailbox token derived here matches one derived there.

@@ -135,6 +135,18 @@ It collapses **no** Unicode variants and encodes **no** provider-specific behavi
 
 `normalizeEmailWithSubaddress` with `EmailSubaddressPolicy.V1` returns the mailbox and the RFC 5233 subaddress from one reading of the address, for a caller that tokenizes the two separately and matches on either. The mailbox is exactly `SubaddressRemoved`'s output, id and version, so its tokens match those from `normalizeEmail`. The subaddress is everything after the first `+` of the local part, ASCII-lowercased like the rest; it is absent when there is no `+` and empty for `user+@`. It has its own identity (id `email.subaddress`, version 1), because a stored tag token must record what it is, and it declares no comparable form: a tag never compares with an address.
 
+### Every piece from one reading
+
+`normalizeEmailParts` with any `EmailPolicy` returns the mailbox, the local part (id `email.local`, version 1), the domain (id `email.domain`, version 1) and the subaddress from a single reading. It exists because a caller that tokenizes more than the mailbox was splitting the canonical string by hand, which means reproducing rules this module owns — which `@` is the boundary, that lowercasing is ASCII-only, that the domain is bytes rather than an IDNA form — and produces pieces that carry **no policy at all**, so nothing records which reading made the token and nothing can re-derive it.
+
+`normalizeEmail` and `normalizeEmailWithSubaddress` are views over the same reading, not separate parses, and a test runs one corpus through all three and compares. Asserting each path against its own expectations cannot catch a disagreement between them; that is how two phone entry points disagreed about the same input, and it is not worth rebuilding here.
+
+**The local part is the whole local part, subaddress included**, because the anchor keeps what it was given; the mailbox is the piece the policy changes. **The domain is one identity whatever base produced it**, since removing a tag rewrites the local part and never the domain. Neither declares a comparable form: a local part compares with nothing, and the email domain is raw ASCII-lowercased bytes where `domain.ascii.u17` is ToASCII under a named Unicode release — they agree on ASCII input and diverge on U-labels, which is precisely the silent mismatch this suite exists to prevent.
+
+**A local part alone identifies nobody** — `sales` is the same at every domain, and local parts come from a small vocabulary, so a token of one is guessable from its distribution even under a keyed hash. It is published because a caller applying its own provider rules needs the piece those rules act on, and it carries the same warning `email.subaddress` does.
+
+**Provider behaviour stays with the caller.** Collapsing dots for one provider, or removing a tag only on domains known to support subaddressing, is one provider's behaviour rather than a standard, and a frozen provider list cannot grow without splitting the tokens minted before a domain joined it from those minted after. The suite hands back the pieces; the caller owns the rule and mints its own identity for the result.
+
 Errors are `MissingAtSign`, `EmptyLocalPart`, `EmptyDomain`, `UnpairedSurrogate` — all value-free.
 
 ## Phone extensions
