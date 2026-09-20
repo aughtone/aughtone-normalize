@@ -97,10 +97,8 @@ class DomainToUnicodeTest {
 
     @Test
     fun anUnpairedSurrogateFailsTheWholeCall() {
-        // Built at run time rather than written as a literal: a lone surrogate cannot be encoded in the
-        // compiler's output, so a literal one is emitted as `?` whenever the compile runs in a non-UTF-8
-        // JVM, and the case silently stops being tested.
-        val outcome = toUnicodeDomain("a" + 0xD800.toChar() + ".example", DomainPolicy.AsciiU17)
+        // The surrogate is constructed rather than written - see [withLoneSurrogate].
+        val outcome = toUnicodeDomain(withLoneSurrogate("a", ".example"), DomainPolicy.AsciiU17)
         assertTrue(outcome is Outcome.Failure)
         assertIs<DomainNormalizationError.UnpairedSurrogate>(outcome.exception)
     }
@@ -112,4 +110,35 @@ class DomainToUnicodeTest {
         assertTrue(message.isNotEmpty())
         assertFalse(message.contains("secretname"))
     }
+
+/**
+ * A string carrying an unpaired high surrogate between [before] and [after], built so that the character
+ * never appears in a literal the compiler emits.
+ *
+ * `"a" + 0xD800.toChar() + "b"` is a **constant expression**: the compiler folds it and writes the
+ * surrogate into the generated source. A lone surrogate is not a Unicode scalar value, so it has no UTF-8
+ * representation at all - a generator can only carry one by escaping it, and one written raw comes back as
+ * a replacement character. The input then silently stops being the one under test, and an assertion loose
+ * enough not to notice passes while testing nothing.
+ *
+ * Routing the code point through a call the compiler cannot evaluate keeps it out of emitted source, and
+ * the checks below fail loudly if a build mangles it anyway. **Do not simplify this back into a literal:**
+ * the previous fix here was exactly that reasoning, and it put the bug back.
+ * See aughtone/aughtone-normalize#34.
+ */
+private fun withLoneSurrogate(before: String, after: String): String {
+    val code = listOf(0xD800).first()
+    val built = before + Char(code) + after
+    assertEquals(
+        before.length + 1 + after.length,
+        built.length,
+        "this build mangled the lone surrogate - the case below would test the wrong input (see #34)",
+    )
+    assertEquals(
+        code,
+        built[before.length].code,
+        "this build mangled the lone surrogate - the case below would test the wrong input (see #34)",
+    )
+    return built
+}
 }

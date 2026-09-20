@@ -59,6 +59,10 @@ class PhoneWithExtensionByteStabilityTest {
         Triple("+1 212 555 0123 ext ４", "+12125550123", "4"),
         Triple("+1 212 555 0123 ext ٤", "+12125550123", "4"),
         Triple("+1 212 555 0123 ext ४", "+12125550123", "4"),
+        // Supplementary plane: MATHEMATICAL BOLD DIGIT FOUR, U+1D7D2. An astral character is a valid
+        // scalar value, so it survives compilation on every target - unlike a lone surrogate, which does
+        // not and is constructed rather than written wherever one is needed (#34).
+        Triple("+1 212 555 0123 ext 𝟒", "+12125550123", "4"),
     )
 
     @Test
