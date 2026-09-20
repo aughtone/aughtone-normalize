@@ -200,7 +200,7 @@ normalizePhone("+1 (212) 555-0123", PhonePolicy.E164).dataOrNull()?.canonical   
 normalizePhone("(212) 555-0123", PhonePolicy.e164ForRegion("us")).dataOrNull()?.canonical   // "+12125550123"
 ```
 
-**An extension can be kept, or refused.** `normalizePhoneWithExtension(value, ExtensionPolicy.E164)` returns the E.164 number and the extension beside it, each with its own identity — the same shape as the email mailbox and its subaddress. Use it when an extension is data you want to keep; use `normalizePhone` when you want one canonical string and nothing else.
+**An extension can be kept, or refused.** `normalizePhoneWithExtension(value, ExtensionPolicy.E164)` returns the E.164 number and the extension beside it, each with its own identity — the same shape as the email mailbox and its subaddress. Use it when an extension is data you want to keep; use `normalizePhone` when you want one canonical string and nothing else. The marker is the boundary: the number is whatever `normalizePhone` makes of the text before it, so the two calls agree about every number and about every refusal.
 
 **An extension is refused, not dropped.** `#`, `,` and `;` are refused under every policy, and a trailing group written with ordinary formatting — the `+43 1 58058-0` Durchwahl style — is refused when the number is already valid without it. Folding those digits into the subscriber number would produce a different, entirely plausible number, which is the one failure a token cannot survive.
 

@@ -5,11 +5,15 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * Defects in the dependency that this module works around, pinned so the workaround cannot outlive them.
+ * Defects in the dependency, pinned so that the release which fixes them is visible here.
  *
- * **A failing test here is good news.** It means `io.github.aughtone:phonenumber` has fixed the defect,
- * and the workaround named in that test should be deleted rather than the expectation updated. Every
- * other frozen test in this suite says "do not change this"; this one says the opposite.
+ * **A failing test here is good news, and none of it is load-bearing any more.** `normalizePhoneWithExtension`
+ * splits at the marker itself and no longer gives the phonenumber library raw input, so none of these
+ * defects can reach this module - they are pinned because they are fixed in a release that is queued
+ * rather than out, and the day it lands should be visible in this build rather than found later.
+ *
+ * When one fails: update its expectation to the fixed behaviour, or delete the test if the defect is gone
+ * for good. Every other frozen test in this suite says "do not change this"; this one says the opposite.
  *
  * Pinned against `phonenumber:0.0.3`. Upstream tickets: aughtone/aughtone-phonenumber#23, #24 and #22.
  */
@@ -19,8 +23,8 @@ class PhoneDependencyDefectTest {
      * aughtone/aughtone-phonenumber#23. A marker with no digits after it is not read as a marker, so its
      * letters go through keypad conversion and land in the number.
      *
-     * **Workaround:** `findMarker` requires a digit after the marker, so this input is never delegated and
-     * is refused by the ordinary path instead. Delete that condition when this test fails.
+     * Not reachable from here: `findMarker` treats a marker with no digits after it as no marker, and the
+     * input is read as an ordinary number and refused. Pinned to show when their fix ships.
      */
     @Test
     fun aLetterMarkerWithNoDigitsIsStillFoldedIntoTheNumber() {
@@ -28,8 +32,8 @@ class PhoneDependencyDefectTest {
         assertEquals(
             "+12125550123398",
             parsed.formatToE164(),
-            "FIXED UPSTREAM: 'ext' with no digits no longer becomes keypad 398. Remove the digit-after " +
-                "condition in findMarker and let this input be delegated.",
+            "FIXED UPSTREAM: 'ext' with no digits no longer becomes keypad 398. Nothing here depends on " +
+                "it; update this expectation or drop the case.",
         )
         assertEquals(null, parsed.extension)
     }
@@ -38,7 +42,7 @@ class PhoneDependencyDefectTest {
      * aughtone/aughtone-phonenumber#24. A trailing `#` splits the number in the wrong place: the
      * subscriber digits become the extension.
      *
-     * **Workaround:** the same digit-after condition in `findMarker`.
+     * Not reachable from here, for the same reason as above.
      */
     @Test
     fun aTrailingHashStillSplitsTheNumberInTheWrongPlace() {
@@ -46,8 +50,8 @@ class PhoneDependencyDefectTest {
         assertEquals(
             "+1212555",
             parsed.formatToE164(),
-            "FIXED UPSTREAM: a trailing '#' no longer eats the subscriber digits. Remove the digit-after " +
-                "condition in findMarker.",
+            "FIXED UPSTREAM: a trailing '#' no longer eats the subscriber digits. Nothing here depends on " +
+                "it; update this expectation or drop the case.",
         )
         assertEquals("0123", parsed.extension)
     }
@@ -56,9 +60,8 @@ class PhoneDependencyDefectTest {
      * aughtone/aughtone-phonenumber#22. The trailing-group guard refuses an ordinary number whose
      * leading part is also valid.
      *
-     * **No workaround needed here** - marker gating already keeps input with no extension marker away
-     * from the dependency's parser, and this module's own ambiguity rule is narrower on purpose. This is
-     * pinned only so the day it changes is visible: their fix is tracked as aughtone/aughtone-phonenumber#22.
+     * Never reachable: this module's own ambiguity rule decides these, and it is narrower on purpose.
+     * Pinned only so the day it changes is visible; their fix is aughtone/aughtone-phonenumber#22.
      */
     @Test
     fun anOrdinaryNumberWhoseLeadingPartIsValidIsStillRefused() {
@@ -68,8 +71,7 @@ class PhoneDependencyDefectTest {
             outcome.exceptionOrNull()
                 ?.let { (it as? PhoneNumberUtil.NumberParseException)?.errorType?.name }
                 ?: "parsed as ${outcome.getOrNull()}",
-            "FIXED UPSTREAM: an ordinary grouped number now parses. Nothing to remove here, but the " +
-                "marker gate in normalizePhoneWithExtension could be relaxed if there were a reason to.",
+            "FIXED UPSTREAM: an ordinary grouped number now parses. Nothing here depends on it.",
         )
     }
 }

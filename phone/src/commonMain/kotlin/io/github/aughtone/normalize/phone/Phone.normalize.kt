@@ -58,6 +58,7 @@ fun normalizePhone(value: String, policy: PhonePolicy): Outcome<NormalizedPhone>
     // way, so the count is what lets the check below ask whether the number is complete without them.
     var trailingGroup = 0
     var lastSeparator = 0
+    var pendingSeparator = 0
     while (index < value.length) {
         val codePoint = value.codePointAtIndex(index)
         val width = if (codePoint >= 0x10000) 2 else 1
@@ -65,16 +66,21 @@ fun normalizePhone(value: String, policy: PhonePolicy): Outcome<NormalizedPhone>
         val digit = decimalDigitValue(codePoint)
         when {
             digit != null -> {
+                // A separator only ends the trailing group once a digit actually follows it, so trailing
+                // formatting - `+43 1 58058-0 ` before an extension marker, or a stray space - cannot
+                // clear the group and take the ambiguity guard below with it.
+                if (pendingSeparator != 0) {
+                    trailingGroup = 0
+                    lastSeparator = pendingSeparator
+                    pendingSeparator = 0
+                }
                 digits.append('0' + digit)
                 trailingGroup++
             }
 
             codePoint.isExtensionMarker() -> throw PhoneNormalizationError.ExtensionNotSupported(index, codePoint)
 
-            codePoint.isFormatting() -> {
-                trailingGroup = 0
-                lastSeparator = codePoint
-            }
+            codePoint.isFormatting() -> pendingSeparator = codePoint
 
             codePoint.isPlus() -> {
                 // A plus means "what follows is a country code", so it is only meaningful first. In the
@@ -180,7 +186,7 @@ private fun Int.isFormatting(): Boolean =
 /** ASCII `+` and its fullwidth twin, both of which mean "a country code follows". */
 private fun Int.isPlus(): Boolean = this == 0x2B || this == 0xFF0B
 
-private fun Int.isAsciiLetter(): Boolean = this in 0x41..0x5A || this in 0x61..0x7A
+internal fun Int.isAsciiLetter(): Boolean = this in 0x41..0x5A || this in 0x61..0x7A
 
 /**
  * `#`, `,` and `;`, each of which says that what follows is not part of the number: an extension, a DTMF
@@ -264,7 +270,7 @@ sealed class PhoneNormalizationError(message: String) : Exception(message) {
 private fun Int.toHex(): String = toString(16).uppercase().padStart(4, '0')
 
 /** The code point at [index], reading a surrogate pair as one character. */
-private fun String.codePointAtIndex(index: Int): Int {
+internal fun String.codePointAtIndex(index: Int): Int {
     val high = this[index]
     if (high.isHighSurrogate() && index + 1 < length) {
         val low = this[index + 1]

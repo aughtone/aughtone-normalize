@@ -61,6 +61,12 @@ class PhoneExtensionByteStabilityTest {
         // A trailing group after a space, where the number is complete without it and invalid with it.
         "+1 212 555 0123 4" to "AmbiguousTrailingGroup",
 
+        // Trailing formatting after the last group does not excuse it. A separator ends the trailing group
+        // only when a digit follows, so a stray space cannot clear the guard - which is how
+        // `+43 1 58058-0 x4` reached the dependency and folded. See aughtone/aughtone-normalize#32.
+        "+43 1 58058-0 " to "AmbiguousTrailingGroup",
+        "+49 30 12345678-12  " to "AmbiguousTrailingGroup",
+
         // Letter-dialled extensions were always refused, and stay refused.
         "+1 212 555 0123 x123" to "LetterNotSupported",
         "+1 212 555 0123 ext. 4" to "LetterNotSupported",

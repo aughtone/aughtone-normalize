@@ -6,7 +6,6 @@ import io.github.aughtone.normalize.common.Normalized
 import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
-import io.github.aughtone.phonenumber.PhoneNumberUtil
 import io.github.aughtone.phonenumber.decimalDigitValue
 import io.github.aughtone.types.outcome.Outcome
 import io.github.aughtone.types.outcome.dataOrElse
@@ -21,37 +20,36 @@ import io.github.aughtone.types.outcome.runOutcome
  * reading, the way [normalizeEmailWithSubaddress][io.github.aughtone.normalize.email.normalizeEmailWithSubaddress]
  * returns a mailbox and its subaddress.
  *
- * - **The number is exactly [normalizePhone]'s output** for the same input under [ExtensionPolicy.number],
- *   so a number token derived here matches one derived there.
+ * ## The marker is the boundary, so the number is read by the ordinary rules
+ *
+ * A recognised marker - `x`, `ext`, `ext.`, `extn`, `xtn`, `extension`, `#`, `,`, `;`, `;ext=` - says
+ * where the number ends. Everything before it is handed to [normalizePhone] under [ExtensionPolicy.number]
+ * and everything after it is read as extension digits.
+ *
+ * **So the number is [normalizePhone]'s output for the text before the marker, by construction rather than
+ * by agreement.** Every rule applies to it: the ambiguity guard that refuses `+43 1 58058-0`, the refusal
+ * of a second extension marker, the character whitelist, the misplaced-plus rule and the validity check
+ * the policy asks for. An input whose number part [normalizePhone] refuses is refused here with the same
+ * error, whether or not an extension follows.
+ *
+ * That matters more than it looks. Splitting the number from the extension needs the national number plan
+ * only when there is no marker to split on, and this never splits without one — so nothing is gained by
+ * handing the whole input to the phonenumber library, and what is lost is every rule this module applies
+ * that the library does not. Reading the input twice, once by each set of rules, is how `+43 1 58058-0#4`
+ * came back as `+431580580` rather than a refusal.
+ *
  * - **The extension carries its own identity**, because a stored extension token has to record what it is.
- * - **No extension is `null`**, never an empty string.
- * - **A marker with no digits after it is refused**, not read as an empty extension. `+1 212 555 0123 ext`
- *   and `+1 212 555 0123#` are not delegated at all, because the dependency mis-reads both: the first
- *   becomes `+12125550123398` when `ext` goes through keypad conversion, and the second splits as
- *   `+1212555` with extension `0123`. They reach the ordinary path instead, which refuses them.
- *
- * ## This accepts input [normalizePhone] refuses, and only that
- *
- * An extension is only findable in the text the caller typed, so input carrying a **recognised marker** -
- * `x`, `ext`, `ext.`, `xtn`, `#`, `,`, `;` - is handed to the phonenumber library, which owns the marker
- * vocabulary and splits the number from the extension against the national number plan.
- *
- * **Everything else goes down [normalizePhone]'s own path, unchanged.** That is deliberate rather than
- * incidental: the library's trailing-group guard refuses some ordinary numbers whose leading part is also
- * valid - `+49 89 636 48018` is one Munich number, not a number and an extension - so input with no marker
- * must never reach it. Gating on the marker keeps the two entry points in agreement for every ordinary
- * number, and confines the difference to exactly the inputs an extension can appear in.
- *
- * ## Letters are still refused, except a marker
- *
- * The library converts a run of three or more letters to keypad digits, as upstream does, so
- * `1-800-FLOWERS` becomes a number nobody typed. Letters are therefore refused here as they are in
- * [normalizePhone], with one exception: the letters of a recognised marker itself.
+ * - **No extension is `null`**, never an empty string: a marker is only a marker when digits follow it.
+ * - **A marker with no digits after it is not a marker.** `+1 212 555 0123 ext` and `+1 212 555 0123#`
+ *   are read as ordinary input, and refused as ordinary input, rather than read as an empty extension.
+ * - **The extension folds across scripts** by the number's own rule, so an extension written in any
+ *   decimal digits has one spelling. Separators are allowed between the marker and the first digit, and
+ *   nothing but digits after it.
  *
  * ```
  * normalizePhoneWithExtension("+1 212 555 0123 x4", ExtensionPolicy.E164)   // +12125550123, ext "4"
  * normalizePhoneWithExtension("+1 (212) 555-0123", ExtensionPolicy.E164)    // +12125550123, ext null
- * normalizePhoneWithExtension("+43 1 58058-0", ExtensionPolicy.E164)        // refused: ambiguous
+ * normalizePhoneWithExtension("+43 1 58058-0 x4", ExtensionPolicy.E164)     // refused: ambiguous
  * ```
  */
 fun normalizePhoneWithExtension(
@@ -66,33 +64,13 @@ fun normalizePhoneWithExtension(
             extension = null,
         )
 
-    // Before the value reaches the library: every letter outside the marker is refused, so its keypad
-    // conversion can never turn a word into digits. The marker's own letters are the one exception.
-    refuseLettersOutside(value, marker)
-
-    val region = policy.number.region ?: NEUTRAL_REGION
-    val parsed = try {
-        PhoneNumberUtil.parse(value, region)
-    } catch (failure: PhoneNumberUtil.NumberParseException) {
-        throw failure.toNormalizationError()
-    }
-    // Validity is asked of the number this returns, not of the text it came from: the raw input still
-    // carries the marker, and a marker is not part of any number.
-    val canonical = parsed.formatToE164()
-    if (policy.number.requiresValidity && !PhoneNumberUtil.isValid(canonical, region)) {
-        throw PhoneNormalizationError.NotValidForRegion()
-    }
-
-    val extension = parsed.extension?.takeIf { it.isNotEmpty() }
     NormalizedPhoneWithExtension(
-        number = NormalizedPhone(
-            canonical = canonical,
-            policyId = policy.number.id,
-            policyVersion = policy.number.version,
+        number = normalizePhone(value.substring(0, marker.start), policy.number).dataOrThrow(),
+        extension = NormalizedExtension(
+            canonical = readExtension(value, marker.end),
+            policyId = policy.id,
+            policyVersion = policy.version,
         ),
-        extension = extension?.let {
-            NormalizedExtension(canonical = it, policyId = policy.id, policyVersion = policy.version)
-        },
     )
 }
 
@@ -102,56 +80,78 @@ internal class MarkerMatch(val start: Int, val end: Int)
 /**
  * The first recognised extension marker in [value], or `null` when it carries none.
  *
- * This vocabulary decides only **whether to delegate**; the library decides where the number ends. Keeping
- * it small and explicit is the point: a marker it knows and this does not means input that could have been
- * split is refused instead, which is safe, visible, and pinned by `PhoneExtensionMarkerTest`.
+ * This vocabulary decides where the number ends, so it is ours. `PhoneExtensionMarkerTest` compares it
+ * with the phonenumber library's, which is a larger set read against the national number plan: a spelling
+ * they read and we do not is input we refuse and they could have split, and that test says so when it
+ * appears.
+ *
+ * Longest first at each position, so `ext.` is not cut short by `ext`, and `;ext=` is matched whole rather
+ * than as a bare `;` that would leave the `ext=` behind in the number.
  */
 internal fun findMarker(value: String): MarkerMatch? {
     for (index in value.indices) {
-        val match = when (value[index]) {
-            '#', ',', ';' -> MarkerMatch(index, index + 1)
-            'x', 'X', 'e', 'E' -> LETTER_MARKERS
-                .firstOrNull { value.regionMatches(index, it, 0, it.length, ignoreCase = true) }
-                ?.let { MarkerMatch(index, index + it.length) }
-
-            else -> null
-        }
-        // WORKAROUND for aughtone/aughtone-phonenumber#23 and #24, to be removed when they are fixed. A
-        // marker with no digits after it is mis-read at `phonenumber` 0.0.3: `+1 212 555 0123 ext` parses
-        // as +12125550123398, because a marker with nothing after it is not read as one and its letters
-        // then go through keypad conversion (#23); `+1 212 555 0123#` parses as +1212555 with extension
-        // 0123 (#24). Requiring a digit keeps both away from the parser, and they are refused by the
-        // ordinary path instead.
-        // `PhoneDependencyDefectTest` pins both defects and FAILS once they are fixed - delete this
-        // condition then rather than updating that test.
-        if (match != null && hasDigitAfter(value, match.end)) return match
+        if (!value[index].couldStartMarker()) continue
+        val marker = MARKERS.firstOrNull { value.regionMatches(index, it, 0, it.length, ignoreCase = true) }
+            ?: continue
+        // A marker is only a marker when digits follow it. Without that, `+1 212 555 0123 ext` would be an
+        // extension-less extension and `+1 212 555 0123#` a number ending in a marker; both are read as
+        // ordinary input instead, which refuses them.
+        val end = index + marker.length
+        if (hasDigitAfter(value, end)) return MarkerMatch(index, end)
     }
     return null
 }
 
-/** Whether any digit follows [from], allowing the spaces and dots a marker is usually written with. */
+/** Longest first, and `;ext=` before the bare `;` it starts with. */
+private val MARKERS = listOf(";ext=", "extension", "ext.", "extn", "xtn", "ext", "x", "#", ",", ";")
+
+/** The characters a marker can begin with, so the list above is only walked where it could match. */
+private fun Char.couldStartMarker(): Boolean =
+    this == '#' || this == ',' || this == ';' || this == 'x' || this == 'X' || this == 'e' || this == 'E'
+
+/**
+ * The extension digits from [from] to the end of [value], folded to ASCII.
+ *
+ * Separators are allowed between the marker and the first digit, because `x 4` and `ext. 4` are ordinary
+ * spellings. After the first digit there are only digits: an extension is a number, and anything else in
+ * it is something this module does not understand rather than something to drop.
+ */
+private fun readExtension(value: String, from: Int): String {
+    val digits = StringBuilder()
+    var index = from
+    while (index < value.length) {
+        val codePoint = value.codePointAtIndex(index)
+        val width = if (codePoint >= 0x10000) 2 else 1
+        val digit = decimalDigitValue(codePoint)
+        when {
+            digit != null -> digits.append('0' + digit)
+            digits.isEmpty() && codePoint.isMarkerSeparator() -> Unit
+            codePoint.isAsciiLetter() -> throw PhoneNormalizationError.LetterNotSupported(index, codePoint)
+            else -> throw PhoneNormalizationError.UnsupportedCharacter(index, codePoint)
+        }
+        index += width
+    }
+    // findMarker only returns a marker with a digit after it, so this cannot be reached through the public
+    // function. It is here so the helper is total rather than relying on its one caller.
+    if (digits.isEmpty()) throw PhoneNormalizationError.NoDigits()
+    return digits.toString()
+}
+
+/** Whether any digit follows [from], allowing the separators a marker is usually written with. */
 private fun hasDigitAfter(value: String, from: Int): Boolean {
-    for (index in from until value.length) {
-        val character = value[index]
-        if (decimalDigitValue(character.code) != null) return true
-        if (character != ' ' && character != '.' && character != '-' && character != ':' && character != '=') return false
+    var index = from
+    while (index < value.length) {
+        val codePoint = value.codePointAtIndex(index)
+        if (decimalDigitValue(codePoint) != null) return true
+        if (!codePoint.isMarkerSeparator()) return false
+        index += if (codePoint >= 0x10000) 2 else 1
     }
     return false
 }
 
-/** Longest first, so `ext.` and `extension` are not cut short by `ext`. */
-private val LETTER_MARKERS = listOf("extension", "ext.", "extn", "xtn", "ext", "x")
-
-/** Refuse any ASCII letter outside [marker], so the library's keypad conversion can never fire. */
-private fun refuseLettersOutside(value: String, marker: MarkerMatch) {
-    for (index in value.indices) {
-        if (index >= marker.start && index < marker.end) continue
-        val character = value[index]
-        if (character in 'A'..'Z' || character in 'a'..'z') {
-            throw PhoneNormalizationError.LetterNotSupported(index, character.code)
-        }
-    }
-}
+/** What may sit between a marker and the first digit of the extension: ` `, `.`, `-`, `:` and `=`. */
+private fun Int.isMarkerSeparator(): Boolean =
+    this == 0x20 || this == 0x2E || this == 0x2D || this == 0x3A || this == 0x3D
 
 /** A frozen policy for reading a number and its extension from one input. */
 class ExtensionPolicy internal constructor(
