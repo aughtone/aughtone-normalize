@@ -1,5 +1,6 @@
 package io.github.aughtone.normalize.quodlibet
 
+import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyIdentityError
 import io.github.aughtone.normalize.email.EmailPolicy
 import io.github.aughtone.normalize.email.normalizeEmail
@@ -96,5 +97,23 @@ class PolicyRoundTripTest {
             "expected VersionMismatch, got ${error::class.simpleName}",
         )
         assertEquals(listOf(1), error.available)
+    }
+
+    @Test
+    fun everyPublishedIdSurvivesThePortableSpelling() {
+        // #29 asked for this over *every* published id, not a sample: the portable form exists for slots
+        // that cannot hold a `:`, and an id that does not come back from it is an identity a caller can
+        // store and never resolve again. A sample cannot cover a name the mapping happens to mangle.
+        for (policy in QuodlibetPolicies.policies) {
+            val portable = PolicyId.toPortable(policy.id)
+            assertTrue(portable is Outcome.Success, "<${policy.id}> has no portable spelling: $portable")
+            assertTrue(
+                portable.data.none { it == ':' },
+                "<${policy.id}> kept a ':' in its portable spelling: <${portable.data}>",
+            )
+            val back = PolicyId.fromPortable(portable.data)
+            assertTrue(back is Outcome.Success, "<${portable.data}> does not recover an id: $back")
+            assertEquals(policy.id, back.data, "<${policy.id}> did not survive the portable round trip")
+        }
     }
 }

@@ -1,6 +1,7 @@
 package io.github.aughtone.normalize.phone
 
 import io.github.aughtone.normalize.common.Policy
+import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyIdentityError
 import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.normalize.common.PublishedPolicies
@@ -85,5 +86,23 @@ class PhonePolicyRoundTripTest {
         }
         val unknownRegion = combined.resolve("phone.e164:region.zz", 1)
         assertTrue(unknownRegion is Outcome.Failure, "an unknown region must not resolve through a composite either")
+    }
+
+    @Test
+    fun everyPublishedIdSurvivesThePortableSpelling() {
+        // #29 asked for this over *every* published id, not a sample: the portable form exists for slots
+        // that cannot hold a `:`, and an id that does not come back from it is an identity a caller can
+        // store and never resolve again. A sample cannot cover a name the mapping happens to mangle.
+        for (policy in PhonePolicies.policies) {
+            val portable = PolicyId.toPortable(policy.id)
+            assertTrue(portable is Outcome.Success, "<${policy.id}> has no portable spelling: $portable")
+            assertTrue(
+                portable.data.none { it == ':' },
+                "<${policy.id}> kept a ':' in its portable spelling: <${portable.data}>",
+            )
+            val back = PolicyId.fromPortable(portable.data)
+            assertTrue(back is Outcome.Success, "<${portable.data}> does not recover an id: $back")
+            assertEquals(policy.id, back.data, "<${policy.id}> did not survive the portable round trip")
+        }
     }
 }

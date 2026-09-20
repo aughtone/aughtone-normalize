@@ -1,5 +1,6 @@
 package io.github.aughtone.normalize.unicode
 
+import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyIdentityError
 import io.github.aughtone.types.outcome.Outcome
 import kotlin.test.Test
@@ -61,5 +62,23 @@ class UnicodePolicyRoundTripTest {
         assertEquals(listOf("text.u17", "nfc"), step.links.map { it.name })
         assertEquals("u17", step.links.first().dataVersion)
         assertEquals("\u00C5", step.apply("A\u030A"))
+    }
+
+    @Test
+    fun everyPublishedIdSurvivesThePortableSpelling() {
+        // #29 asked for this over *every* published id, not a sample: the portable form exists for slots
+        // that cannot hold a `:`, and an id that does not come back from it is an identity a caller can
+        // store and never resolve again. A sample cannot cover a name the mapping happens to mangle.
+        for (policy in UnicodePolicies.policies) {
+            val portable = PolicyId.toPortable(policy.id)
+            assertTrue(portable is Outcome.Success, "<${policy.id}> has no portable spelling: $portable")
+            assertTrue(
+                portable.data.none { it == ':' },
+                "<${policy.id}> kept a ':' in its portable spelling: <${portable.data}>",
+            )
+            val back = PolicyId.fromPortable(portable.data)
+            assertTrue(back is Outcome.Success, "<${portable.data}> does not recover an id: $back")
+            assertEquals(policy.id, back.data, "<${policy.id}> did not survive the portable round trip")
+        }
     }
 }
