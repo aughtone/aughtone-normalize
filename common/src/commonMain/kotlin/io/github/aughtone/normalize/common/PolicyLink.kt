@@ -9,7 +9,7 @@ package io.github.aughtone.normalize.common
  */
 enum class LinkKind {
     /**
-     * A rule-set, and the first link in every chain: `email.byte-stable`, `nfc.u17`.
+     * A rule-set, and the first link in every chain: `email`, `nfc.u17`.
      *
      * A base that another module can also apply as a step declares the [StepPhase] at which it runs -
      * NFC is a policy in its own right and a step inside an email chain, and it is one thing either
@@ -23,7 +23,7 @@ enum class LinkKind {
      */
     Form,
 
-    /** Side input the base needs, named in the identity so it travels with derived values: `region-ca`. */
+    /** Side input the base needs, named in the identity so it travels with derived values: `region.ca`. */
     Parameter,
 
     /** Relaxes one of the base's default rules while keeping every guarantee: `lenient`. */
@@ -53,8 +53,8 @@ enum class StepPhase(val rank: Int) {
 /**
  * One link in a policy chain: a name, what it contributes, and - for a step - when it runs.
  *
- * A link's [name] is lowercase ASCII and may contain `.` inside itself (`email.byte-stable`, `nfc.u17`);
- * links are joined with `+` to form a policy [Policy.id]. Constructing a link does not create a policy
+ * A link's [name] is lowercase ASCII and may contain `.` inside itself (`space.collapsed`, `nfc.u17`);
+ * links are joined with `:` to form a policy [Policy.id]. Constructing a link does not create a policy
  * and grants no authority: a chain resolves only if every link in it is one a module actually publishes,
  * which is what stops a caller naming a rule-set nobody wrote.
  *
@@ -83,14 +83,21 @@ class PolicyLink(
 
     /**
      * The frozen data version this link was built against, if it names one: `u17` for `nfc.u17`,
-     * `u15-1` for a link frozen against Unicode 15.1, and `null` for a link that carries no data such
-     * as `email.byte-stable` or `lenient`.
+     * `u15.1` for a link frozen against Unicode 15.1, and `null` for a link that carries no data such
+     * as `email` or `lenient`.
      *
      * It is read from the name rather than stored separately, because the name is what a consumer keeps
      * and the two must never disagree about which data produced a value.
      */
     val dataVersion: String?
-        get() = name.substringAfterLast('.', "").takeIf { DATA_VERSION.matches(it) }
+        get() {
+            val segments = name.split('.')
+            val last = segments.last()
+            if (DATA_VERSION.matches(last)) return last
+            // A minor release is two segments, `u15` then `1`, because a name carries no hyphens.
+            val previous = segments.getOrNull(segments.size - 2) ?: return null
+            return if (MINOR.matches(last) && DATA_VERSION.matches(previous)) "$previous.$last" else null
+        }
 
     override fun toString(): String = name
 
@@ -100,22 +107,26 @@ class PolicyLink(
     override fun hashCode(): Int = (name.hashCode() * 31 + kind.hashCode()) * 31 + (phase?.hashCode() ?: 0)
 
     companion object {
-        /** A data-version segment: `u17`, or `u15-1` when the Unicode minor version is not zero. */
-        private val DATA_VERSION = Regex("u[0-9]+(-[0-9]+)?")
+        /** A data-version segment: `u17`, with a second segment for a non-zero minor - `u15.1`. */
+        private val DATA_VERSION = Regex("u[0-9]+")
 
-        /** One segment of a link name: lowercase alphanumerics, single hyphens between them. */
-        private val SEGMENT = Regex("[a-z0-9]+(-[a-z0-9]+)*")
+        /** The minor half of a data version, as its own segment. */
+        private val MINOR = Regex("[0-9]+")
+
+        /** One segment of a link name: lowercase alphanumerics. No hyphens - see [PolicyId]. */
+        private val SEGMENT = Regex("[a-z0-9]+")
 
         /**
          * True if [name] is a well-formed link name: one or more [SEGMENT]s joined by `.`, with no
-         * empty segment, no uppercase and no `+` - that last one joins links rather than living in one.
+         * empty segment, no uppercase, no hyphen, and no `:` - that last one joins links rather than
+         * living in one.
          */
         fun isValidLinkName(name: String): Boolean =
             name.isNotEmpty() && name.split('.').all { SEGMENT.matches(it) }
 
         /**
          * The standard relaxation link, shared by every module that ships a relaxed policy, so that
-         * `pan.digits+lenient` and `phone.e164+lenient` mean the same thing by construction
+         * `pan.digits:lenient` and `phone.e164:lenient` mean the same thing by construction
          * rather than by coincidence.
          *
          * Declared after [SEGMENT] deliberately: companion properties initialize in declaration order,

@@ -13,9 +13,9 @@ import io.github.aughtone.types.outcome.dataOrElse
  *
  * [id] and [version] are the byte-stability epoch. They travel with anything derived from a normalized
  * value - a hash, a blind token - so the exact rules can be reproduced later. The [id] is a **chain**:
- * links joined by `+`, the base rule set first and anything qualifying it after, which is why the
- * subaddress-keeping policy reads `email.byte-stable+subaddressed`. An id therefore describes a policy rather than
- * merely labelling it.
+ * links joined by `:`, the base rule set first and anything qualifying it after, which is why the
+ * subaddress-removing policy reads `email:subaddress.removed`. An id therefore describes a policy rather
+ * than merely labelling it.
  *
  * **Matching is scoped by identity.** Two values normalized under different policies never match, even
  * where their canonical strings happen to agree. Consumers that must match each other have to agree on
@@ -35,7 +35,7 @@ import io.github.aughtone.types.outcome.dataOrElse
  * provider-specific behaviour such as Gmail treating dots as insignificant - that behaviour is
  * non-standard, unknowable in general, and a frozen provider list could never grow without splitting
  * historical tokens from new ones. The only transform beyond ASCII case and whitespace comes from the
- * standard itself (RFC 5233 subaddressing).
+ * standard itself (RFC 5233 subaddressing), and that one is an option rather than the default.
  *
  * ## Changing this class
  *
@@ -54,42 +54,43 @@ class EmailPolicy internal constructor(
 ) : Policy {
     companion object {
         /**
-         * [ByteStableV1] with the `+`-subaddress kept: trim + ASCII-lowercase only. The email is
-         * subaddressed, so `User+Tag@Example.com` is `user+tag@example.com`.
+         * THE identity anchor: the whole address, trim + ASCII-lowercase only, with the `+`-subaddress
+         * KEPT. `User+Tag@Example.com` is `user+tag@example.com`.
          *
-         * **What it is for.** A light-touch key for display and dedupe that changes as few bytes as
-         * possible, so the address stays recognizably what was entered and `user+work@` and `user+home@`
-         * stay apart. Keeping the subaddress is an opt-in; [ByteStableV1] strips it and is the default.
-         * Its output is as byte-stable and platform-identical as [ByteStableV1]'s, and it refuses the same
-         * input.
+         * **Why keeping is the default.** Some mail systems treat the subaddress as part of an
+         * individual's account, and there is no way to ask a domain which behaviour it has: RFC 5233 is
+         * optional, RFC 5321 makes the local part opaque to everyone but the receiving server, and a
+         * default Postfix treats `+` as a literal character. Where that cannot be known, the safe
+         * assumption is that the tagged address **is** the whole address, because it never merges two
+         * people - and splitting it apart later is always possible, while un-merging two accounts already
+         * tokenized as one is not. See `docs/knowledge/specifications/DOC-0001-normalization-suite.md`.
          *
-         * **It is not comparable with [ByteStableV1], and declares no comparable form.** For a tagged
-         * address the two write different text, and a tag cannot be stripped from a stored token after
-         * the fact, so matching across them would depend on whether someone typed a tag. To match
-         * mailboxes, normalize under [ByteStableV1].
-         *
-         * Its id was `email.lenient` in `0.0.1` and `email.byte-stable+lenient` in `0.0.2`. It is not a
-         * lenient policy - leniency accepts more input and never changes what the output means - so in
-         * `0.0.3` the id names its rule instead. The bytes never changed.
+         * Its [id] is the bare base link, `email`, with nothing qualifying it. A future rules change mints
+         * a new constant with its own id, or a bumped [version] on this one; it is never edited in place.
          */
-        val ByteStableV1Subaddressed: EmailPolicy = EmailPolicy(
-            id = chainOf(EmailLinks.ByteStable, EmailLinks.Subaddressed), version = 1,
+        val Address: EmailPolicy = EmailPolicy(
+            id = chainOf(EmailLinks.Base), version = 1,
             stripPlusSubaddress = false,
         )
 
         /**
-         * THE shared canonical form for blind tokenization, used byte-identically by every consumer.
+         * [Address] with the `+`-subaddress removed: `user+tag@example.com` is `user@example.com`.
          *
-         * Frozen: trim ASCII whitespace; ASCII-lowercase; strip the `+`-subaddress (RFC 5233, part of
-         * the standard). It does NOT special-case any provider's own behaviour, Gmail dots included -
-         * that is non-standard and unknowable in general.
+         * **What it is for.** Matching every address that reaches one mailbox on a provider that treats
+         * the tag as a tag - which is a caller's knowledge, not something this library can discover. It is
+         * the mailbox [normalizeEmailWithSubaddress] returns beside the subaddress piece.
          *
-         * Its [id] is a bare base link, `email.byte-stable`, with nothing qualifying it. A future rules
-         * change mints a NEW `ByteStableV2` carrying the same id at [version] 2; this constant is never
-         * edited in place. Pick this one unless you specifically need the subaddress kept.
+         * **It is not comparable with [Address], and declares no comparable form.** For a tagged address
+         * the two write different text, and a tag cannot be removed from a stored token after the fact, so
+         * matching across them would depend on whether someone typed a tag.
+         *
+         * Its id was `email.lenient` in `0.0.1`, `email.byte-stable+lenient` in `0.0.2` and
+         * `email.byte-stable` in `0.0.3`, where it was also the default and the tag-keeping variant was
+         * `email.byte-stable+subaddressed`. In `0.0.4` removing the tag is
+         * the option rather than the default, and the id says what it does. Its bytes never changed.
          */
-        val ByteStableV1: EmailPolicy = EmailPolicy(
-            id = chainOf(EmailLinks.ByteStable), version = 1,
+        val SubaddressRemoved: EmailPolicy = EmailPolicy(
+            id = chainOf(EmailLinks.Base, EmailLinks.SubaddressRemoved), version = 1,
             stripPlusSubaddress = true,
         )
 
@@ -110,8 +111,8 @@ class EmailPolicy internal constructor(
 
 /** The links the email policies are built from. Published to the suite by `QuodlibetPolicies`. */
 internal object EmailLinks {
-    val ByteStable: PolicyLink = PolicyLink("email.byte-stable", LinkKind.Base)
+    val Base: PolicyLink = PolicyLink("email", LinkKind.Base)
 
-    /** The parameter that keeps the `+`-subaddress: the email is subaddressed. */
-    val Subaddressed: PolicyLink = PolicyLink("subaddressed", LinkKind.Parameter)
+    /** The option that removes the `+`-subaddress. Keeping it is the default; see [EmailPolicy.Address]. */
+    val SubaddressRemoved: PolicyLink = PolicyLink("subaddress.removed", LinkKind.Parameter)
 }

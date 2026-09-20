@@ -115,10 +115,11 @@ class FinancialByteStabilityTest {
 
     @Test
     fun policyIdentitiesAreFrozen() {
+        // Renamed in 0.0.4 with the suite-wide id sweep (#29): the identity changed, the bytes did not.
         assertEquals("pan.digits", PanPolicy.Digits.id)
-        assertEquals("pan.digits+lenient", PanPolicy.DigitsLenient.id)
+        assertEquals("pan.digits:lenient", PanPolicy.DigitsLenient.id)
         assertEquals("iban.compact", IbanPolicy.Compact.id)
-        assertEquals("iban.compact+lenient", IbanPolicy.CompactLenient.id)
+        assertEquals("iban.compact:lenient", IbanPolicy.CompactLenient.id)
     }
 
     private inline fun <reified E : PanNormalizationError> assertRefusedPan(value: String, policy: PanPolicy) {

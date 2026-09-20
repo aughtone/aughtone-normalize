@@ -52,7 +52,7 @@ class DomainPolicy internal constructor(
          * The base link every domain policy is built on: UTS-46 against the Unicode 17 tables.
          *
          * It declares a phase because it is also applied *inside* another policy's chain - a URL policy
-         * names the host policy it uses, so `url.rfc3986+domain.ascii.u17` says exactly how the host was
+         * names the host policy it uses, so `url.rfc3986:domain.ascii.u17` says exactly how the host was
          * normalized rather than leaving it implied.
          */
         internal val Base: PolicyLink = PolicyLink("domain.ascii.u17", LinkKind.Base, StepPhase.Map)

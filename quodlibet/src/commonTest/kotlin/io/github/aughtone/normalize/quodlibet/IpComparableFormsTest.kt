@@ -55,28 +55,28 @@ class IpComparableFormsTest {
 
     @Test
     fun ipv6PoliciesShareTheIpv6AddressForm() {
-        assertEquals(Comparability.InForm(IpForms.Ipv6Address), comparability("ipv6.rfc5952", "ipv6.rfc5952+zone"))
-        assertEquals(Comparability.InForm(IpForms.Ipv6Address), comparability("ipv6.rfc5952", "ipv6.rfc5952+unmap"))
+        assertEquals(Comparability.InForm(IpForms.Ipv6Address), comparability("ipv6.rfc5952", "ipv6.rfc5952:zone.kept"))
+        assertEquals(Comparability.InForm(IpForms.Ipv6Address), comparability("ipv6.rfc5952", "ipv6.rfc5952:ipv4.mapped"))
         assertEquals(text(normalizeIpv6("2001:DB8::1", Ipv6Policy.Rfc5952)), text(normalizeIpv6("2001:db8::1", Ipv6Policy.Rfc5952.unmap())))
         // The default policy keeps a mapped address as IPv6, so it is never comparable with IPv4.
-        assertEquals(Comparability.NotComparable, comparability("ipv4.dotted-quad", "ipv6.rfc5952"))
+        assertEquals(Comparability.NotComparable, comparability("ipv4.quad.dotted", "ipv6.rfc5952"))
     }
 
     @Test
     fun inetAtonIsComparableOnlyOnceACallerOptsIn() {
-        assertEquals(Comparability.NotComparable, comparability("ipv4.dotted-quad", "ipv4.inet-aton"))
-        assertEquals(Comparability.InForm(IpForms.Ipv4Address), comparability("ipv4.dotted-quad", "ipv4.inet-aton+form.ipv4.address"))
+        assertEquals(Comparability.NotComparable, comparability("ipv4.quad.dotted", "ipv4.inet.aton"))
+        assertEquals(Comparability.InForm(IpForms.Ipv4Address), comparability("ipv4.quad.dotted", "ipv4.inet.aton:form.ipv4.address"))
 
         val optedIn = Ipv4Policy.InetAton.withForms(setOf(IpForms.Ipv4Address))
-        assertEquals("ipv4.inet-aton+form.ipv4.address", optedIn.id)
+        assertEquals("ipv4.inet.aton:form.ipv4.address", optedIn.id)
         val stored = normalizeIpv4("0300.0.2.010", optedIn)
         assertTrue(stored is Outcome.Success)
         // The opt-in changes the identity the normalizer stores, and never the bytes.
-        assertEquals("ipv4.inet-aton+form.ipv4.address", stored.data.policyId)
+        assertEquals("ipv4.inet.aton:form.ipv4.address", stored.data.policyId)
         assertEquals(text(normalizeIpv4("0300.0.2.010", Ipv4Policy.InetAton)), stored.data.canonical)
         assertEquals(text(normalizeIpv4("192.0.2.8", Ipv4Policy.DottedQuad)), stored.data.canonical)
 
-        val notOffered = resolver.resolve("ipv4.dotted-quad+form.ipv4.address", 1)
+        val notOffered = resolver.resolve("ipv4.quad.dotted:form.ipv4.address", 1)
         assertTrue(notOffered is Outcome.Failure && notOffered.exception is PolicyIdentityError.FormNotOffered, "got $notOffered")
     }
 
@@ -96,7 +96,7 @@ class IpComparableFormsTest {
         // Blocks at different prefixes still share the form; their texts simply never collide.
         assertEquals(Comparability.InForm(IpForms.Ipv4Network), comparability(Ipv4Policy.DottedQuad.block(24).id, Ipv4Policy.DottedQuad.block(16).id))
         // An address is not a network.
-        assertEquals(Comparability.NotComparable, comparability("ipv4.dotted-quad", block.id))
+        assertEquals(Comparability.NotComparable, comparability("ipv4.quad.dotted", block.id))
     }
 
     @Test
@@ -111,9 +111,9 @@ class IpComparableFormsTest {
     fun inetAtonNetworksAreComparableOnlyOnceACallerOptsIn() {
         val plain = Ipv4Policy.InetAton.block(24)
         val optedIn = plain.withForms(setOf(IpForms.Ipv4Network))
-        assertEquals("ipv4.inet-aton+block-24+form.ipv4.network", optedIn.id)
-        assertEquals(Comparability.NotComparable, comparability("ipv4.dotted-quad+block-24", plain.id))
-        assertEquals(Comparability.InForm(IpForms.Ipv4Network), comparability("ipv4.dotted-quad+block-24", optedIn.id))
+        assertEquals("ipv4.inet.aton:block.24:form.ipv4.network", optedIn.id)
+        assertEquals(Comparability.NotComparable, comparability("ipv4.quad.dotted:block.24", plain.id))
+        assertEquals(Comparability.InForm(IpForms.Ipv4Network), comparability("ipv4.quad.dotted:block.24", optedIn.id))
         val resolved = resolver.resolve(optedIn.id, 1)
         assertTrue(resolved is Outcome.Success && resolved.data == optedIn, "got $resolved")
     }

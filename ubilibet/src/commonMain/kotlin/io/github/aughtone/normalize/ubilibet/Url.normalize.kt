@@ -41,8 +41,8 @@ import io.github.aughtone.types.outcome.runOutcome
  *
  * ## The host policy is part of the identity
  *
- * A URL policy names the domain policy it uses, so `url.rfc3986+domain.ascii.u17` and
- * `url.rfc3986+domain.ascii.u17+lenient` are different identities - as they must be, since they can
+ * A URL policy names the domain policy it uses, so `url.rfc3986:domain.ascii.u17` and
+ * `url.rfc3986:domain.ascii.u17:lenient` are different identities - as they must be, since they can
  * produce different bytes for the same input.
  *
  * ```

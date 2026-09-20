@@ -220,7 +220,7 @@ class UuidPolicy internal constructor(
     companion object {
         internal val HexBase: PolicyLink = PolicyLink("uuid.hex", LinkKind.Base)
         internal val Rfc9562Base: PolicyLink = PolicyLink("uuid.rfc9562", LinkKind.Base)
-        internal val GuidBytesLink: PolicyLink = PolicyLink("guid-bytes", LinkKind.Parameter)
+        internal val GuidBytesLink: PolicyLink = PolicyLink("bytes.guid", LinkKind.Parameter)
 
         /** Any 128-bit value written as a UUID. */
         val Hex: UuidPolicy = UuidPolicy(requireRfc9562 = false, guidBytes = false)

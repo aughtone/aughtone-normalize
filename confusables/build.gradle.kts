@@ -85,7 +85,7 @@ kotlin {
         val commonTest by getting {
             dependencies {
                 implementation(libs.kotlin.test)
-                // Test-only: the composed `username.basic+skeleton.u17` chain spans two modules that
+                // Test-only: the composed `username.basic:skeleton.u17` chain spans two modules that
                 // deliberately do not depend on each other, so the test that proves it works has to see
                 // both. Nothing in commonMain does.
                 implementation(project(":quodlibet"))

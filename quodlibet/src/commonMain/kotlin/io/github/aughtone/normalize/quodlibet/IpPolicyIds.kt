@@ -34,7 +34,7 @@ internal object IpPolicyIds {
      * is one but spelled any way its policy would not render.
      */
     fun rebuild(id: String): Policy? {
-        val names = id.split('+')
+        val names = id.split(':')
         val base = names.first()
         val parameters = names.drop(1)
         if (parameters.isEmpty() || parameters.any { it !in known }) return null
@@ -54,23 +54,23 @@ internal object IpPolicyIds {
 
     private fun ipv4(address: Ipv4Policy, parameters: List<String>): Policy = when {
         parameters == listOf("cidr") -> address.cidr()
-        parameters == listOf("cidr", "masked") -> address.cidrMasked()
-        parameters.size == 1 -> address.block(prefix(parameters.single(), "block-"))
+        parameters == listOf("cidr", "host.zeroed") -> address.cidrMasked()
+        parameters.size == 1 -> address.block(prefix(parameters.single(), "block."))
         else -> throw IllegalArgumentException("not an IPv4 network policy")
     }
 
     private fun ipv6(parameters: List<String>): Policy {
         var address = Ipv6Policy.Rfc5952
         var rest = parameters
-        if (rest.firstOrNull() == "unmap") { address = address.unmap(); rest = rest.drop(1) }
-        if (rest.firstOrNull() == "nat64") { address = address.nat64(); rest = rest.drop(1) }
-        if (rest.firstOrNull() == "zone") { address = address.zone(); rest = rest.drop(1) }
+        if (rest.firstOrNull() == "ipv4.mapped") { address = address.unmap(); rest = rest.drop(1) }
+        if (rest.firstOrNull() == "ipv4.nat64") { address = address.nat64(); rest = rest.drop(1) }
+        if (rest.firstOrNull() == "zone.kept") { address = address.zone(); rest = rest.drop(1) }
         return when {
             rest.isEmpty() -> address
             rest == listOf("cidr") -> address.cidr()
-            rest == listOf("cidr", "masked") -> address.cidrMasked()
-            rest.size == 1 -> address.block(prefix(rest.single(), "block-"))
-            rest.size == 2 -> address.block(prefix(rest[0], "block-v4-"), prefix(rest[1], "block-v6-"))
+            rest == listOf("cidr", "host.zeroed") -> address.cidrMasked()
+            rest.size == 1 -> address.block(prefix(rest.single(), "block."))
+            rest.size == 2 -> address.block(prefix(rest[0], "block.v4."), prefix(rest[1], "block.v6."))
             else -> throw IllegalArgumentException("not an IPv6 policy")
         }
     }

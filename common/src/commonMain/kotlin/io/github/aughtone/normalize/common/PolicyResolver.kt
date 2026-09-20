@@ -141,7 +141,7 @@ class CompositePolicyResolver(internal val resolvers: List<PolicyResolver>) : Po
     }
 
     private companion object {
-        const val SEPARATOR = "+"
+        const val SEPARATOR = ":"
         const val STEP_VERSION = 1
 
         /** An error from a module that recognized the id: not merely "this is not one of mine". */
@@ -160,7 +160,7 @@ class CompositePolicyResolver(internal val resolvers: List<PolicyResolver>) : Po
 
 /**
  * A policy composed from a [base] and the [steps] that followed it, as a composite resolver returns for a
- * stored id such as `username.basic+skeleton.u17`.
+ * stored id such as `username.basic:skeleton.u17`.
  *
  * It is a record of what produced the bytes, not a normalizer: derive new values by passing [base] and
  * [steps] back to the normalizer that owns [base] - `normalizeUsername(value, base as UsernamePolicy,
@@ -168,7 +168,7 @@ class CompositePolicyResolver(internal val resolvers: List<PolicyResolver>) : Po
  */
 class ComposedPolicy(val base: Policy, val steps: List<NormalizationStep>) : Policy {
 
-    override val id: String = (listOf(base.id) + steps.map { step -> step.links.joinToString("+") { it.name } }).joinToString("+")
+    override val id: String = (listOf(base.id) + steps.map { step -> step.links.joinToString(":") { it.name } }).joinToString(":")
 
     override val version: Int = base.version
 
@@ -206,12 +206,12 @@ abstract class PublishedPolicies : PolicyResolver {
  * id must be exactly [id], so forms out of order, repeated, or not offered are refused rather than repaired.
  */
 private fun resolveWithForms(id: String, version: Int, base: (String, Int) -> Outcome<Policy>): Outcome<Policy> = runOutcome {
-    val names = id.split('+')
+    val names = id.split(':')
     val formCount = names.reversed().takeWhile { it.startsWith(ComparableForm.FORM_PREFIX) }.size
     if (formCount == 0) return@runOutcome base(id, version).dataOrThrow()
     if (formCount == names.size) throw PolicyIdentityError.MissingBase(id)
 
-    val policy = base(names.dropLast(formCount).joinToString("+"), version).dataOrThrow()
+    val policy = base(names.dropLast(formCount).joinToString(":"), version).dataOrThrow()
     val formNames = names.takeLast(formCount)
     val forms = formNames.map { ComparableForm.ofLink(it) ?: throw PolicyIdentityError.MalformedLink(it) }
     if (forms.toSet().size != forms.size) throw PolicyIdentityError.DuplicateLink(id, formNames.first { name -> formNames.count { it == name } > 1 })

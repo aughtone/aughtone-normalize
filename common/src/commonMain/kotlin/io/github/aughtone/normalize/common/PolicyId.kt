@@ -6,7 +6,7 @@ import io.github.aughtone.types.outcome.runOutcome
 /**
  * A policy identity: an ordered chain of links that renders to a [Policy.id] and parses back from one.
  *
- * Rendering joins the links with `+`; parsing splits an id and resolves each link. They are the same
+ * Rendering joins the links with `:`; parsing splits an id and resolves each link. They are the same
  * list read in opposite directions, which is the point - a second, separate parser is exactly how the
  * written and read forms drift apart, and drift here means a stored id no longer names the policy that
  * produced the bytes beside it.
@@ -14,14 +14,19 @@ import io.github.aughtone.types.outcome.runOutcome
  * ## The grammar
  *
  * ```
- * id      = link ("+" link)*
+ * id      = link (":" link)*
  * link    = segment ("." segment)*
- * segment = [a-z0-9]+ ("-" [a-z0-9]+)*
+ * segment = [a-z0-9]+
  * ```
  *
- * Lowercase throughout, so a region reads `region-ca` and never `region-CA`. Examples:
- * `email.byte-stable`, `email.byte-stable+subaddressed`, `phone.e164+region-ca+lenient`,
- * `domain.ascii.u17+lenient`, `email.byte-stable+nfc.u17+punycode.u17`.
+ * Lowercase throughout, so a region reads `region.ca` and never `region.CA`. Examples:
+ * `email`, `email:subaddress.removed`, `phone.e164:region.ca:lenient`,
+ * `domain.ascii.u17:lenient`, `email:nfc.u17:punycode.u17`.
+ *
+ * **A link that acts on the value is named `<subject>.<what was done>`** - `space.collapsed`,
+ * `subaddress.removed`, `ipv4.mapped` - and a link that qualifies how the rules are applied is a bare
+ * adjective, `lenient`. `.removed` is the one word meaning the named part is absent from the result,
+ * which is what separates `space.removed` from `space.collapsed`, where whitespace survives.
  *
  * ## The order
  *
@@ -31,7 +36,7 @@ import io.github.aughtone.types.outcome.runOutcome
  * [LinkKind.Form] links - comparable forms a caller opted into, `form.ipv4.address` - close the chain,
  * after every group, in form-name order.
  *
- * Grouping is what lets a qualifier say which link it modifies. In `url.rfc3986+domain.ascii.u17+lenient`
+ * Grouping is what lets a qualifier say which link it modifies. In `url.rfc3986:domain.ascii.u17:lenient`
  * the leniency belongs to the host policy, not to the URL policy, and a flat ordering could not express
  * the difference. A chain in any other order is **refused, never reordered**: if two spellings resolved
  * to one policy, the id would stop identifying it.
@@ -45,11 +50,11 @@ import io.github.aughtone.types.outcome.runOutcome
  */
 class PolicyId private constructor(val links: List<PolicyLink>) {
 
-    /** The chain as it appears in [Policy.id] and in storage: links joined by `+`. */
+    /** The chain as it appears in [Policy.id] and in storage: links joined by `:`. */
     val rendered: String = links.joinToString(SEPARATOR.toString()) { it.name }
 
     /**
-     * The chain in its portable spelling: links joined by `_` instead of `+` - see [toPortable].
+     * The chain in its portable spelling: links joined by `_` instead of `:` - see [toPortable].
      * A transport form only; [rendered] is the identity.
      */
     val portable: String = links.joinToString(PORTABLE_SEPARATOR.toString()) { it.name }
@@ -64,7 +69,7 @@ class PolicyId private constructor(val links: List<PolicyLink>) {
     override fun hashCode(): Int = links.hashCode()
 
     companion object {
-        private const val SEPARATOR = '+'
+        private const val SEPARATOR = ':'
         private const val PORTABLE_SEPARATOR = '_'
 
         /**
@@ -83,7 +88,7 @@ class PolicyId private constructor(val links: List<PolicyLink>) {
             }
 
             // A chain is a sequence of groups: a rule-set or a step, followed by the qualifiers that
-            // belong to it. That is what lets `url.rfc3986+domain.ascii.u17+lenient` say the leniency
+            // belong to it. That is what lets `url.rfc3986:domain.ascii.u17:lenient` say the leniency
             // applies to the host policy rather than to the URL policy - a flat "qualifiers first" rule
             // could not express which link a qualifier modifies.
             var phase = -1
@@ -153,13 +158,14 @@ class PolicyId private constructor(val links: List<PolicyLink>) {
         }
 
         /**
-         * Spell [id] with `_` in place of `+`, for places that refuse `+`.
+         * Spell [id] with `_` in place of `:`, for places that refuse `:`.
          *
-         * `+` is legal in file names, JSON, database columns and URL paths, and the canonical id uses it
-         * everywhere it can. It is not legal everywhere: form-encoded query strings decode it as a space,
-         * and restricted identifier slots - Kubernetes label values, container image tags, some metric and
-         * cloud tag systems - accept only letters, digits, `-`, `_` and `.`. `_` never occurs in the id
-         * grammar, so the mapping is lossless in both directions and [fromPortable] recovers the exact id.
+         * `:` is legal in file names on every platform this suite targets except Windows, and in JSON,
+         * database columns, URL paths and query strings. It is not legal everywhere: restricted identifier
+         * slots - Kubernetes label values, container image tags, some metric and cloud tag systems - accept
+         * only letters, digits, `-`, `_` and `.`, and a container tag reads `:` as the start of the tag.
+         * `_` never occurs in the id grammar, so the mapping is lossless in both directions and
+         * [fromPortable] recovers the exact id.
          *
          * **Store and compare the canonical id, not this.** The portable spelling is a way to carry an id
          * through a slot that cannot hold it, and it converts back before anything else happens to it.
@@ -172,7 +178,7 @@ class PolicyId private constructor(val links: List<PolicyLink>) {
         /**
          * Recover the canonical id from its portable spelling - the inverse of [toPortable].
          *
-         * A value containing `+` is refused rather than accepted as already canonical: a string that is
+         * A value containing `:` is refused rather than accepted as already canonical: a string that is
          * half one spelling and half the other was not produced by [toPortable], and accepting it would give
          * one id two portable spellings.
          */

@@ -28,14 +28,14 @@ class TextCompositionTest {
     fun aTextPolicyComposesIntoAUsernameChainAsOneGroup() {
         val outcome = normalizeUsername("A\u030Alice", UsernamePolicy.Basic, listOf(TextPolicy.NfcU17))
         assertTrue(outcome is Outcome.Success)
-        assertEquals("username.basic+text.u17+nfc", outcome.data.policyId)
+        assertEquals("username.basic:text.u17:nfc", outcome.data.policyId)
         // The username base runs first and lowercases the ASCII A; NFC then composes it with the ring.
         assertEquals("\u00E5lice", outcome.data.canonical)
 
         val configured = TextPolicy(UnicodeRelease.U17) { unicode { collapseSpace(); nfc() } }
         val composed = normalizeUsername("  a  b  ", UsernamePolicy.Basic, listOf(configured))
         assertTrue(composed is Outcome.Success)
-        assertEquals("username.basic+text.u17+collapse-space+nfc", composed.data.policyId)
+        assertEquals("username.basic:text.u17:space.collapsed:nfc", composed.data.policyId)
     }
 
     @Test
@@ -44,7 +44,7 @@ class TextCompositionTest {
         val latin = normalizeText("  PayPal ", caseless, listOf(ConfusablePolicy.SkeletonU17))
         val cyrillic = normalizeText("\u0420\u0430yPal", caseless, listOf(ConfusablePolicy.SkeletonU17))
         assertTrue(latin is Outcome.Success && cyrillic is Outcome.Success)
-        assertEquals("text.u17+trim+casefold+skeleton.u17", latin.data.policyId)
+        assertEquals("text.u17:space.trimmed:case.folded:skeleton.u17", latin.data.policyId)
         assertEquals(latin.data.canonical, cyrillic.data.canonical)
     }
 

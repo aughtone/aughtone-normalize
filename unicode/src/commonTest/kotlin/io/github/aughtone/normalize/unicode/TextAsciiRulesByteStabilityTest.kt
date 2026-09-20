@@ -60,13 +60,13 @@ class TextAsciiRulesByteStabilityTest {
         val ordered = TextPolicy { ascii { stripControl(); trim() } }
         assertEquals("a", canonical("\u0001 a", written))
         assertEquals("a", canonical("\u0001 a", ordered))
-        assertEquals("text+strip-control+trim", written.id)
+        assertEquals("text:control.removed:space.trimmed", written.id)
     }
 
     @Test
     fun nonEmptyRefusesWhatTheOtherRulesLeaveEmpty() {
         val policy = TextPolicy { ascii { trim() }; nonEmpty() }
-        assertEquals("text+trim+non-empty", policy.id)
+        assertEquals("text:space.trimmed:empty.refused", policy.id)
         for (input in listOf("", "   ", "\t\n")) {
             val outcome = normalizeText(input, policy)
             assertTrue(
@@ -79,7 +79,7 @@ class TextAsciiRulesByteStabilityTest {
 
     @Test
     fun theAsciiConvenienceConfigurationIsFrozen() {
-        assertEquals("text+trim+lower", TextPolicy.TrimLowercase.id)
+        assertEquals("text:space.trimmed:case.lower", TextPolicy.TrimLowercase.id)
         assertEquals("user@example.com", canonical("  User@Example.COM\n", TextPolicy.TrimLowercase))
         val once = canonical("  MiXeD Case  ", TextPolicy.TrimLowercase)
         assertEquals(once, canonical(once, TextPolicy.TrimLowercase), "FROZEN: TrimLowercase is not idempotent")

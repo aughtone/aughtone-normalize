@@ -31,40 +31,40 @@ class EmailNormalizeTest {
     @Test
     fun canonicalTrimsLowercasesAndStripsSubaddress() {
         // Dots are KEPT (no provider special-casing); the RFC 5233 +subaddress is stripped.
-        assertEquals("user.name@gmail.com", canonical("  User.Name+tag@Gmail.COM  ", EmailPolicy.ByteStableV1))
+        assertEquals("user.name@gmail.com", canonical("  User.Name+tag@Gmail.COM  ", EmailPolicy.SubaddressRemoved))
     }
 
     @Test
     fun canonicalKeepsDotsForEveryDomainIncludingGmail() {
         // No provider list: dots are significant everywhere, gmail included. We do not guess.
-        assertEquals("u.s.e.r@gmail.com", canonical("U.S.E.R@Gmail.com", EmailPolicy.ByteStableV1))
-        assertEquals("first.last@example.com", canonical("First.Last@Example.com", EmailPolicy.ByteStableV1))
+        assertEquals("u.s.e.r@gmail.com", canonical("U.S.E.R@Gmail.com", EmailPolicy.SubaddressRemoved))
+        assertEquals("first.last@example.com", canonical("First.Last@Example.com", EmailPolicy.SubaddressRemoved))
     }
 
     @Test
     fun canonicalStripsSubaddressUniversally() {
-        assertEquals("first.last@example.com", canonical("First.Last+news@Example.com", EmailPolicy.ByteStableV1))
-        assertEquals("user@googlemail.com", canonical("user+tag@GoogleMail.com", EmailPolicy.ByteStableV1))
+        assertEquals("first.last@example.com", canonical("First.Last+news@Example.com", EmailPolicy.SubaddressRemoved))
+        assertEquals("user@googlemail.com", canonical("user+tag@GoogleMail.com", EmailPolicy.SubaddressRemoved))
     }
 
     @Test
     fun canonicalLeavesNonAsciiUntouchedAndLowercasesOnlyAscii() {
         // Accents are preserved (byte-level, no NFC); only ASCII A-Z is lowercased.
-        assertEquals("josé@example.com", canonical("José@Example.com", EmailPolicy.ByteStableV1))
-        assertEquals("Ä@example.com", canonical("Ä@Example.com", EmailPolicy.ByteStableV1)) // non-ASCII case NOT folded
+        assertEquals("josé@example.com", canonical("José@Example.com", EmailPolicy.SubaddressRemoved))
+        assertEquals("Ä@example.com", canonical("Ä@Example.com", EmailPolicy.SubaddressRemoved)) // non-ASCII case NOT folded
     }
 
     @Test
     fun canonicalIsIdempotent() {
-        val once = canonical("  Mixed.Case+Sub@Gmail.COM ", EmailPolicy.ByteStableV1)
-        assertEquals(once, canonical(once, EmailPolicy.ByteStableV1))
+        val once = canonical("  Mixed.Case+Sub@Gmail.COM ", EmailPolicy.SubaddressRemoved)
+        assertEquals(once, canonical(once, EmailPolicy.SubaddressRemoved))
         assertEquals("mixed.case@gmail.com", once)
     }
 
     @Test
     fun sameInputAndPolicyYieldByteIdenticalOutput() {
-        val a = canonical("Repeatable.Case+Sub@Gmail.com", EmailPolicy.ByteStableV1)
-        val b = canonical("Repeatable.Case+Sub@Gmail.com", EmailPolicy.ByteStableV1)
+        val a = canonical("Repeatable.Case+Sub@Gmail.com", EmailPolicy.SubaddressRemoved)
+        val b = canonical("Repeatable.Case+Sub@Gmail.com", EmailPolicy.SubaddressRemoved)
         assertEquals(a, b)
     }
 
@@ -73,24 +73,24 @@ class EmailNormalizeTest {
     @Test
     fun subaddressedTrimsAndLowercasesOnly() {
         // The subaddress is kept, and there is no dot handling.
-        assertEquals("user+tag@gmail.com", canonical("  User+Tag@Gmail.com  ", EmailPolicy.ByteStableV1Subaddressed))
-        assertEquals("u.s.e.r@gmail.com", canonical("U.S.E.R@gmail.com", EmailPolicy.ByteStableV1Subaddressed))
+        assertEquals("user+tag@gmail.com", canonical("  User+Tag@Gmail.com  ", EmailPolicy.Address))
+        assertEquals("u.s.e.r@gmail.com", canonical("U.S.E.R@gmail.com", EmailPolicy.Address))
     }
 
     // --- explicit, value-free failures ---------------------------------------
 
     @Test
-    fun failsMissingAtSign() = assertError<EmailNormalizationError.MissingAtSign>("not-an-email", EmailPolicy.ByteStableV1)
+    fun failsMissingAtSign() = assertError<EmailNormalizationError.MissingAtSign>("not-an-email", EmailPolicy.SubaddressRemoved)
 
     @Test
-    fun failsEmptyLocalPart() = assertError<EmailNormalizationError.EmptyLocalPart>("@example.com", EmailPolicy.ByteStableV1)
+    fun failsEmptyLocalPart() = assertError<EmailNormalizationError.EmptyLocalPart>("@example.com", EmailPolicy.SubaddressRemoved)
 
     @Test
-    fun failsEmptyDomain() = assertError<EmailNormalizationError.EmptyDomain>("user@", EmailPolicy.ByteStableV1)
+    fun failsEmptyDomain() = assertError<EmailNormalizationError.EmptyDomain>("user@", EmailPolicy.SubaddressRemoved)
 
     @Test
     fun failsWhenSubaddressStripLeavesEmptyLocalPart() =
-        assertError<EmailNormalizationError.EmptyLocalPart>("+tag@example.com", EmailPolicy.ByteStableV1)
+        assertError<EmailNormalizationError.EmptyLocalPart>("+tag@example.com", EmailPolicy.SubaddressRemoved)
 
     // Surrogate inputs are built from code units rather than written as literals: a lone surrogate in
     // source does not survive the JS bundler's UTF-8 round trip, so a literal quietly becomes U+FFFD and
@@ -100,39 +100,39 @@ class EmailNormalizeTest {
 
     @Test
     fun failsOnUnpairedHighSurrogate() =
-        assertError<EmailNormalizationError.UnpairedSurrogate>("user" + loneHigh + "@example.com", EmailPolicy.ByteStableV1)
+        assertError<EmailNormalizationError.UnpairedSurrogate>("user" + loneHigh + "@example.com", EmailPolicy.SubaddressRemoved)
 
     @Test
     fun failsOnUnpairedLowSurrogate() =
-        assertError<EmailNormalizationError.UnpairedSurrogate>("user" + loneLow + "@example.com", EmailPolicy.ByteStableV1)
+        assertError<EmailNormalizationError.UnpairedSurrogate>("user" + loneLow + "@example.com", EmailPolicy.SubaddressRemoved)
 
     @Test
     fun wellFormedSupplementaryCharacterIsAccepted() {
         // A valid surrogate PAIR (😀 U+1F600) is well-formed and passes through untouched.
-        assertEquals("a😀@example.com", canonical("a😀@example.com", EmailPolicy.ByteStableV1))
+        assertEquals("a😀@example.com", canonical("a😀@example.com", EmailPolicy.SubaddressRemoved))
     }
 
     // --- policy identity + ergonomic entry points ----------------------------
 
     @Test
     fun policyIdentifiersAreStable() {
-        assertEquals("email.byte-stable", EmailPolicy.ByteStableV1.id)
-        assertEquals(1, EmailPolicy.ByteStableV1.version)
-        assertEquals("email.byte-stable+subaddressed", EmailPolicy.ByteStableV1Subaddressed.id)
-        assertEquals(1, EmailPolicy.ByteStableV1Subaddressed.version)
+        assertEquals("email:subaddress.removed", EmailPolicy.SubaddressRemoved.id)
+        assertEquals(1, EmailPolicy.SubaddressRemoved.version)
+        assertEquals("email", EmailPolicy.Address.id)
+        assertEquals(1, EmailPolicy.Address.version)
     }
 
     @Test
     fun resultCarriesPolicyIdentity() {
-        val o = normalizeEmail("User@Example.com", EmailPolicy.ByteStableV1)
+        val o = normalizeEmail("User@Example.com", EmailPolicy.SubaddressRemoved)
         assertTrue(o is Outcome.Success)
-        assertEquals("email.byte-stable", o.data.policyId)
+        assertEquals("email:subaddress.removed", o.data.policyId)
         assertEquals(1, o.data.policyVersion)
     }
 
     @Test
     fun orNullConvenienceReturnsCanonicalOrNull() {
-        assertEquals("user@example.com", "User@Example.com".normalizeEmailOrNull(EmailPolicy.ByteStableV1))
-        assertNull("not-an-email".normalizeEmailOrNull(EmailPolicy.ByteStableV1))
+        assertEquals("user@example.com", "User@Example.com".normalizeEmailOrNull(EmailPolicy.SubaddressRemoved))
+        assertNull("not-an-email".normalizeEmailOrNull(EmailPolicy.SubaddressRemoved))
     }
 }

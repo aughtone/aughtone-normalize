@@ -114,6 +114,7 @@ class NetworkAndHandleByteStabilityTest {
 
     @Test
     fun policyIdentitiesAreFrozen() {
+        // Renamed in 0.0.4 with the suite-wide id sweep (#29): the identity changed, the bytes did not.
         assertEquals("ipv6.rfc5952", Ipv6Policy.Rfc5952.id)
         assertEquals("username.basic", UsernamePolicy.Basic.id)
         assertEquals(1, Ipv6Policy.Rfc5952.version)

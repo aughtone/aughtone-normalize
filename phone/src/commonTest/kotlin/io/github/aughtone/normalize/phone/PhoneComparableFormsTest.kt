@@ -28,10 +28,10 @@ class PhoneComparableFormsTest {
     fun everyPhonePolicyIsComparableInTheE164Form() {
         val ids = listOf(
             "phone.e164",
-            "phone.e164+lenient",
-            "phone.e164+region-us",
-            "phone.e164+region-us+lenient",
-            "phone.e164+region-gb",
+            "phone.e164:lenient",
+            "phone.e164:region.us",
+            "phone.e164:region.us:lenient",
+            "phone.e164:region.gb",
         )
         for (a in ids) {
             for (b in ids) {
@@ -51,7 +51,7 @@ class PhoneComparableFormsTest {
 
     @Test
     fun aRebuiltRegionPolicyDeclaresTheForm() {
-        val resolved = PhonePolicies.resolve("phone.e164+region-ca+lenient", 1)
+        val resolved = PhonePolicies.resolve("phone.e164:region.ca:lenient", 1)
         assertTrue(resolved is Outcome.Success)
         assertEquals(setOf(PhoneForms.E164), resolved.data.forms)
     }

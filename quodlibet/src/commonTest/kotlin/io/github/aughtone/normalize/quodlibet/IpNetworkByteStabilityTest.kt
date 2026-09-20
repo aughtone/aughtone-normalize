@@ -85,7 +85,7 @@ class IpNetworkByteStabilityTest {
         val outcome = normalizeIpv4Blocks("198.51.100.77", Ipv4Policy.DottedQuad, listOf(24, 16))
         assertTrue(outcome is Outcome.Success)
         assertEquals(listOf("198.51.100.0/24", "198.51.0.0/16"), outcome.data.map { it.canonical })
-        assertEquals(listOf("ipv4.dotted-quad+block-24", "ipv4.dotted-quad+block-16"), outcome.data.map { it.policyId })
+        assertEquals(listOf("ipv4.quad.dotted:block.24", "ipv4.quad.dotted:block.16"), outcome.data.map { it.policyId })
     }
 
     @Test
@@ -141,7 +141,7 @@ class IpNetworkByteStabilityTest {
         val outcome = normalizeIpv6Blocks("2001:db8:abcd:12::1", Ipv6Policy.Rfc5952, listOf(64, 48))
         assertTrue(outcome is Outcome.Success)
         assertEquals(listOf("2001:db8:abcd:12::/64", "2001:db8:abcd::/48"), outcome.data.map { it.canonical })
-        assertEquals(listOf("ipv6.rfc5952+block-64", "ipv6.rfc5952+block-48"), outcome.data.map { it.policyId })
+        assertEquals(listOf("ipv6.rfc5952:block.64", "ipv6.rfc5952:block.48"), outcome.data.map { it.policyId })
     }
 
     @Test
@@ -187,13 +187,14 @@ class IpNetworkByteStabilityTest {
 
     @Test
     fun networkPolicyIdentitiesAreFrozen() {
-        assertEquals("ipv4.dotted-quad+block-24", Ipv4Policy.DottedQuad.block(24).id)
-        assertEquals("ipv4.inet-aton+block-24", Ipv4Policy.InetAton.block(24).id)
-        assertEquals("ipv4.dotted-quad+cidr", Ipv4Policy.DottedQuad.cidr().id)
-        assertEquals("ipv4.dotted-quad+cidr+masked", Ipv4Policy.DottedQuad.cidrMasked().id)
-        assertEquals("ipv6.rfc5952+block-64", Ipv6Policy.Rfc5952.block(64).id)
-        assertEquals("ipv6.rfc5952+cidr", Ipv6Policy.Rfc5952.cidr().id)
-        assertEquals("ipv6.rfc5952+cidr+masked", Ipv6Policy.Rfc5952.cidrMasked().id)
+        // Renamed in 0.0.4 with the suite-wide id sweep (#29): the identity changed, the bytes did not.
+        assertEquals("ipv4.quad.dotted:block.24", Ipv4Policy.DottedQuad.block(24).id)
+        assertEquals("ipv4.inet.aton:block.24", Ipv4Policy.InetAton.block(24).id)
+        assertEquals("ipv4.quad.dotted:cidr", Ipv4Policy.DottedQuad.cidr().id)
+        assertEquals("ipv4.quad.dotted:cidr:host.zeroed", Ipv4Policy.DottedQuad.cidrMasked().id)
+        assertEquals("ipv6.rfc5952:block.64", Ipv6Policy.Rfc5952.block(64).id)
+        assertEquals("ipv6.rfc5952:cidr", Ipv6Policy.Rfc5952.cidr().id)
+        assertEquals("ipv6.rfc5952:cidr:host.zeroed", Ipv6Policy.Rfc5952.cidrMasked().id)
         assertEquals(1, Ipv4Policy.DottedQuad.block(24).version)
         assertEquals(1, Ipv6Policy.Rfc5952.cidrMasked().version)
     }
@@ -268,12 +269,12 @@ class IpNetworkByteStabilityTest {
 
     @Test
     fun ipv6ModeIdentitiesAreFrozen() {
-        assertEquals("ipv6.rfc5952+unmap", Ipv6Policy.Rfc5952.unmap().id)
-        assertEquals("ipv6.rfc5952+nat64", Ipv6Policy.Rfc5952.nat64().id)
-        assertEquals("ipv6.rfc5952+zone", Ipv6Policy.Rfc5952.zone().id)
-        assertEquals("ipv6.rfc5952+unmap+nat64+zone", Ipv6Policy.Rfc5952.zone().nat64().unmap().id)
-        assertEquals("ipv6.rfc5952+unmap+block-v4-24+block-v6-64", Ipv6Policy.Rfc5952.unmap().block(24, 64).id)
-        assertEquals("ipv6.rfc5952+nat64+block-v4-24+block-v6-24", Ipv6Policy.Rfc5952.nat64().block(24, 24).id)
-        assertEquals("ipv6.rfc5952+zone+cidr+masked", Ipv6Policy.Rfc5952.zone().cidrMasked().id)
+        assertEquals("ipv6.rfc5952:ipv4.mapped", Ipv6Policy.Rfc5952.unmap().id)
+        assertEquals("ipv6.rfc5952:ipv4.nat64", Ipv6Policy.Rfc5952.nat64().id)
+        assertEquals("ipv6.rfc5952:zone.kept", Ipv6Policy.Rfc5952.zone().id)
+        assertEquals("ipv6.rfc5952:ipv4.mapped:ipv4.nat64:zone.kept", Ipv6Policy.Rfc5952.zone().nat64().unmap().id)
+        assertEquals("ipv6.rfc5952:ipv4.mapped:block.v4.24:block.v6.64", Ipv6Policy.Rfc5952.unmap().block(24, 64).id)
+        assertEquals("ipv6.rfc5952:ipv4.nat64:block.v4.24:block.v6.24", Ipv6Policy.Rfc5952.nat64().block(24, 24).id)
+        assertEquals("ipv6.rfc5952:zone.kept:cidr:host.zeroed", Ipv6Policy.Rfc5952.zone().cidrMasked().id)
     }
 }

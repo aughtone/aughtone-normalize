@@ -27,21 +27,21 @@ class CompositePolicyResolverTest {
     /** Enumerates its policies, like most modules. */
     private object Enumerated : PublishedPolicies() {
         val base = PolicyLink("example.base", LinkKind.Base)
-        override val policies: List<Policy> = listOf(Plain("example.base"), Plain("example.base+lenient"))
+        override val policies: List<Policy> = listOf(Plain("example.base"), Plain("example.base:lenient"))
         override val links: List<PolicyLink> = listOf(base, PolicyLink.Lenient)
     }
 
-    /** Rebuilds any `built.anything` on demand, the way regions and configured policies are resolved. */
+    /** Rebuilds any `built:anything` on demand, the way regions and configured policies are resolved. */
     private object Rebuilt : PolicyResolver {
         override val policies: List<Policy> = emptyList()
         override val links: List<PolicyLink> = listOf(PolicyLink("built", LinkKind.Base, StepPhase.Map))
         override fun resolve(id: String, version: Int): Outcome<Policy> = runOutcome {
-            if (!id.startsWith("built+")) throw PolicyIdentityError.UnknownLink(id, id.substringBefore('+'))
+            if (!id.startsWith("built:")) throw PolicyIdentityError.UnknownLink(id, id.substringBefore(':'))
             if (version != 1) throw PolicyIdentityError.VersionMismatch(id, version, listOf(1))
             object : Policy, NormalizationStep {
                 override val id = id
                 override val version = 1
-                override val links = id.split('+').mapIndexed { index, name ->
+                override val links = id.split(':').mapIndexed { index, name ->
                     if (index == 0) PolicyLink(name, LinkKind.Base, StepPhase.Map) else PolicyLink(name, LinkKind.Parameter)
                 }
                 override fun apply(value: String) = value.uppercase()
@@ -60,46 +60,46 @@ class CompositePolicyResolverTest {
 
     @Test
     fun anIdAModuleRebuildsResolvesThroughTheComposite() {
-        val alone = Rebuilt.resolve("built+x", 1)
-        val combined = all.resolve("built+x", 1)
+        val alone = Rebuilt.resolve("built:x", 1)
+        val combined = all.resolve("built:x", 1)
         assertTrue(alone is Outcome.Success && combined is Outcome.Success, "the composite must ask the module")
         assertEquals(alone.data.id, combined.data.id)
     }
 
     @Test
     fun anEnumeratedIdStillResolves() {
-        val outcome = all.resolve("example.base+lenient", 1)
+        val outcome = all.resolve("example.base:lenient", 1)
         assertTrue(outcome is Outcome.Success)
-        assertEquals("example.base+lenient", outcome.data.id)
+        assertEquals("example.base:lenient", outcome.data.id)
     }
 
     @Test
     fun aComposedChainResolvesToItsBaseAndSteps() {
-        val outcome = all.resolve("example.base+built+x+mirror.u17", 1)
+        val outcome = all.resolve("example.base:built:x:mirror.u17", 1)
         assertTrue(outcome is Outcome.Success, "got $outcome")
         val composed = outcome.data as ComposedPolicy
         assertEquals("example.base", composed.base.id)
-        assertEquals(listOf("built+x", "mirror.u17"), composed.steps.map { step -> step.links.joinToString("+") { it.name } })
-        assertEquals("example.base+built+x+mirror.u17", composed.id)
+        assertEquals(listOf("built:x", "mirror.u17"), composed.steps.map { step -> step.links.joinToString(":") { it.name } })
+        assertEquals("example.base:built:x:mirror.u17", composed.id)
         assertEquals(1, composed.version)
     }
 
     @Test
     fun aChainNamingAModuleNotInTheResolverFails() {
         val withoutSteps = Enumerated + Rebuilt
-        val outcome = withoutSteps.resolve("example.base+mirror.u17", 1)
+        val outcome = withoutSteps.resolve("example.base:mirror.u17", 1)
         assertTrue(outcome is Outcome.Failure && outcome.exception is PolicyIdentityError.UnknownLink, "got $outcome")
     }
 
     @Test
     fun aModuleThatRecognizesAnIdSpeaksForIt() {
-        val outcome = all.resolve("built+x", 2)
+        val outcome = all.resolve("built:x", 2)
         assertTrue(outcome is Outcome.Failure && outcome.exception is PolicyIdentityError.VersionMismatch, "got $outcome")
     }
 
     @Test
     fun aGroupThatCannotRunAsAStepFailsTheChain() {
-        val outcome = (Enumerated + Rebuilt + Steps + OtherBase).resolve("example.base+other.base", 1)
+        val outcome = (Enumerated + Rebuilt + Steps + OtherBase).resolve("example.base:other.base", 1)
         assertTrue(outcome is Outcome.Failure && outcome.exception is PolicyIdentityError.NotAStep, "got $outcome")
     }
 

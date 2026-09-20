@@ -39,7 +39,7 @@ class ComposedResolutionTest {
     fun aUsernameWithTheSkeletonRoundTrips() {
         val stored = (normalizeUsername("PayPal", UsernamePolicy.Basic, listOf(ConfusablePolicy.SkeletonU17)) as Outcome.Success).data
         val policy = composed(stored.policyId)
-        assertEquals("username.basic+skeleton.u17", policy.id)
+        assertEquals("username.basic:skeleton.u17", policy.id)
         val again = normalizeUsername(lookalike, policy.base as UsernamePolicy, policy.steps)
         assertEquals(stored.canonical, (again as Outcome.Success).data.canonical)
         assertEquals(stored.policyId, again.data.policyId)
@@ -49,7 +49,7 @@ class ComposedResolutionTest {
     fun aUsernameWithATextPolicyRoundTrips() {
         val stored = (normalizeUsername("Alice", UsernamePolicy.Basic, listOf(TextPolicy.NfcU17)) as Outcome.Success).data
         val policy = composed(stored.policyId)
-        assertEquals("username.basic+text.u17+nfc", policy.id)
+        assertEquals("username.basic:text.u17:nfc", policy.id)
         val again = normalizeUsername("ALICE", policy.base as UsernamePolicy, policy.steps)
         assertEquals(stored.canonical, (again as Outcome.Success).data.canonical)
         assertEquals(stored.policyId, again.data.policyId)
@@ -60,7 +60,7 @@ class ComposedResolutionTest {
         val caseless = TextPolicy(UnicodeRelease.U17) { unicode { trim(); casefold() } }
         val stored = (normalizeText("  PayPal ", caseless, listOf(ConfusablePolicy.SkeletonU17)) as Outcome.Success).data
         val policy = composed(stored.policyId)
-        assertEquals("text.u17+trim+casefold+skeleton.u17", policy.id)
+        assertEquals("text.u17:space.trimmed:case.folded:skeleton.u17", policy.id)
         val again = normalizeText(lookalike, policy.base as TextPolicy, policy.steps)
         assertEquals(stored.canonical, (again as Outcome.Success).data.canonical)
         assertEquals(stored.policyId, again.data.policyId)
@@ -69,17 +69,17 @@ class ComposedResolutionTest {
     @Test
     fun aChainNamingAModuleMissingFromTheResolverFails() {
         val withoutConfusables = QuodlibetPolicies + UnicodePolicies
-        val outcome = withoutConfusables.resolve("username.basic+skeleton.u17", 1)
+        val outcome = withoutConfusables.resolve("username.basic:skeleton.u17", 1)
         assertTrue(outcome is Outcome.Failure && outcome.exception is PolicyIdentityError.UnknownLink, "got $outcome")
 
         val withoutUnicode = QuodlibetPolicies + ConfusablesPolicies
-        val text = withoutUnicode.resolve("username.basic+text.u17+nfc", 1)
+        val text = withoutUnicode.resolve("username.basic:text.u17:nfc", 1)
         assertTrue(text is Outcome.Failure && text.exception is PolicyIdentityError, "got $text")
     }
 
     @Test
     fun aConfiguredTextIdResolvesThroughTheCompositeAsItDoesAlone() {
-        val id = "text.u17+trim+lower.ascii+non-empty"
+        val id = "text.u17:space.trimmed:case.lower.ascii:empty.refused"
         val alone = UnicodePolicies.resolve(id, 1)
         val combined = resolvers.resolve(id, 1)
         assertTrue(alone is Outcome.Success && combined is Outcome.Success)
