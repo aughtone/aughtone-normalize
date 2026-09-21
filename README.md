@@ -35,12 +35,14 @@ The example below installs `:quodlibet`, which is the table-free bundle — emai
 
 **Moving from `0.0.3`?** **Every policy id changes**, and no canonical bytes do. Links now join with `:` instead of `+`, names carry no hyphens, and a link that acts on the value reads `<subject>.<what was done>`: `text.u17+trim+casefold+nfc` becomes `text.u17:space.trimmed:case.folded:nfc`, and `ipv4.dotted-quad+block-24` becomes `ipv4.quad.dotted:block.24`. Email is the one behaviour change: the base now **keeps** the `+`-subaddress, and removing it is the option `email:subaddress.removed`. A stored `0.0.3` id no longer resolves, deliberately — it fails rather than quietly resolving to something else. The [changelog](CHANGELOG.md) lists every rename.
 
+Four more things move in `0.0.4`, and only the first changes bytes. **Whitespace is trimmed more widely**: a no-break space or a byte-order mark around an address or a username is now removed, where it used to end up inside the canonical — so an address pasted out of a formatted page and the same address typed by hand finally produce one token. **A phone extension is refused rather than folded into the number**, which widens what the phone policies reject: `+43 1 58058-0` and its typographic-dash spellings fail instead of returning a different, valid-looking number. **`:quodlibet` now depends on `:ubilibet`**, because an address's domain is normalized as a domain; a consumer that touches no domain ships none of the IDNA tables. And **`iosX64` is no longer published** — Apple silicon simulators use `iosSimulatorArm64`, which is unchanged.
+
 ```kotlin
 // build.gradle.kts
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("io.github.aughtone.normalize:quodlibet:0.0.3")
+            implementation("io.github.aughtone.normalize:quodlibet:0.0.4")
         }
     }
 }
@@ -51,7 +53,7 @@ Or with a version catalog:
 ```toml
 # gradle/libs.versions.toml
 [versions]
-aughtone-normalize = "0.0.3"
+aughtone-normalize = "0.0.4"
 
 [libraries]
 aughtone-normalize-quodlibet = { module = "io.github.aughtone.normalize:quodlibet", version.ref = "aughtone-normalize" }

@@ -176,7 +176,7 @@ internal fun PhoneNumberUtil.NumberParseException.toNormalizationError(): PhoneN
         // path we hand it digits with no formatting to read a trailing group from, so this is the
         // extension path, where the raw input does reach it.
         PhoneNumberUtil.ErrorType.AMBIGUOUS_TRAILING_GROUP -> PhoneNormalizationError.AmbiguousTrailingGroup(null)
-        // Added in 0.0.4: the dependency now refuses a vanity number by default rather than folding its
+        // Added in the dependency's 0.0.4: it now refuses a vanity number by default rather than folding its
         // letters into keypad digits. It has reached the same answer this module always gave, by its own
         // route - and that route cannot be taken from here, because every letter is refused before the
         // parser is called and what it receives is digits and at most a leading `+`.
