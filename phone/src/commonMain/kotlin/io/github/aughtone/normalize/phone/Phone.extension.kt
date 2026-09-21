@@ -104,12 +104,15 @@ internal class MarkerMatch(val start: Int, val end: Int)
  * 2. **A letter marker is a hole in the letter refusal.** Letters are refused here so that the keypad
  *    conversion in the dependency can never turn a word into digits. Every label admitted is a carve-out
  *    in that rule, in a language nobody maintaining this reads.
- * 3. **The obvious list to copy is partial, and its gaps produce wrong numbers.** Measured against
- *    `phonenumber` 0.0.3: `anexo` and `extensión` are read as labels and split correctly, while `poste`
- *    and `ramal` are not recognised and their letters go through keypad conversion instead -
- *    `+1 212 555 0123 poste 4` parses as `+12125550123767834`, a different, valid-looking number.
- *    Adopting that list wholesale would mean adopting its gaps, and its gaps are the defect this module
- *    exists to avoid. `PhoneLocalisedLabelTest` pins this rather than describing it.
+ * 3. **The way out of a partial list is a guess, which is not better for us.** At `phonenumber` 0.0.3 the
+ *    list had gaps and the gaps folded: `+1 212 555 0123 poste 4` parsed as `+12125550123767834`, a
+ *    different and entirely valid-looking number. Its 0.0.4 fixed that structurally rather than by
+ *    growing the list - a run of letters after an already-valid number is taken as an unrecognised
+ *    marker, dropped, with extraction behind an opt-in flag. That is a real improvement and it cannot
+ *    produce a wrong number any more. It is still a guess about an unknowable boundary: the same rule
+ *    reads `+1 212 555 0123 asdfgh 9` as a number and an extension. Refusing what cannot be read is the
+ *    line this module holds, so neither their old list nor their new rule is adopted.
+ *    `PhoneLocalisedLabelTest` pins both, rather than describing either.
  *
  * **The vocabulary does not have to avoid these words, and could not.** Some labels contain a marker -
  * `anexo` holds an `x`, `extensión` begins with `ext` - so a marker is matched inside the word and the

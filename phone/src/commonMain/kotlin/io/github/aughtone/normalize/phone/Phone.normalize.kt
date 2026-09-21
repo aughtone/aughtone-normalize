@@ -176,6 +176,17 @@ internal fun PhoneNumberUtil.NumberParseException.toNormalizationError(): PhoneN
         // path we hand it digits with no formatting to read a trailing group from, so this is the
         // extension path, where the raw input does reach it.
         PhoneNumberUtil.ErrorType.AMBIGUOUS_TRAILING_GROUP -> PhoneNormalizationError.AmbiguousTrailingGroup(null)
+        // Added in 0.0.4: the dependency now refuses a vanity number by default rather than folding its
+        // letters into keypad digits. It has reached the same answer this module always gave, by its own
+        // route - and that route cannot be taken from here, because every letter is refused before the
+        // parser is called and what it receives is digits and at most a leading `+`.
+        //
+        // Mapped to an existing error rather than a new one. `LetterNotSupported` carries an index and a
+        // code point, and this exception carries neither, so reporting it would mean inventing a position
+        // this module never saw. A new public type would be worse: API a caller must handle for a failure
+        // that cannot arrive. `NotANumber` is what is left and it is true - the dependency was handed
+        // something it will not read as a number.
+        PhoneNumberUtil.ErrorType.ALPHA_NUMBER_DISALLOWED -> PhoneNormalizationError.NotANumber()
     }
 
 internal const val NEUTRAL_REGION = "US"

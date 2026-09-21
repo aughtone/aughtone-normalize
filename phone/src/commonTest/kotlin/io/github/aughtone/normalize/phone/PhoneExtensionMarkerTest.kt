@@ -26,13 +26,26 @@ import kotlin.test.assertTrue
  */
 class PhoneExtensionMarkerTest {
 
-    /** Each spelling, and the extension the dependency must read from `+1 212 555 0123<marker>4`. */
+    /** Every spelling this module treats as an extension marker. */
     private val markers: List<String> = listOf(
         "#", ",", ";", ";ext=", "x", "X", " ext", " ext.", " extn", " xtn", " extension",
     )
 
+    /**
+     * The spellings the dependency reads as an **extension**, as of `phonenumber` 0.0.4.
+     *
+     * The rest of [markers] it now reads as a **post-dial string** - a dialling instruction rather than a
+     * place to reach - which is the distinction RFC 3966 draws between `;ext=` and `;postd=`. That split
+     * arrived in its 0.0.4 and this module has not made it yet; aughtone/aughtone-normalize#38 is where it
+     * does, and until then these three are the disagreement rather than an accident.
+     */
+    private val readAsExtension: Set<String> =
+        setOf(",", ";ext=", "x", "X", " ext", " ext.", " extn", " xtn", " extension")
+
     @Test
-    fun theDependencyStillReadsEveryMarkerWeRecognise() {
+    fun theDependencyStillSplitsEveryMarkerOffTheNumber() {
+        // Whatever it calls what follows, the NUMBER must come back whole. That is the part our own split
+        // has to agree with; what the trailing piece is called is #38's business.
         for (marker in markers) {
             val input = "+1 212 555 0123$marker" + "4"
             val parsed = PhoneNumberUtil.parse(input, "US")
@@ -42,8 +55,36 @@ class PhoneExtensionMarkerTest {
                 "<$input>: the dependency no longer splits this marker off the number. Our own split is " +
                     "unaffected; read its release notes and decide whether the spelling still belongs here.",
             )
-            assertEquals("4", parsed.extension, "<$input>: extension")
         }
+    }
+
+    @Test
+    fun theExtensionAndPostDialSplitIsWhereItWasLeft() {
+        // Pinned so their classification moving is visible here rather than in a consumer's tokens.
+        for (marker in markers) {
+            val input = "+1 212 555 0123$marker" + "4"
+            val parsed = PhoneNumberUtil.parse(input, "US")
+            if (marker in readAsExtension) {
+                assertEquals("4", parsed.extension, "<$input>: read as an extension there")
+            } else {
+                assertEquals(
+                    null,
+                    parsed.extension,
+                    "<$input>: read as POST-DIAL there, not an extension - and still an extension marker " +
+                        "here. That disagreement is aughtone/aughtone-normalize#38; if this fails, their " +
+                        "classification moved again.",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun aSingleCommaIsTheOddOneOut() {
+        // Measured on 0.0.4 and reported to them: `,` reads as an extension while `,,` and every other
+        // post-dial character reads as post-dial. Pinned so we notice whichever way it is settled - it is
+        // either deliberate compatibility with upstream's extension pattern, or the one that slipped.
+        assertEquals("4", PhoneNumberUtil.parse("+1 212 555 0123,4", "US").extension)
+        assertEquals(null, PhoneNumberUtil.parse("+1 212 555 0123,,4", "US").extension)
     }
 
     @Test

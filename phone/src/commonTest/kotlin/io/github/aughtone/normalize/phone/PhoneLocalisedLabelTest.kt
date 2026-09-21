@@ -56,23 +56,32 @@ class PhoneLocalisedLabelTest {
     }
 
     @Test
-    fun theLabelListIsPartialAndItsGapsFoldLettersIntoTheNumber() {
-        // The reason the list is not worth copying. `poste` and `ramal` are not in it, so their letters go
-        // through keypad conversion and land in the subscriber number - a different, valid-looking number,
-        // which is the defect #30 exists to prevent. Refusing every label keeps all of this away from us.
-        for ((label, folded) in listOf("poste" to "+12125550123767834", "ramal" to "+12125550123726254")) {
+    fun anUnrecognisedLabelNoLongerFoldsAndStillIsNotRead() {
+        // WAS: `theLabelListIsPartialAndItsGapsFoldLettersIntoTheNumber`, which pinned
+        // `poste 4` -> +12125550123767834 as the reason the label list was not worth copying. That fold
+        // is gone in `phonenumber` 0.0.4: an unrecognised label is now handled structurally rather than by
+        // growing the list, so the letters no longer reach keypad conversion.
+        //
+        // The decision here is unchanged and its reason has moved. It used to be "their list has gaps and
+        // the gaps produce wrong numbers". It is now "they replaced the list with a rule that guesses":
+        // a run of letters after an already-valid number is taken as a marker, so `0123 asdfgh 9` reads
+        // the same way `poste 4` does. Refusing what we cannot read is still the line this module holds.
+        for (label in listOf("poste", "ramal", "Durchwahl", "interno")) {
             val input = "+1 212 555 0123 $label 4"
             val parsed = PhoneNumberUtil.parse(input, "US")
             assertEquals(
-                folded,
+                "+12125550123",
                 parsed.formatToE164(),
-                "<$input>: FIXED UPSTREAM, or the label list grew. Read the release notes - if this label " +
-                    "is now recognised, the argument in findMarker's KDoc is unchanged but its evidence moved.",
+                "<$input>: the number must survive an unrecognised label without folding",
             )
-            assertEquals(null, parsed.extension, "<$input>: no extension is captured, the digits are folded in")
+            assertEquals(
+                null,
+                parsed.extension,
+                "<$input>: extraction is opt-in there, so nothing is read by default",
+            )
             assertTrue(
                 normalizePhoneWithExtension(input, ExtensionPolicy.E164) is Outcome.Failure,
-                "<$input>: we refuse it, which is why the fold cannot reach us",
+                "<$input>: we refuse it, which is the decision this file exists to pin",
             )
         }
     }

@@ -5,17 +5,17 @@ versionName = "0.0.3"
 android-minSdk = "17"
 android-compileSdk = "37"
 
-agp = "9.2.1"
+agp = "9.4.1"
 # Lint's version is always AGP's plus 23.0.0.
-lint = "32.2.1"
-kotlin = "2.4.0"
+lint = "32.4.1"
+kotlin = "2.4.20"
 kotlinx-serialization = "1.11.0"
 kotlinx-datetime = "0.8.0"
 vanniktech = "0.37.0"
-kotlinBrowser = "2026.7.1"
+kotlinBrowser = "2026.9.2"
 
-aughtone-types = "3.4.0"
-aughtone-phonenumber = "0.0.3"
+aughtone-types = "4.0.0"
+aughtone-phonenumber = "0.0.4"
 
 [libraries]
 lint-api = { module = "com.android.tools.lint:lint-api", version.ref = "lint" }
