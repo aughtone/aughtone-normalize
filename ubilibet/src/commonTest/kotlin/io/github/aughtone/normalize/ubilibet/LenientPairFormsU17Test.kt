@@ -19,7 +19,7 @@ class LenientPairFormsU17Test {
 
     @Test
     fun theDomainPairSharesItsForm() {
-        assertEquals(Comparability.InForm(DomainForms.AsciiU17), comparability("domain.ascii.u17", "domain.ascii.u17+lenient"))
+        assertEquals(Comparability.InForm(DomainForms.AsciiU17), comparability("domain.ascii.u17", "domain.ascii.u17:lenient"))
         for (name in listOf("Example.COM", "caf\u00E9.example")) {
             val strict = normalizeDomain(name, DomainPolicy.AsciiU17) as Outcome.Success
             val lenient = normalizeDomain(name, DomainPolicy.AsciiU17Lenient) as Outcome.Success
@@ -31,7 +31,7 @@ class LenientPairFormsU17Test {
     fun theUrlPairSharesItsForm() {
         assertEquals(
             Comparability.InForm(DomainForms.UrlRfc3986U17),
-            comparability("url.rfc3986+domain.ascii.u17", "url.rfc3986+domain.ascii.u17+lenient"),
+            comparability("url.rfc3986:domain.ascii.u17", "url.rfc3986:domain.ascii.u17:lenient"),
         )
         val strict = normalizeUrl("HTTPS://Example.COM/menu", UrlPolicy.Rfc3986U17) as Outcome.Success
         val lenient = normalizeUrl("HTTPS://Example.COM/menu", UrlPolicy.Rfc3986U17Lenient) as Outcome.Success
@@ -40,6 +40,6 @@ class LenientPairFormsU17Test {
 
     @Test
     fun aDomainIsNotAUrl() {
-        assertEquals(Comparability.NotComparable, comparability("domain.ascii.u17", "url.rfc3986+domain.ascii.u17"))
+        assertEquals(Comparability.NotComparable, comparability("domain.ascii.u17", "url.rfc3986:domain.ascii.u17"))
     }
 }

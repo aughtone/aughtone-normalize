@@ -1,5 +1,6 @@
 package io.github.aughtone.normalize.email
 
+import io.github.aughtone.normalize.quodlibet.trimWhitespace
 import io.github.aughtone.types.outcome.Outcome
 import io.github.aughtone.types.outcome.runOutcome
 
@@ -13,6 +14,9 @@ import io.github.aughtone.types.outcome.runOutcome
  * - **No Unicode table, ever:** every step here is ASCII-level and Unicode-version-independent, which is
  *   what makes the output identical on every platform and every build. Anything needing a Unicode table
  *   belongs in another module and reaches this one as a caller-composed step, never as a rule added here.
+ *   [normalizeEmailParts] is where that shows: it normalizes the domain as a domain, under a domain policy
+ *   the caller names, so the Unicode-bound work is a separate piece with its own id - and this function's
+ *   output is untouched by it.
  *
  * [NormalizedEmail.canonical] is what a caller hashes; [NormalizedEmail.policyId] and
  * [NormalizedEmail.policyVersion] are stored beside that hash, because they are the only record of which
@@ -20,7 +24,7 @@ import io.github.aughtone.types.outcome.runOutcome
  *
  * Consume:
  * ```
- * normalizeEmail(value, EmailPolicy.ByteStableV1)
+ * normalizeEmail(value, EmailPolicy.Address)
  *     .onSuccess { normalized -> store(hash(normalized.canonical), normalized.policyId, normalized.policyVersion) }
  *     .onFailure { failure -> log(failure.exception) }   // a typed, value-free EmailNormalizationError
  * ```
@@ -29,8 +33,21 @@ fun normalizeEmail(value: String, policy: EmailPolicy): Outcome<NormalizedEmail>
     readEmail(value, policy).mailbox
 }
 
-/** One reading of an address: the normalized mailbox, and the subaddress the policy stripped, if any. */
-internal class EmailReading(val mailbox: NormalizedEmail, val subaddress: String?)
+/**
+ * One reading of an address: every piece of it, from one pass.
+ *
+ * [local] and [domain] are the address as written, normalized - the local part keeps its subaddress
+ * whatever the policy does with it, because that is what the address said. [mailbox] is the piece the
+ * policy produces, which is the only one of the four that depends on the policy at all. [subaddress] is
+ * read whether or not the policy removes it, so a caller can have the tag without giving up the tagged
+ * mailbox.
+ */
+internal class EmailReading(
+    val mailbox: NormalizedEmail,
+    val subaddress: String?,
+    val local: String,
+    val domain: String,
+)
 
 /**
  * Read [value] under [policy]. The one place the email rules live, so every piece derived from an address
@@ -39,28 +56,34 @@ internal class EmailReading(val mailbox: NormalizedEmail, val subaddress: String
 internal fun readEmail(value: String, policy: EmailPolicy): EmailReading {
     if (value.hasUnpairedSurrogate()) throw EmailNormalizationError.UnpairedSurrogate()
 
-    val trimmed = value.trimAsciiWhitespace()
+    val trimmed = value.trimWhitespace()
     val at = trimmed.lastIndexOf('@')
     if (at < 0) throw EmailNormalizationError.MissingAtSign()
 
-    var local = trimmed.substring(0, at).asciiLowercase()
+    val local = trimmed.substring(0, at).asciiLowercase()
     val domain = trimmed.substring(at + 1).asciiLowercase()
     if (domain.isEmpty()) throw EmailNormalizationError.EmptyDomain()
     if (local.isEmpty()) throw EmailNormalizationError.EmptyLocalPart()
 
-    var subaddress: String? = null
-    if (policy.stripPlusSubaddress) {
-        val plus = local.indexOf('+')
-        if (plus >= 0) {
-            subaddress = local.substring(plus + 1)
-            local = local.substring(0, plus)
-        }
-        if (local.isEmpty()) throw EmailNormalizationError.EmptyLocalPart()
+    // Read whatever the address says, then let the policy decide what the mailbox keeps. The tag is not a
+    // by-product of removing it: a caller can want the tag and the tagged mailbox both.
+    val plus = local.indexOf('+')
+    val subaddress = if (plus >= 0) local.substring(plus + 1) else null
+    var mailboxLocal = local
+    if (policy.stripPlusSubaddress && plus >= 0) {
+        mailboxLocal = local.substring(0, plus)
+        if (mailboxLocal.isEmpty()) throw EmailNormalizationError.EmptyLocalPart()
     }
 
     return EmailReading(
-        mailbox = NormalizedEmail(canonical = "$local@$domain", policyId = policy.id, policyVersion = policy.version),
+        mailbox = NormalizedEmail(
+            canonical = "$mailboxLocal@$domain",
+            policyId = policy.id,
+            policyVersion = policy.version,
+        ),
         subaddress = subaddress,
+        local = local,
+        domain = domain,
     )
 }
 
@@ -89,16 +112,6 @@ private fun String.hasUnpairedSurrogate(): Boolean {
     return false
 }
 
-private fun Char.isAsciiWhitespace(): Boolean =
-    this == ' ' || this == '\t' || this == '\n' || this == '\r' || this == '\u000B' || this == '\u000C'
-
-private fun String.trimAsciiWhitespace(): String {
-    var start = 0
-    var end = length
-    while (start < end && this[start].isAsciiWhitespace()) start++
-    while (end > start && this[end - 1].isAsciiWhitespace()) end--
-    return substring(start, end)
-}
 
 /** Lowercases ASCII `A`–`Z` only; every other code unit (including all non-ASCII) is left untouched. */
 private fun String.asciiLowercase(): String {

@@ -16,11 +16,11 @@ import io.github.aughtone.types.outcome.runOutcome
  * Build one by naming the rules you want and the character set each runs over:
  *
  * ```
- * TextPolicy { ascii { trim(); lowercase() } }                               // text+trim+lower
+ * TextPolicy { ascii { trim(); lowercase() } }                               // text:space.trimmed:case.lower
  *
- * TextPolicy(UnicodeRelease.U17) { unicode { trim(); casefold(); nfc() } }  // text.u17+trim+casefold+nfc
+ * TextPolicy(UnicodeRelease.U17) { unicode { trim(); casefold(); nfc() } }  // text.u17:space.trimmed:case.folded:nfc
  *
- * TextPolicy(UnicodeRelease.U17) {                                           // text.u17+trim+lower.ascii+non-empty
+ * TextPolicy(UnicodeRelease.U17) {                                           // text.u17:space.trimmed:case.lower.ascii:empty.refused
  *     unicode { trim() }
  *     ascii { lowercase() }
  *     nonEmpty()
@@ -57,7 +57,7 @@ import io.github.aughtone.types.outcome.runOutcome
  * ## Also a step
  *
  * A text policy is a [NormalizationStep], so a module that carries no Unicode data can accept one and
- * compose it whole: `username.basic+text.u17+nfc`.
+ * compose it whole: `username.basic:text.u17:nfc`.
  */
 class TextPolicy internal constructor(
     /** The Unicode release this policy's Unicode rules run against, or `null` when every rule is ASCII. */
@@ -204,7 +204,7 @@ sealed class TextPolicyError(message: String) : IllegalArgumentException(message
 
     /**
      * A step composed after this policy was frozen against a different Unicode release. One chain runs
-     * against one release's data, so `text.u17+…+skeleton.u18` is refused rather than mixed.
+     * against one release's data, so `text.u17:…:skeleton.u18` is refused rather than mixed.
      */
     class MismatchedRelease(val policyRelease: String, val stepRelease: String) :
         TextPolicyError("text policy: a $stepRelease step cannot follow a $policyRelease policy")

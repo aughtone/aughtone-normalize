@@ -31,7 +31,7 @@ class UsernameCompositionTest {
     @Test
     fun theComposedChainNamesTheTransformInItsIdentity() {
         assertEquals("username.basic", plain("alice").policyId)
-        assertEquals("username.basic+skeleton.u17", folded("alice").policyId)
+        assertEquals("username.basic:skeleton.u17", folded("alice").policyId)
     }
 
     @Test

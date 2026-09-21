@@ -87,7 +87,7 @@ internal fun formatIpv4(address: Long): String =
  * a different rule-set with its own identity rather than a loosened version of the other.
  */
 class Ipv4Policy internal constructor(
-    /** The base link name, without any opted-in forms: `ipv4.dotted-quad`. */
+    /** The base link name, without any opted-in forms: `ipv4.quad.dotted`. */
     internal val base: String,
     internal val interpretsShorthand: Boolean,
     internal val optedIn: Set<ComparableForm> = emptySet(),
@@ -97,7 +97,7 @@ class Ipv4Policy internal constructor(
 
     override val version: Int = 1
 
-    /** `dotted-quad` writes the IPv4 address form; `inet-aton` writes it only once a caller opts in. */
+    /** `ipv4.quad.dotted` writes the IPv4 address form; `ipv4.inet.aton` writes it only once a caller opts in. */
     override val forms: Set<ComparableForm> =
         if (interpretsShorthand) optedIn else setOf(IpForms.Ipv4Address)
 
@@ -151,7 +151,7 @@ class Ipv4Policy internal constructor(
          * Four decimal octets, no leading zeros: the one spelling every stack agrees on. Anything else
          * is refused rather than interpreted, so a token minted here cannot mean two different hosts.
          */
-        val DottedQuad: Ipv4Policy = Ipv4Policy(base = "ipv4.dotted-quad", interpretsShorthand = false)
+        val DottedQuad: Ipv4Policy = Ipv4Policy(base = "ipv4.quad.dotted", interpretsShorthand = false)
 
         /**
          * The classic `inet_aton` rules, applied deliberately: one to four parts with the last absorbing
@@ -162,7 +162,7 @@ class Ipv4Policy internal constructor(
          * differently - Go and Python refuse the octal forms outright - so this policy is a statement
          * that these particular rules were applied. Values normalized here do not match values normalized
          * under [DottedQuad] unless a caller opts into the IPv4 address form - `InetAton.withForms(setOf(
-         * IpForms.Ipv4Address))`, id `ipv4.inet-aton+form.ipv4.address` - which makes the comparison a
+         * IpForms.Ipv4Address))`, id `ipv4.inet.aton:form.ipv4.address` - which makes the comparison a
          * recorded choice rather than an accident.
          *
          * **Do not reach for this to accept more input.** Canonicalizing an ambiguous address turns an
@@ -170,12 +170,12 @@ class Ipv4Policy internal constructor(
          * which is how address-based filters get bypassed. Use it when the data you are matching *came
          * from* a system with these semantics, not to be permissive at the edge.
          */
-        val InetAton: Ipv4Policy = Ipv4Policy(base = "ipv4.inet-aton", interpretsShorthand = true)
+        val InetAton: Ipv4Policy = Ipv4Policy(base = "ipv4.inet.aton", interpretsShorthand = true)
 
         /** The base links these policies are built on, published for resolution. */
         internal val links: List<PolicyLink> = listOf(
-            PolicyLink("ipv4.dotted-quad", LinkKind.Base),
-            PolicyLink("ipv4.inet-aton", LinkKind.Base),
+            PolicyLink("ipv4.quad.dotted", LinkKind.Base),
+            PolicyLink("ipv4.inet.aton", LinkKind.Base),
         )
 
         internal val all: List<Ipv4Policy> = listOf(DottedQuad, InetAton)

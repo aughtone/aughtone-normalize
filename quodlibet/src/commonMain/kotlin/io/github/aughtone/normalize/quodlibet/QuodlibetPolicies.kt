@@ -5,6 +5,7 @@ import io.github.aughtone.normalize.common.PolicyIdentityError
 import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.normalize.common.PublishedPolicies
 import io.github.aughtone.normalize.email.EmailLinks
+import io.github.aughtone.normalize.email.EmailLocalPolicy
 import io.github.aughtone.normalize.email.EmailPolicy
 import io.github.aughtone.normalize.email.EmailSubaddressPolicy
 import io.github.aughtone.normalize.iban.IbanPolicy
@@ -39,14 +40,16 @@ import io.github.aughtone.types.outcome.Outcome
 object QuodlibetPolicies : PublishedPolicies() {
 
     override val policies: List<Policy> =
-        listOf(EmailPolicy.ByteStableV1, EmailPolicy.ByteStableV1Subaddressed) + EmailSubaddressPolicy.all +
+        listOf(EmailPolicy.Address, EmailPolicy.SubaddressRemoved) + EmailSubaddressPolicy.all +
+            EmailLocalPolicy.all +
             PanPolicy.all + IbanPolicy.all + Ipv4Policy.all + Ipv6Policy.all + UsernamePolicy.all +
             Ipv4Networks.policies + Ipv6Networks.policies + MacPolicy.all + UuidPolicy.all
 
     override val links: List<PolicyLink> = listOf(
-        EmailLinks.ByteStable,
-        EmailLinks.Subaddressed,
+        EmailLinks.Base,
+        EmailLinks.SubaddressRemoved,
         EmailSubaddressPolicy.Base,
+        EmailLocalPolicy.Base,
         PanPolicy.Base,
         IbanPolicy.Base,
         Ipv6Policy.Base,

@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-09-21
+
+### Breaking
+
+- **`iosX64` is no longer published.** The Intel iOS simulator target is dropped from every module. Apple silicon simulators are `iosSimulatorArm64`, which stays, as do `iosArm64` and every other target. A consumer still building for an Intel simulator has to stop at `0.0.3`.
+- **`:quodlibet` now depends on `:ubilibet`.** `normalizeEmailParts` returns an address's domain as a real domain token, which needs the IDNA tables, and reading a domain correctly is worth a dependency — see ADR-0003, amended. A consumer that touches no domain ships none of those tables, because unused code is eliminated; what changes is a coordinate in the POM.
+
+### Added
+
+- **Every piece of an email address from one reading.** `normalizeEmailParts(value, emailPolicy, domainPolicy)` returns the mailbox, the local part (`email.local`), the domain and the subaddress (`NormalizedEmailParts`, `NormalizedEmailLocal`). `normalizeEmail` and `normalizeEmailWithSubaddress` are views over that same reading and are unchanged. The local part keeps its subaddress whatever the policy does with it. **The domain comes back as a real domain token** — `normalizeDomain`'s output under the policy given, carrying `domain.ascii.u17`, so an address's domain matches a domain read anywhere else; it is an `Outcome`, because an address can be valid while its domain is not a domain. There is no email-flavoured domain identity, and `:quodlibet` now depends on `:ubilibet` to do this properly rather than publish a second reading (ADR-0003, amended). Provider rules such as collapsing dots stay with the caller.
+- **A phone extension can be kept as its own piece.** `normalizePhoneWithExtension` with `ExtensionPolicy.E164` returns the E.164 number and the extension beside it (`NormalizedPhoneWithExtension`, `NormalizedExtension`), the extension under its own identity `phone.extension`. A recognised marker followed by digits — `x`, `ext`, `ext.`, `extn`, `xtn`, `extension`, `#`, `,`, `;`, `;ext=` — is the boundary: the text before it is read by `normalizePhone` under the policy's number policy and the digits after it are the extension, so the number is that function's output and the two calls agree about every number and every refusal. A marker with nothing after it introduces nothing, so `+1 212 555 0123#` is that number with no extension — matching the phonenumber library from the release that fixes its #23 and #24. `normalizePhone` itself still refuses an extension, since E.164 cannot carry one. A test pins the dependency's marker set so a spelling it gains and this does not shows up as a question, and a second runs each case through both entry points and compares.
+
+### Breaking
+
+- **Whitespace is trimmed from both ends of an email address and a username, not only the ASCII kind.** `U+00A0`, `U+202F`, `U+2000`–`U+200A`, `U+1680`, `U+3000`, `U+0085`, `U+2028`, `U+2029`, `U+205F`, and the invisible `U+200B`, `U+2060` and `U+FEFF`, join the ASCII set. **This changes canonical bytes**: an address copied out of a formatted page kept its no-break space and one read from a file kept its byte-order mark, so the same address pasted two ways produced two tokens. The set is a frozen list of code points rather than `Char.isWhitespace()`, so these policies still cannot drift when Unicode ships a release. A value's interior is untouched: a quoted local part keeps the spaces inside it.
+
+- **A phone extension is refused rather than folded into the number.** `#`, `,` and `;` are refused under every policy (`ExtensionNotSupported`), and a trailing digit group written with ordinary formatting is refused when the number is already valid without it (`AmbiguousTrailingGroup`) — the `+43 1 58058-0` Durchwahl style. A separator ends that trailing group only once a digit follows it, so trailing formatting cannot clear the group and take the guard with it. Previously the lenient policies dropped the marker and spliced the digits onto the subscriber number, and the strict ones did the same wherever the folded result was still valid, producing a different, valid-looking number. Ordinary numbers written with separators are unaffected.
+- **Every policy id is renamed. No canonical bytes change.** Links join with `:` instead of `+`, link names carry no hyphens, and a link that acts on the value is named `<subject>.<what was done>`. `text.u17+trim+casefold+nfc` becomes `text.u17:space.trimmed:case.folded:nfc`; `ipv4.dotted-quad+block-24` becomes `ipv4.quad.dotted:block.24`; `phone.e164+region-ca+lenient` becomes `phone.e164:region.ca:lenient`. A `0.0.3` id is refused rather than aliased, so a stored id fails loudly instead of resolving to something else. `PolicyId.toPortable` now maps `:`→`_` in place of `+`→`_`. The convention is to store and compare the canonical `:` form and convert only at a slot that cannot hold it, converting back on the way in — DOC-0001 says why, and a value that is half one spelling and half the other is refused rather than repaired.
+- **The email base keeps the `+`-subaddress; removing it is now an option.** `EmailPolicy.ByteStableV1` becomes `EmailPolicy.SubaddressRemoved` (id `email:subaddress.removed`) and `ByteStableV1Subaddressed` becomes `EmailPolicy.Address` (id `email`), which is the identity anchor. Neither policy's bytes change — what changes is which one a caller gets by default. Some mail systems treat the subaddress as part of an account and no domain can be asked which behaviour it has, so the tagged address is taken as the whole address: an assumption that never merges two people, and one a caller can narrow later. `EmailSubaddressPolicy.ByteStableV1` becomes `EmailSubaddressPolicy.V1`, and its mailbox is now `SubaddressRemoved`.
+- **Renamed links, by the same rule.** `strip-control` → `control.removed`, `remove-space` → `space.removed`, `trim` → `space.trimmed`, `collapse-space` → `space.collapsed`, `lower`/`upper`/`casefold` → `case.lower`/`case.upper`/`case.folded`, `non-empty` → `empty.refused`, `guid-bytes` → `bytes.guid`, `region-ca` → `region.ca`, `block-24` → `block.24`, `block-v4-24`/`block-v6-64` → `block.v4.24`/`block.v6.64`, `ipv4.dotted-quad` → `ipv4.quad.dotted`, `ipv4.inet-aton` → `ipv4.inet.aton`, `zone` → `zone.kept`.
+- **`unmap` and `nat64` become `ipv4.mapped` and `ipv4.nat64`**, naming what they produce rather than the mechanism, and showing that they are the same operation on different prefixes.
+- **`masked` becomes `host.zeroed`.** Masking a CIDR zeroes host bits and is lossless; masking a PAN replaces digits for display and is lossy by design. One word, opposite meanings, both in this family of libraries.
+- **A link name may no longer contain a hyphen.** The grammar is `[a-z0-9]+` segments joined by `.`, so a Unicode minor release is spelled `u15.1` rather than `u15-1`.
+
+
 ## [0.0.3] - 2026-09-13
 
 ### Breaking
@@ -82,7 +107,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Multiplatform targets**: published for JVM, Android, iOS (`arm64`, `x64`, `simulatorArm64`), JS (browser), wasmJs (browser) and Linux x64. The same test suite runs on each, so the canonical form is verified identical across them rather than assumed.
 - **Shared `Normalized` contract (`:common`)**: the `Normalized` interface (`canonical`, `policyId`, `policyVersion`) is the common result shape every normalizer in the suite reports, so a derived hash can always be stored beside the policy identity that produced it.
 
-[Unreleased]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.3...HEAD
+[Unreleased]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.4...HEAD
+[0.0.4]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/aughtone/aughtone-normalize/releases/tag/v0.0.1

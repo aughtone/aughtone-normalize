@@ -55,7 +55,6 @@ kotlin {
         }
     }
     listOf(
-        iosX64(),
         iosArm64(),
         iosSimulatorArm64()
     ).forEach { iosTarget ->
@@ -85,7 +84,7 @@ kotlin {
         val commonTest by getting {
             dependencies {
                 implementation(libs.kotlin.test)
-                // Test-only: the composed `username.basic+skeleton.u17` chain spans two modules that
+                // Test-only: the composed `username.basic:skeleton.u17` chain spans two modules that
                 // deliberately do not depend on each other, so the test that proves it works has to see
                 // both. Nothing in commonMain does.
                 implementation(project(":quodlibet"))
@@ -110,7 +109,11 @@ kotlin {
 mavenPublishing {
     publishToMavenCentral(automaticRelease = true)
 
-    if (!project.hasProperty("skip-signing")) {
+    val hasInMemoryKey = project.hasProperty("signingInMemoryKey") ||
+            project.hasProperty("signingInMemoryKeyId") ||
+            project.hasProperty("signing.gnupg.keyName")
+
+    if (hasInMemoryKey && !project.hasProperty("skip-signing")) {
         signAllPublications()
     }
 

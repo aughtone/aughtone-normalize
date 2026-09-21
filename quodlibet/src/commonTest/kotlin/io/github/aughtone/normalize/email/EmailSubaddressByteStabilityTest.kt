@@ -11,8 +11,8 @@ import kotlin.test.assertTrue
 /**
  * FROZEN CORPUS. DO NOT UPDATE THE EXPECTED VALUES IN THIS FILE.
  *
- * The contract of [EmailSubaddressPolicy.ByteStableV1]: the subaddress a caller tokenizes, and the proof
- * that the mailbox beside it is the one [normalizeEmail] produces under [EmailPolicy.ByteStableV1]. A
+ * The contract of [EmailSubaddressPolicy.V1]: the subaddress a caller tokenizes, and the proof
+ * that the mailbox beside it is the one [normalizeEmail] produces under [EmailPolicy.SubaddressRemoved]. A
  * failure here means the implementation moved - a tag token or a mailbox token derived today would no
  * longer match one derived before - never that the expectations are stale. A rule change is a new policy
  * version, not an edit. See `EmailByteStabilityTest` and DOC-0001.
@@ -21,7 +21,7 @@ import kotlin.test.assertTrue
  */
 class EmailSubaddressByteStabilityTest {
 
-    private val policy = EmailSubaddressPolicy.ByteStableV1
+    private val policy = EmailSubaddressPolicy.V1
 
     private fun read(value: String): NormalizedEmailWithSubaddress {
         val outcome = normalizeEmailWithSubaddress(value, policy)
@@ -79,7 +79,7 @@ class EmailSubaddressByteStabilityTest {
             "user+x@café.fr",
         )
         for (input in inputs) {
-            val direct = normalizeEmail(input, EmailPolicy.ByteStableV1)
+            val direct = normalizeEmail(input, EmailPolicy.SubaddressRemoved)
             assertTrue(direct is Outcome.Success, "<$input>")
             assertEquals(direct.data, read(input).mailbox, "mailbox for <$input> differs from normalizeEmail")
         }
@@ -87,12 +87,13 @@ class EmailSubaddressByteStabilityTest {
 
     @Test
     fun theSubaddressCarriesTheFrozenIdentity() {
+        // Renamed in 0.0.4 with the suite-wide id sweep (#29): the identity changed, the bytes did not.
         assertEquals("email.subaddress", policy.id)
         assertEquals(1, policy.version)
         val tag = read("user+tag@example.com").subaddress
         assertEquals("email.subaddress", tag?.policyId)
         assertEquals(1, tag?.policyVersion)
-        assertEquals("email.byte-stable", read("user+tag@example.com").mailbox.policyId)
+        assertEquals("email:subaddress.removed", read("user+tag@example.com").mailbox.policyId)
     }
 
     @Test
@@ -102,13 +103,14 @@ class EmailSubaddressByteStabilityTest {
             "user@" to EmailNormalizationError.EmptyDomain::class,
             "@example.com" to EmailNormalizationError.EmptyLocalPart::class,
             "+tag@example.com" to EmailNormalizationError.EmptyLocalPart::class,
-            "user\ud800@example.com" to EmailNormalizationError.UnpairedSurrogate::class,
+            // The surrogate is constructed rather than written - see [withLoneSurrogate].
+            withLoneSurrogate("user", "@example.com") to EmailNormalizationError.UnpairedSurrogate::class,
         )
         for ((input, expected) in refused) {
             val outcome = normalizeEmailWithSubaddress(input, policy)
             assertTrue(outcome is Outcome.Failure, "<$input> must be refused")
             assertEquals(expected, outcome.exception::class, "<$input>")
-            val direct = normalizeEmail(input, EmailPolicy.ByteStableV1)
+            val direct = normalizeEmail(input, EmailPolicy.SubaddressRemoved)
             assertTrue(direct is Outcome.Failure)
             assertEquals(direct.exception::class, outcome.exception::class, "<$input> refused differently")
             assertFalse(outcome.exception.message.orEmpty().contains("tag"), "<$input> error carries the input")
@@ -120,4 +122,35 @@ class EmailSubaddressByteStabilityTest {
         assertNull(read("user@example.com").subaddress)
         assertIs<NormalizedEmailSubaddress>(read("user+@example.com").subaddress)
     }
+
+/**
+ * A string carrying an unpaired high surrogate between [before] and [after], built so that the character
+ * never appears in a literal the compiler emits.
+ *
+ * `"a" + 0xD800.toChar() + "b"` is a **constant expression**: the compiler folds it and writes the
+ * surrogate into the generated source. A lone surrogate is not a Unicode scalar value, so it has no UTF-8
+ * representation at all - a generator can only carry one by escaping it, and one written raw comes back as
+ * a replacement character. The input then silently stops being the one under test, and an assertion loose
+ * enough not to notice passes while testing nothing.
+ *
+ * Routing the code point through a call the compiler cannot evaluate keeps it out of emitted source, and
+ * the checks below fail loudly if a build mangles it anyway. **Do not simplify this back into a literal:**
+ * the previous fix here was exactly that reasoning, and it put the bug back.
+ * See aughtone/aughtone-normalize#34.
+ */
+private fun withLoneSurrogate(before: String, after: String): String {
+    val code = listOf(0xD800).first()
+    val built = before + Char(code) + after
+    assertEquals(
+        before.length + 1 + after.length,
+        built.length,
+        "this build mangled the lone surrogate - the case below would test the wrong input (see #34)",
+    )
+    assertEquals(
+        code,
+        built[before.length].code,
+        "this build mangled the lone surrogate - the case below would test the wrong input (see #34)",
+    )
+    return built
+}
 }

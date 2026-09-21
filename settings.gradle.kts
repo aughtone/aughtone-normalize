@@ -38,3 +38,4 @@ include(":phone")
 // Build tooling, never published: it turns the pinned Unicode data into the frozen tables.
 include(":tools:ucd-generator")
 include(":tools:lint-rules")
+include(":tools:suite-invariants")

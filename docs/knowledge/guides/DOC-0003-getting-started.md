@@ -17,7 +17,7 @@ Building the iOS targets needs Xcode and a macOS host. Everything else — jvm, 
 ./gradlew check
 ```
 
-That runs the full multiplatform test suite. On a non-macOS host the iOS targets are skipped; on macOS, `iosX64Test` is skipped on Apple silicon because it is an Intel simulator binary. Neither is a failure.
+That runs the full multiplatform test suite. On a non-macOS host the iOS targets are skipped, which is not a failure.
 
 To iterate quickly on one target:
 
@@ -41,7 +41,7 @@ tools/     build tooling, never published on its own - the table generator, and 
 docs/     documentation - see docs/README.md
 ```
 
-Each module is a Kotlin Multiplatform library targeting jvm, android, iosX64, iosArm64, iosSimulatorArm64, js, wasmJs and linuxX64. All the source lives in `commonMain` — there is no platform-specific code in this suite today, and keeping it that way is a design goal rather than an accident.
+Each module is a Kotlin Multiplatform library targeting jvm, android, iosArm64, iosSimulatorArm64, js, wasmJs and linuxX64. All the source lives in `commonMain` — there is no platform-specific code in this suite today, and keeping it that way is a design goal rather than an accident.
 
 ## Before you change anything
 

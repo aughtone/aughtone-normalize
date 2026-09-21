@@ -14,9 +14,9 @@ import kotlin.test.assertTrue
  */
 class PolicyIdTest {
 
-    private val emailBase = PolicyLink("email.byte-stable", LinkKind.Base)
+    private val emailBase = PolicyLink("email", LinkKind.Base)
     private val phoneBase = PolicyLink("phone.e164", LinkKind.Base)
-    private val regionCa = PolicyLink("region-ca", LinkKind.Parameter)
+    private val regionCa = PolicyLink("region.ca", LinkKind.Parameter)
     private val nfc = PolicyLink("nfc.u17", LinkKind.Step, StepPhase.Normalize)
     private val punycode = PolicyLink("punycode.u17", LinkKind.Step, StepPhase.Encode)
     private val known = listOf(emailBase, phoneBase, regionCa, PolicyLink.Lenient, nfc, punycode)
@@ -41,12 +41,12 @@ class PolicyIdTest {
     fun everyChainShapeRoundTrips() {
         // One shape per row of the grammar: bare base, parameter, relaxation, both, and steps.
         val shapes = listOf(
-            "email.byte-stable",
-            "email.byte-stable+lenient",
-            "phone.e164+region-ca",
-            "phone.e164+region-ca+lenient",
-            "email.byte-stable+nfc.u17",
-            "email.byte-stable+nfc.u17+punycode.u17",
+            "email",
+            "email:lenient",
+            "phone.e164:region.ca",
+            "phone.e164:region.ca:lenient",
+            "email:nfc.u17",
+            "email:nfc.u17:punycode.u17",
         )
         for (id in shapes) {
             assertEquals(id, parsed(id).rendered, "<$id> did not render back to itself")
@@ -55,33 +55,33 @@ class PolicyIdTest {
 
     @Test
     fun theBaseComesFirstAndThereIsExactlyOne() {
-        assertEquals(emailBase, parsed("email.byte-stable+lenient").base)
+        assertEquals(emailBase, parsed("email:lenient").base)
         assertRefused<PolicyIdentityError.MissingBase>("lenient")
-        assertRefused<PolicyIdentityError.MultipleBases>("email.byte-stable+phone.e164")
+        assertRefused<PolicyIdentityError.MultipleBases>("email:phone.e164")
     }
 
     @Test
     fun linksOutOfOrderAreRefusedRatherThanSorted() {
         // A relaxation belongs after a parameter, and a step after both. Accepting either order would
         // give one policy two valid ids, and an id that is not unique does not identify anything.
-        assertRefused<PolicyIdentityError.OutOfOrder>("phone.e164+lenient+region-ca")
-        assertRefused<PolicyIdentityError.OutOfOrder>("email.byte-stable+punycode.u17+nfc.u17")
+        assertRefused<PolicyIdentityError.OutOfOrder>("phone.e164:lenient:region.ca")
+        assertRefused<PolicyIdentityError.OutOfOrder>("email:punycode.u17:nfc.u17")
     }
 
     @Test
     fun malformedLinksAreRefused() {
         assertRefused<PolicyIdentityError.MalformedLink>("Email.Byte-Stable")
         assertRefused<PolicyIdentityError.MalformedLink>("phone.e164+region-CA")
-        assertRefused<PolicyIdentityError.MalformedLink>("email.byte-stable+")
-        assertRefused<PolicyIdentityError.MalformedLink>("email..byte-stable")
-        assertRefused<PolicyIdentityError.MalformedLink>("-email.byte-stable")
+        assertRefused<PolicyIdentityError.MalformedLink>("email:")
+        assertRefused<PolicyIdentityError.MalformedLink>("email..address")
+        assertRefused<PolicyIdentityError.MalformedLink>("-email")
         assertRefused<PolicyIdentityError.EmptyId>("")
     }
 
     @Test
     fun duplicateAndUnknownLinksAreRefused() {
-        assertRefused<PolicyIdentityError.DuplicateLink>("email.byte-stable+lenient+lenient")
-        assertRefused<PolicyIdentityError.UnknownLink>("email.byte-stable+strict")
+        assertRefused<PolicyIdentityError.DuplicateLink>("email:lenient:lenient")
+        assertRefused<PolicyIdentityError.UnknownLink>("email:strict")
         assertRefused<PolicyIdentityError.UnknownLink>("skeleton.u17")
     }
 
@@ -90,7 +90,7 @@ class PolicyIdTest {
         // Read from the name, never stored beside it: the name is what a consumer keeps, so the two
         // cannot be allowed to disagree about which data produced a value.
         assertEquals("u17", nfc.dataVersion)
-        assertEquals("u15-1", PolicyLink("nfc.u15-1", LinkKind.Step, StepPhase.Normalize).dataVersion)
+        assertEquals("u15.1", PolicyLink("nfc.u15.1", LinkKind.Step, StepPhase.Normalize).dataVersion)
         assertEquals(null, emailBase.dataVersion)
         assertEquals(null, PolicyLink.Lenient.dataVersion)
         assertEquals(null, PolicyLink("domain.ascii", LinkKind.Base).dataVersion)
@@ -100,22 +100,22 @@ class PolicyIdTest {
     fun splitChecksOnlyTheLexicalGrammar() {
         // Config validation happens before any module is consulted, so an unknown-but-well-formed link
         // passes split and fails later at resolution, where the error can name the missing module.
-        val o = PolicyId.split("email.byte-stable+not-a-real-link")
+        val o = PolicyId.split("email:unknown.link")
         assertTrue(o is Outcome.Success)
-        assertEquals(listOf("email.byte-stable", "not-a-real-link"), o.data)
+        assertEquals(listOf("email", "unknown.link"), o.data)
     }
 
     @Test
     fun thePortableSpellingIsFrozenAndRoundTrips() {
         val ids = listOf(
-            "email.byte-stable",
-            "phone.e164+region-ca+lenient",
-            "email.byte-stable+nfc.u17+punycode.u17",
+            "email",
+            "phone.e164:region.ca:lenient",
+            "email:nfc.u17:punycode.u17",
         )
         val portable = listOf(
-            "email.byte-stable",
-            "phone.e164_region-ca_lenient",
-            "email.byte-stable_nfc.u17_punycode.u17",
+            "email",
+            "phone.e164_region.ca_lenient",
+            "email_nfc.u17_punycode.u17",
         )
         for ((id, expected) in ids.zip(portable)) {
             assertEquals(expected, PolicyId.toPortable(id).dataOrThrow(), "FROZEN: portable spelling of <$id>")
@@ -128,7 +128,7 @@ class PolicyIdTest {
 
     @Test
     fun aMixedOrMalformedPortableSpellingIsRefused() {
-        val mixed = PolicyId.fromPortable("phone.e164_region-ca+lenient")
+        val mixed = PolicyId.fromPortable("phone.e164_region.ca:lenient")
         assertTrue(mixed is Outcome.Failure && mixed.exception is PolicyIdentityError.NotPortable)
         val malformed = PolicyId.fromPortable("phone.e164__lenient")
         assertTrue(malformed is Outcome.Failure && malformed.exception is PolicyIdentityError.MalformedLink)

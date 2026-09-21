@@ -213,7 +213,7 @@ internal fun IntArray.isNat64(): Boolean =
  * - [zone] keeps a zone identifier, `fe80::1%eth0`, verbatim. A zone names an interface on one machine,
  *   so a value carrying one only means something on that machine.
  *
- * Modes combine, and always render in that order: `ipv6.rfc5952+unmap+nat64+zone`.
+ * Modes combine, and always render in that order: `ipv6.rfc5952:ipv4.mapped:ipv4.nat64:zone.kept`.
  */
 class Ipv6Policy internal constructor(
     internal val unmap: Boolean = false,
@@ -237,18 +237,18 @@ class Ipv6Policy internal constructor(
 
     /**
      * Every IPv6 policy writes the IPv6 address form; one that folds IPv4 out also writes the IPv4 address
-     * form, so a mapped or NAT64 address is explicitly comparable with the same host under `ipv4.dotted-quad`.
+     * form, so a mapped or NAT64 address is explicitly comparable with the same host under `ipv4.quad.dotted`.
      */
     override val forms: Set<ComparableForm> =
         if (unmap || nat64) setOf(IpForms.Ipv4Address, IpForms.Ipv6Address) else setOf(IpForms.Ipv6Address)
 
-    /** This policy, also writing IPv4-mapped addresses as IPv4: `…+unmap`. */
+    /** This policy, also writing IPv4-mapped addresses as IPv4: `…:ipv4.mapped`. */
     fun unmap(): Ipv6Policy = Ipv6Policy(unmap = true, nat64 = nat64, zone = zone)
 
-    /** This policy, also writing NAT64 addresses (`64:ff9b::/96`) as IPv4: `…+nat64`. */
+    /** This policy, also writing NAT64 addresses (`64:ff9b::/96`) as IPv4: `…:ipv4.nat64`. */
     fun nat64(): Ipv6Policy = Ipv6Policy(unmap = unmap, nat64 = true, zone = zone)
 
-    /** This policy, also keeping zone identifiers: `…+zone`. */
+    /** This policy, also keeping zone identifiers: `…:zone.kept`. */
     fun zone(): Ipv6Policy = Ipv6Policy(unmap = unmap, nat64 = nat64, zone = true)
 
     /** True when a mode can fold an address out to IPv4, so a block needs an IPv4 prefix as well. */
@@ -263,9 +263,9 @@ class Ipv6Policy internal constructor(
     companion object {
         /** The base link this policy is built on. */
         internal val Base: PolicyLink = PolicyLink("ipv6.rfc5952", LinkKind.Base)
-        internal val UnmapLink: PolicyLink = PolicyLink("unmap", LinkKind.Parameter)
-        internal val Nat64Link: PolicyLink = PolicyLink("nat64", LinkKind.Parameter)
-        internal val ZoneLink: PolicyLink = PolicyLink("zone", LinkKind.Parameter)
+        internal val UnmapLink: PolicyLink = PolicyLink("ipv4.mapped", LinkKind.Parameter)
+        internal val Nat64Link: PolicyLink = PolicyLink("ipv4.nat64", LinkKind.Parameter)
+        internal val ZoneLink: PolicyLink = PolicyLink("zone.kept", LinkKind.Parameter)
 
         /** The canonical form of RFC 5952. */
         val Rfc5952: Ipv6Policy = Ipv6Policy()

@@ -54,7 +54,7 @@ fun normalizeSkeleton(value: String, policy: ConfusablePolicy): Outcome<Normaliz
  * A frozen skeleton policy, pinned to the Unicode release its confusable data came from.
  *
  * Also a [NormalizationStep], so a module that carries no data can accept it from a caller and compose
- * it - `username.basic+skeleton.u17` - without depending on this module. That composed identity is a
+ * it - `username.basic:skeleton.u17` - without depending on this module. That composed identity is a
  * different identity from the plain one, which is exactly right: the folded form is not the account.
  */
 class ConfusablePolicy internal constructor(
@@ -103,7 +103,7 @@ sealed class ConfusableNormalizationError(message: String) : Exception(message) 
  *
  * A caller composing the skeleton into another module's chain resolves the result by combining this
  * resolver with the resolvers of every module the chain names. `QuodlibetPolicies + ConfusablesPolicies`
- * resolves `username.basic+skeleton.u17` to a `ComposedPolicy` whose base and steps re-derive the same
+ * resolves `username.basic:skeleton.u17` to a `ComposedPolicy` whose base and steps re-derive the same
  * bytes; a chain that also carries a text policy needs `UnicodePolicies` in the combination too.
  */
 object ConfusablesPolicies : PublishedPolicies() {

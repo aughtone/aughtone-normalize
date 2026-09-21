@@ -41,8 +41,8 @@ import io.github.aughtone.types.outcome.runOutcome
  *
  * ## The host policy is part of the identity
  *
- * A URL policy names the domain policy it uses, so `url.rfc3986+domain.ascii.u17` and
- * `url.rfc3986+domain.ascii.u17+lenient` are different identities - as they must be, since they can
+ * A URL policy names the domain policy it uses, so `url.rfc3986:domain.ascii.u17` and
+ * `url.rfc3986:domain.ascii.u17:lenient` are different identities - as they must be, since they can
  * produce different bytes for the same input.
  *
  * ```
@@ -301,7 +301,7 @@ sealed class UrlNormalizationError(message: String) : Exception(message) {
      *
      * Those spellings are read differently by different stacks, so rewriting one here would bury a
      * choice of interpretation inside a URL. **Normalize the address deliberately instead** - with
-     * `normalizeIpv4` under `ipv4.dotted-quad` or `ipv4.inet-aton` - and rebuild the URL from the
+     * `normalizeIpv4` under `ipv4.quad.dotted` or `ipv4.inet.aton` - and rebuild the URL from the
      * result, so the identity records which reading was applied.
      */
     class AmbiguousAddressHost : UrlNormalizationError("url: ambiguous address host")

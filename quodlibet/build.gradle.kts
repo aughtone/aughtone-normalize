@@ -55,7 +55,6 @@ kotlin {
         }
     }
     listOf(
-        iosX64(),
         iosArm64(),
         iosSimulatorArm64()
     ).forEach { iosTarget ->
@@ -79,6 +78,11 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 api(project(":common"))
+                // The email reader returns a domain as a real domain token, which needs the IDNA tables.
+                // A caller using nothing from here that touches a domain does not ship them: unused code
+                // is eliminated. Correctness is the default; weight is handled by the toolchain. See
+                // ADR-0003, amended.
+                api(project(":ubilibet"))
                 api(libs.aughtone.types)
             }
         }
@@ -106,7 +110,11 @@ kotlin {
 mavenPublishing {
     publishToMavenCentral(automaticRelease = true)
 
-    if (!project.hasProperty("skip-signing")) {
+    val hasInMemoryKey = project.hasProperty("signingInMemoryKey") ||
+            project.hasProperty("signingInMemoryKeyId") ||
+            project.hasProperty("signing.gnupg.keyName")
+
+    if (hasInMemoryKey && !project.hasProperty("skip-signing")) {
         signAllPublications()
     }
 

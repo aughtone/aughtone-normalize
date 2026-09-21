@@ -1,5 +1,6 @@
 package io.github.aughtone.normalize.quodlibet
 
+import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyIdentityError
 import io.github.aughtone.normalize.email.EmailPolicy
 import io.github.aughtone.normalize.email.normalizeEmail
@@ -56,33 +57,41 @@ class PolicyRoundTripTest {
     }
 
     @Test
-    fun theSubaddressedPolicyIsReachedByItsChainedIdentity() {
-        // The identity says what the policy is: the base rule set, then the parameter that keeps the subaddress.
-        val o = QuodlibetPolicies.resolve("email.byte-stable+subaddressed", 1)
+    fun theSubaddressRemovingPolicyIsReachedByItsChainedIdentity() {
+        // The identity says what the policy is: the base rule set, then the option that removes the tag.
+        val o = QuodlibetPolicies.resolve("email:subaddress.removed", 1)
         assertTrue(o is Outcome.Success)
-        assertSame(EmailPolicy.ByteStableV1Subaddressed, o.data)
+        assertSame(EmailPolicy.SubaddressRemoved, o.data)
     }
 
     @Test
     fun anUnknownPolicyIsRefusedRatherThanApproximated() {
         // Every one of these is a well-formed chain of links this module publishes, or a link it does
         // not. None of them may resolve to something close enough.
-        val o = QuodlibetPolicies.resolve("email.byte-stable+nfc.u17", 1)
+        val o = QuodlibetPolicies.resolve("email:nfc.u17", 1)
         assertTrue(o is Outcome.Failure && o.exception is PolicyIdentityError.UnknownLink)
 
         val stale = QuodlibetPolicies.resolve("email.lenient", 1)
         assertTrue(stale is Outcome.Failure && stale.exception is PolicyIdentityError.UnknownLink)
 
         // Withdrawn in 0.0.3 with a clean break: the policy keeps the subaddress, it does not relax a rule.
-        val withdrawn = QuodlibetPolicies.resolve("email.byte-stable+lenient", 1)
+        val withdrawn = QuodlibetPolicies.resolve("email.byte-stable:lenient", 1)
         assertTrue(withdrawn is Outcome.Failure && withdrawn.exception is PolicyIdentityError, "got $withdrawn")
+
+        // Withdrawn in 0.0.4: every `+`-joined id, and the base that used to strip the subaddress by default.
+        // `email.domain` never shipped: a domain taken out of an address is a domain, so it resolves as
+        // `domain.ascii.u17` through `:ubilibet` and this module publishes no second reading of one.
+        for (id in listOf("email.byte-stable", "email.byte-stable+subaddressed", "text.u17+trim+lower", "email.domain")) {
+            val gone = QuodlibetPolicies.resolve(id, 1)
+            assertTrue(gone is Outcome.Failure && gone.exception is PolicyIdentityError, "<$id> must not resolve, got $gone")
+        }
     }
 
     @Test
     fun aVersionThisBuildDoesNotCarryIsRefused() {
         // Same id, different rules epoch: resolving it to v1 would hand back bytes the caller's stored
         // values were never derived under.
-        val o = QuodlibetPolicies.resolve("email.byte-stable", 2)
+        val o = QuodlibetPolicies.resolve("email:subaddress.removed", 2)
         assertTrue(o is Outcome.Failure, "a version that does not exist must not resolve")
         val error = o.exception
         assertTrue(
@@ -90,5 +99,23 @@ class PolicyRoundTripTest {
             "expected VersionMismatch, got ${error::class.simpleName}",
         )
         assertEquals(listOf(1), error.available)
+    }
+
+    @Test
+    fun everyPublishedIdSurvivesThePortableSpelling() {
+        // #29 asked for this over *every* published id, not a sample: the portable form exists for slots
+        // that cannot hold a `:`, and an id that does not come back from it is an identity a caller can
+        // store and never resolve again. A sample cannot cover a name the mapping happens to mangle.
+        for (policy in QuodlibetPolicies.policies) {
+            val portable = PolicyId.toPortable(policy.id)
+            assertTrue(portable is Outcome.Success, "<${policy.id}> has no portable spelling: $portable")
+            assertTrue(
+                portable.data.none { it == ':' },
+                "<${policy.id}> kept a ':' in its portable spelling: <${portable.data}>",
+            )
+            val back = PolicyId.fromPortable(portable.data)
+            assertTrue(back is Outcome.Success, "<${portable.data}> does not recover an id: $back")
+            assertEquals(policy.id, back.data, "<${policy.id}> did not survive the portable round trip")
+        }
     }
 }

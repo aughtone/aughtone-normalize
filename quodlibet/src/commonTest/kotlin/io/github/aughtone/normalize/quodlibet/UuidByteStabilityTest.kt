@@ -151,25 +151,26 @@ class UuidByteStabilityTest {
 
     @Test
     fun identitiesAndFormsAreFrozen() {
+        // Renamed in 0.0.4 with the suite-wide id sweep (#29): the identity changed, the bytes did not.
         assertEquals("uuid.hex", UuidPolicy.Hex.id)
         assertEquals("uuid.rfc9562", UuidPolicy.Rfc9562.id)
-        assertEquals("uuid.hex+guid-bytes", UuidPolicy.Hex.guidBytes().id)
-        assertEquals("uuid.rfc9562+guid-bytes", UuidPolicy.Rfc9562.guidBytes().id)
+        assertEquals("uuid.hex:bytes.guid", UuidPolicy.Hex.guidBytes().id)
+        assertEquals("uuid.rfc9562:bytes.guid", UuidPolicy.Rfc9562.guidBytes().id)
 
         fun comparability(a: String, b: String) = QuodlibetPolicies.comparability(a, 1, b, 1).dataOrThrow()
         assertEquals(Comparability.InForm(UuidForms.Uuid), comparability("uuid.hex", "uuid.rfc9562"))
-        assertEquals(Comparability.NotComparable, comparability("uuid.hex", "uuid.hex+guid-bytes"))
-        assertEquals(Comparability.InForm(UuidForms.Uuid), comparability("uuid.hex", "uuid.hex+guid-bytes+form.uuid"))
+        assertEquals(Comparability.NotComparable, comparability("uuid.hex", "uuid.hex:bytes.guid"))
+        assertEquals(Comparability.InForm(UuidForms.Uuid), comparability("uuid.hex", "uuid.hex:bytes.guid:form.uuid"))
 
         val optedIn = UuidPolicy.Hex.guidBytes().withForms(setOf(UuidForms.Uuid))
         val stored = normalizeUuid(v4GuidBytes, optedIn)
         assertTrue(stored is Outcome.Success)
-        assertEquals("uuid.hex+guid-bytes+form.uuid", stored.data.policyId)
+        assertEquals("uuid.hex:bytes.guid:form.uuid", stored.data.policyId)
         assertEquals(v4, stored.data.canonical)
 
-        val notOffered = QuodlibetPolicies.resolve("uuid.hex+form.uuid", 1)
+        val notOffered = QuodlibetPolicies.resolve("uuid.hex:form.uuid", 1)
         assertTrue(notOffered is Outcome.Failure && notOffered.exception is PolicyIdentityError.FormNotOffered, "got $notOffered")
-        for (id in listOf("uuid.hex", "uuid.rfc9562+guid-bytes", "uuid.rfc9562+guid-bytes+form.uuid")) {
+        for (id in listOf("uuid.hex", "uuid.rfc9562:bytes.guid", "uuid.rfc9562:bytes.guid:form.uuid")) {
             assertTrue(QuodlibetPolicies.resolve(id, 1) is Outcome.Success, "<$id> must resolve")
         }
     }

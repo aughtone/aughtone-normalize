@@ -9,7 +9,7 @@ package io.github.aughtone.normalize.unicode
  * @property link The rule's name in a policy id.
  * @property unicodeOnly True for a rule that has no ASCII meaning and needs a Unicode release.
  * @property characterSet True for a rule whose behaviour depends on the character set it runs in;
- * false for one, like `non-empty`, that means the same thing in either.
+ * false for one, like `empty.refused`, that means the same thing in either.
  */
 internal enum class TextRule(
     val rank: Int,
@@ -17,18 +17,18 @@ internal enum class TextRule(
     val unicodeOnly: Boolean,
     val characterSet: Boolean,
 ) {
-    StripControl(0, "strip-control", unicodeOnly = false, characterSet = true),
-    Trim(1, "trim", unicodeOnly = false, characterSet = true),
-    CollapseSpace(2, "collapse-space", unicodeOnly = false, characterSet = true),
-    RemoveSpace(2, "remove-space", unicodeOnly = false, characterSet = true),
-    Lowercase(3, "lower", unicodeOnly = false, characterSet = true),
-    Uppercase(3, "upper", unicodeOnly = false, characterSet = true),
-    Casefold(3, "casefold", unicodeOnly = true, characterSet = true),
+    StripControl(0, "control.removed", unicodeOnly = false, characterSet = true),
+    Trim(1, "space.trimmed", unicodeOnly = false, characterSet = true),
+    CollapseSpace(2, "space.collapsed", unicodeOnly = false, characterSet = true),
+    RemoveSpace(2, "space.removed", unicodeOnly = false, characterSet = true),
+    Lowercase(3, "case.lower", unicodeOnly = false, characterSet = true),
+    Uppercase(3, "case.upper", unicodeOnly = false, characterSet = true),
+    Casefold(3, "case.folded", unicodeOnly = true, characterSet = true),
     Nfc(4, "nfc", unicodeOnly = true, characterSet = true),
     Nfd(4, "nfd", unicodeOnly = true, characterSet = true),
     Nfkc(4, "nfkc", unicodeOnly = true, characterSet = true),
     Nfkd(4, "nfkd", unicodeOnly = true, characterSet = true),
-    NonEmpty(5, "non-empty", unicodeOnly = false, characterSet = false),
+    NonEmpty(5, "empty.refused", unicodeOnly = false, characterSet = false),
     ;
 
     companion object {

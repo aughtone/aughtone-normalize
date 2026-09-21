@@ -14,7 +14,7 @@ import io.github.aughtone.types.outcome.runOutcome
 /**
  * Derive the IPv4 network [value] falls in, at the prefix [policy] names.
  *
- * `192.0.2.57` under `ipv4.dotted-quad+block-24` is `192.0.2.0/24`. This is how addresses are bucketed
+ * `192.0.2.57` under `ipv4.quad.dotted:block.24` is `192.0.2.0/24`. This is how addresses are bucketed
  * into subnets, and it is many-to-one by design: every address in the block produces the same value, so
  * a block is a grouping key and never a stand-in for the address itself.
  *
@@ -25,7 +25,7 @@ import io.github.aughtone.types.outcome.runOutcome
  * Both values then carry one id, and matching stays scoped by policy identity.
  *
  * The address is read under [Ipv4BlockPolicy.address]'s own rules, which is why they appear in the id:
- * `inet-aton` reads `010` as 8 and `dotted-quad` refuses it.
+ * `ipv4.inet.aton` reads `010` as 8 and `ipv4.quad.dotted` refuses it.
  *
  * ```
  * normalizeIpv4Block("192.0.2.57", Ipv4Policy.DottedQuad.block(24))   // "192.0.2.0/24"
@@ -44,7 +44,7 @@ fun normalizeIpv4Block(value: String, policy: Ipv4BlockPolicy): Outcome<Normaliz
  *
  * ```
  * normalizeIpv4Blocks("192.0.2.57", Ipv4Policy.DottedQuad, listOf(24, 16))
- * // "192.0.2.0/24" under ipv4.dotted-quad+block-24, "192.0.0.0/16" under ipv4.dotted-quad+block-16
+ * // "192.0.2.0/24" under ipv4.quad.dotted:block.24, "192.0.0.0/16" under ipv4.quad.dotted:block.16
  * ```
  */
 fun normalizeIpv4Blocks(
@@ -153,7 +153,7 @@ class Ipv4CidrPolicy internal constructor(
 }
 
 /**
- * The block derivation at [prefixLength] under these address rules: `ipv4.dotted-quad+block-24`.
+ * The block derivation at [prefixLength] under these address rules: `ipv4.quad.dotted:block.24`.
  *
  * @throws IllegalArgumentException if [prefixLength] is not between 0 and 32.
  */
@@ -162,10 +162,10 @@ fun Ipv4Policy.block(prefixLength: Int): Ipv4BlockPolicy {
     return Ipv4BlockPolicy(plain, prefixLength)
 }
 
-/** CIDR input under these address rules, refusing host bits set: `ipv4.dotted-quad+cidr`. */
+/** CIDR input under these address rules, refusing host bits set: `ipv4.quad.dotted:cidr`. */
 fun Ipv4Policy.cidr(): Ipv4CidrPolicy = Ipv4CidrPolicy(plain, masked = false)
 
-/** CIDR input under these address rules, clearing host bits: `ipv4.dotted-quad+cidr+masked`. */
+/** CIDR input under these address rules, clearing host bits: `ipv4.quad.dotted:cidr:host.zeroed`. */
 fun Ipv4Policy.cidrMasked(): Ipv4CidrPolicy = Ipv4CidrPolicy(plain, masked = true)
 
 /**
@@ -194,9 +194,9 @@ internal object Ipv4Networks {
 private const val BITS = 32
 
 internal val CIDR_LINK: PolicyLink = PolicyLink("cidr", LinkKind.Parameter)
-internal val MASKED_LINK: PolicyLink = PolicyLink("masked", LinkKind.Parameter)
+internal val MASKED_LINK: PolicyLink = PolicyLink("host.zeroed", LinkKind.Parameter)
 
-internal fun blockLink(prefixLength: Int): PolicyLink = PolicyLink("block-$prefixLength", LinkKind.Parameter)
+internal fun blockLink(prefixLength: Int): PolicyLink = PolicyLink("block.$prefixLength", LinkKind.Parameter)
 
 /** The mask for a prefix: the top [prefixLength] bits set. Shifting by 32 clears every bit, which is `/0`. */
 private fun maskOf(prefixLength: Int): Long = (-1L shl (BITS - prefixLength)) and 0xFFFFFFFFL
@@ -215,7 +215,7 @@ private fun networkResult(network: Long, prefixLength: Int, policy: Policy): Nor
 private fun chain(address: Ipv4Policy, optedIn: Set<ComparableForm>, vararg parameters: PolicyLink): String =
     PolicyId.of(listOf(PolicyLink(address.base, LinkKind.Base)) + parameters + optedIn.sorted().map { it.link }).dataOrThrow().rendered
 
-/** `dotted-quad` networks write the IPv4 network form; `inet-aton` networks only once a caller opts in. */
+/** `ipv4.quad.dotted` networks write the IPv4 network form; `ipv4.inet.aton` networks only once a caller opts in. */
 private fun networkForms(address: Ipv4Policy, optedIn: Set<ComparableForm>): Set<ComparableForm> =
     if (address.interpretsShorthand) optedIn else setOf(IpForms.Ipv4Network)
 

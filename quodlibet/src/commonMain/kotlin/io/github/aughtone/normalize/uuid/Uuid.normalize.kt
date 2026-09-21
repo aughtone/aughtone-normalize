@@ -20,7 +20,7 @@ import io.github.aughtone.types.outcome.runOutcome
  *
  * A Windows GUID stores its first three fields little-endian, so its 16 raw bytes hex-encoded in order look
  * like a different UUID: `6B29FC40-CA47-11D1-…` is `40FC296B47CAD111…` as a byte dump. Nothing in the text
- * says which reading is meant, so it is never guessed. A policy with the `guid-bytes` mode
+ * says which reading is meant, so it is never guessed. A policy with the `bytes.guid` mode
  * ([UuidPolicy.guidBytes]) declares that the input *is* a byte dump, reverses those fields, and writes the
  * ordinary canonical UUID. Braces and `urn:uuid:` are refused under that mode: only string-form APIs produce
  * them, and those already put the bytes in order, so swapping one would silently produce a different UUID.
@@ -39,7 +39,7 @@ fun normalizeUuid(value: String, policy: UuidPolicy): Outcome<NormalizedUuid> = 
 
 /**
  * A UUID notation for display. Every notation normalizes back to the same canonical UUID: [GuidBytes]
- * through a policy with the `guid-bytes` mode, the rest through the plain policies.
+ * through a policy with the `bytes.guid` mode, the rest through the plain policies.
  */
 enum class UuidNotation {
     /** The canonical form: `919108f7-52d1-4320-9bac-f847db4148a8`. */
@@ -220,7 +220,7 @@ class UuidPolicy internal constructor(
     companion object {
         internal val HexBase: PolicyLink = PolicyLink("uuid.hex", LinkKind.Base)
         internal val Rfc9562Base: PolicyLink = PolicyLink("uuid.rfc9562", LinkKind.Base)
-        internal val GuidBytesLink: PolicyLink = PolicyLink("guid-bytes", LinkKind.Parameter)
+        internal val GuidBytesLink: PolicyLink = PolicyLink("bytes.guid", LinkKind.Parameter)
 
         /** Any 128-bit value written as a UUID. */
         val Hex: UuidPolicy = UuidPolicy(requireRfc9562 = false, guidBytes = false)
@@ -257,7 +257,7 @@ sealed class UuidNormalizationError(message: String) : Exception(message) {
     class MalformedWrapper : UuidNormalizationError("uuid: malformed braces or urn prefix")
 
     /**
-     * Braces or a `urn:uuid:` prefix under the `guid-bytes` mode. Those come only from string-form APIs,
+     * Braces or a `urn:uuid:` prefix under the `bytes.guid` mode. Those come only from string-form APIs,
      * whose bytes are already in order, so the value is a UUID string: normalize it with a plain policy.
      */
     class StringFormNotByteDump : UuidNormalizationError("uuid: a uuid string, not a guid byte dump")
@@ -268,5 +268,6 @@ sealed class UuidNormalizationError(message: String) : Exception(message) {
 
 /** The comparable form UUID policies write: [Uuid], the lowercase hyphenated string. */
 object UuidForms {
+    /** The canonical 8-4-4-4-12 lowercase hex form, whichever spelling or byte order was read. */
     val Uuid: ComparableForm = ComparableForm("uuid")
 }

@@ -6,6 +6,7 @@ import io.github.aughtone.normalize.common.Normalized
 import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
+import io.github.aughtone.normalize.quodlibet.trimWhitespace
 import io.github.aughtone.types.outcome.Outcome
 import io.github.aughtone.types.outcome.dataOrElse
 import io.github.aughtone.types.outcome.runOutcome
@@ -29,7 +30,7 @@ import io.github.aughtone.types.outcome.runOutcome
  * ## Confusable folding is a chain, and a different identity
  *
  * A caller wanting anti-spoofing passes the skeleton step from `:confusables`, producing the chained
- * policy `username.basic+skeleton.u17`. That fold is deliberately many-to-one - it exists to make a
+ * policy `username.basic:skeleton.u17`. That fold is deliberately many-to-one - it exists to make a
  * lookalike collide with its target - so **it is a check, never an account key**. Storing a folded
  * handle as an identity merges genuinely different accounts.
  *
@@ -45,7 +46,7 @@ fun normalizeUsername(
 ): Outcome<NormalizedUsername> = runOutcome {
     if (value.hasUnpairedSurrogate()) throw UsernameNormalizationError.UnpairedSurrogate()
 
-    val trimmed = value.trimAsciiWhitespace()
+    val trimmed = value.trimWhitespace()
     if (trimmed.isEmpty()) throw UsernameNormalizationError.Empty()
 
     var canonical = trimmed.asciiLowercase()
@@ -114,16 +115,6 @@ sealed class UsernameNormalizationError(message: String) : Exception(message) {
     class UnpairedSurrogate : UsernameNormalizationError("username: unpaired surrogate")
 }
 
-private fun Char.isAsciiWhitespace(): Boolean =
-    this == ' ' || this == '\t' || this == '\n' || this == '\r' || this == '\u000B' || this == '\u000C'
-
-private fun String.trimAsciiWhitespace(): String {
-    var start = 0
-    var end = length
-    while (start < end && this[start].isAsciiWhitespace()) start++
-    while (end > start && this[end - 1].isAsciiWhitespace()) end--
-    return substring(start, end)
-}
 
 private fun String.asciiLowercase(): String {
     if (none { it in 'A'..'Z' }) return this

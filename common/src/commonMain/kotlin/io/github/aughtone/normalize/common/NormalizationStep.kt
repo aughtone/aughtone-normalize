@@ -12,7 +12,7 @@ package io.github.aughtone.normalize.common
  * A step carries its own [links], so a composed policy's id names every transform in it and stays
  * self-describing. A step is a **group** in the composed chain: its first link opens the group and runs
  * at a [PolicyLink.phase], and any further links are that link's own qualifiers. That is what lets a
- * configured step travel whole - `username.basic+text.u17+trim+nfc` carries the text policy's rules
+ * configured step travel whole - `username.basic:text.u17:space.trimmed:nfc` carries the text policy's rules
  * with it, rather than a single-link alias for one of them. Groups are applied in phase order, which is
  * validated when the chain is built and again when an id is parsed.
  *
@@ -25,7 +25,7 @@ interface NormalizationStep {
     /**
      * This step's group in a chain, in order: a first link that declares a [PolicyLink.phase] - a
      * [LinkKind.Step], or a [LinkKind.Base] that is also usable as a step - followed by that link's
-     * qualifiers. `skeleton.u17` is a group of one; `text.u17+trim+nfc` is a group of three.
+     * qualifiers. `skeleton.u17` is a group of one; `text.u17:space.trimmed:nfc` is a group of three.
      */
     val links: List<PolicyLink>
 

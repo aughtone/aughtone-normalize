@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
  * ## If a test in this file fails, you have changed the canonical form. That is the bug.
  *
  * The expectations below are not a description of what the code currently does — they are the
- * published contract of [EmailPolicy.ByteStableV1], and they are correct by definition. A failure
+ * published contract of [EmailPolicy.SubaddressRemoved], and they are correct by definition. A failure
  * here means the implementation moved away from them, never that the expectations are stale.
  *
  * ## Why you must not "fix" this test
@@ -27,7 +27,7 @@ import kotlin.test.assertTrue
  * ## What to do instead, when the rule genuinely needs to change
  *
  * Mint a NEW policy: a new named constant with its own `id`, or a bumped `version` on the existing
- * one. Add its expectations here as a new corpus alongside these. [EmailPolicy.ByteStableV1] keeps
+ * one. Add its expectations here as a new corpus alongside these. [EmailPolicy.SubaddressRemoved] keeps
  * producing exactly what it produces below, forever, for as long as anyone might hold a token
  * derived under it. Two policies coexisting is the supported outcome; one policy quietly changing
  * meaning is not.
@@ -53,11 +53,11 @@ class EmailByteStabilityTest {
         }
 
     /**
-     * Input to canonical output under [EmailPolicy.ByteStableV1]. Every pair is frozen. The comment
+     * Input to canonical output under [EmailPolicy.SubaddressRemoved]. Every pair is frozen. The comment
      * above each group says which rule it pins, so a later reader can tell what a failure means
      * without reverse-engineering the implementation.
      */
-    private val byteStableV1Corpus: List<Pair<String, String>> = listOf(
+    private val subaddressRemovedCorpus: List<Pair<String, String>> = listOf(
         // already canonical — the identity case
         "user@example.com" to "user@example.com",
 
@@ -65,7 +65,9 @@ class EmailByteStabilityTest {
         "User@Example.COM" to "user@example.com",
         "USER@EXAMPLE.COM" to "user@example.com",
 
-        // ASCII whitespace trimmed — exactly space, tab, LF, CR, VT, FF and nothing else
+        // Whitespace trimmed from both ends - the ASCII set, the rest of Unicode's whitespace, and the
+        // invisible format characters that arrive by the same accidents. Frozen list, never a property
+        // lookup; `TrimableWhitespaceTest` pins the set and the reason.
         "  user@example.com  " to "user@example.com",
         "\tuser@example.com\r\n" to "user@example.com",
         "\u000Buser@example.com\u000C" to "user@example.com",
@@ -94,10 +96,15 @@ class EmailByteStabilityTest {
         // the separator is the LAST one, so a local part may legally contain one
         "A@B@C.com" to "a@b@c.com",
 
-        // Unicode whitespace is NOT trimmed. The trim is ASCII-only on purpose: Char.isWhitespace()
-        // is Unicode-version dependent and would drift between platforms and over time.
-        "\u3000user@example.com" to "\u3000user@example.com",
-        "user@example.com\u00A0" to "user@example.com\u00A0",
+        // CHANGED IN 0.0.4 (#40). This used to read "Unicode whitespace is NOT trimmed. The trim is
+        // ASCII-only on purpose: Char.isWhitespace() is Unicode-version dependent and would drift between
+        // platforms and over time" - and kept both. The concern was right and the conclusion did not
+        // follow: it argues against a PROPERTY LOOKUP, not against trimming. A frozen list of code points
+        // cannot drift, so the promise survives and the accident does not: an address copied out of a
+        // formatted page kept its no-break space, an address read from a file kept its byte-order mark,
+        // and the same address pasted two ways gave two tokens with nothing to report it.
+        "\u3000user@example.com" to "user@example.com",
+        "user@example.com\u00A0" to "user@example.com",
 
         // no IDNA, no ToASCII, no punycode — the domain is raw bytes, ASCII-lowercased only
         "user@café.fr" to "user@café.fr",
@@ -106,11 +113,11 @@ class EmailByteStabilityTest {
 
     @Test
     fun byteStableV1ProducesTheFrozenCanonicalBytes() {
-        for ((input, expected) in byteStableV1Corpus) {
+        for ((input, expected) in subaddressRemovedCorpus) {
             assertEquals(
                 expected,
-                canonical(input, EmailPolicy.ByteStableV1),
-                "FROZEN CORPUS BROKEN for input <$input>. The canonical form of ByteStableV1 has " +
+                canonical(input, EmailPolicy.SubaddressRemoved),
+                "FROZEN CORPUS BROKEN for input <$input>. The canonical form of SubaddressRemoved has " +
                     "changed. Do NOT update this expectation — mint a new policy version instead. " +
                     "See the class KDoc.",
             )
@@ -118,13 +125,13 @@ class EmailByteStabilityTest {
     }
 
     @Test
-    fun byteStableV1CorpusIsIdempotent() {
+    fun subaddressRemovedCorpusIsIdempotent() {
         // An already-canonical value must survive a second pass unchanged, or a caller that
         // normalizes twice derives a different token from one that normalizes once.
-        for ((_, expected) in byteStableV1Corpus) {
+        for ((_, expected) in subaddressRemovedCorpus) {
             assertEquals(
                 expected,
-                canonical(expected, EmailPolicy.ByteStableV1),
+                canonical(expected, EmailPolicy.SubaddressRemoved),
                 "FROZEN CORPUS BROKEN: canonical output <$expected> is not stable under a second " +
                     "pass. Do NOT update this expectation.",
             )
@@ -138,28 +145,30 @@ class EmailByteStabilityTest {
     @Test
     fun policyIdentityIsFrozen() {
         assertEquals(
-            "email.byte-stable",
-            EmailPolicy.ByteStableV1.id,
+            "email:subaddress.removed",
+            EmailPolicy.SubaddressRemoved.id,
             "FROZEN: this id is stored beside every derived token. Renaming it orphans them.",
         )
         assertEquals(
             1,
-            EmailPolicy.ByteStableV1.version,
-            "FROZEN: bump this only by minting a NEW policy, never by editing ByteStableV1.",
+            EmailPolicy.SubaddressRemoved.version,
+            "FROZEN: bump this only by minting a NEW policy, never by editing SubaddressRemoved.",
         )
+        // Renamed in 0.0.4 with the suite-wide id sweep (#29), and the default flipped: the base now keeps
+        // the subaddress and removing it is the option. Both policies' bytes are exactly what they were.
         // This id moved twice while the suite was alpha - `email.lenient` in 0.0.1, `email.byte-stable+lenient`
         // in 0.0.2 - and in 0.0.3 names its rule, because the policy is not lenient. The bytes never moved.
         // The breaks are recorded in CHANGELOG.md; nothing else may change this.
         assertEquals(
-            "email.byte-stable+subaddressed",
-            EmailPolicy.ByteStableV1Subaddressed.id,
+            "email",
+            EmailPolicy.Address.id,
             "FROZEN: this id is stored beside every derived token. Renaming it orphans them.",
         )
-        assertEquals(1, EmailPolicy.ByteStableV1Subaddressed.version, "FROZEN: published policy version.")
+        assertEquals(1, EmailPolicy.Address.version, "FROZEN: published policy version.")
     }
 
     /**
-     * [EmailPolicy.ByteStableV1Subaddressed] is published too, so its bytes are equally frozen. Tokens derived under it are as permanent as
+     * [EmailPolicy.Address] is published too, so its bytes are equally frozen. Tokens derived under it are as permanent as
      * any other policy's, so a change to these bytes orphans them just the same.
      *
      * Its id moved during alpha, before any consumer had derived anything under it: `email.lenient`, then
@@ -178,8 +187,8 @@ class EmailByteStabilityTest {
         for ((input, expected) in corpus) {
             assertEquals(
                 expected,
-                canonical(input, EmailPolicy.ByteStableV1Subaddressed),
-                "FROZEN CORPUS BROKEN for ByteStableV1Subaddressed, input <$input>. Do NOT update this expectation.",
+                canonical(input, EmailPolicy.Address),
+                "FROZEN CORPUS BROKEN for Address, input <$input>. Do NOT update this expectation.",
             )
         }
     }
@@ -203,7 +212,7 @@ class EmailByteStabilityTest {
             ("user" + Char(0xDE00) + "@example.com") to { it is EmailNormalizationError.UnpairedSurrogate },
         )
         for ((input, isExpected) in refusals) {
-            when (val o = normalizeEmail(input, EmailPolicy.ByteStableV1)) {
+            when (val o = normalizeEmail(input, EmailPolicy.SubaddressRemoved)) {
                 is Outcome.Success -> throw AssertionError(
                     "FROZEN: input <$input> must be refused, but normalized to <${o.data.canonical}>.",
                 )

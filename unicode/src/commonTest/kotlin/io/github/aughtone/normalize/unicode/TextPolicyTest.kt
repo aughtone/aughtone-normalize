@@ -38,7 +38,7 @@ class TextPolicyTest {
     fun theSameRulesInAnyArrangementAreOnePolicy() {
         val a = TextPolicy(u17) { unicode { trim(); casefold() }; ascii { collapseSpace() }; nonEmpty() }
         val b = TextPolicy(u17) { nonEmpty(); ascii { collapseSpace() }; unicode { casefold(); trim() } }
-        assertEquals("text.u17+trim+collapse-space.ascii+casefold+non-empty", a.id)
+        assertEquals("text.u17:space.trimmed:space.collapsed.ascii:case.folded:empty.refused", a.id)
         assertEquals(a.id, b.id)
         assertEquals(a, b)
     }
@@ -46,7 +46,7 @@ class TextPolicyTest {
     @Test
     fun anAsciiPolicyNamesNoRelease() {
         val policy = TextPolicy { ascii { stripControl(); trim(); lowercase() } }
-        assertEquals("text+strip-control+trim+lower", policy.id)
+        assertEquals("text:control.removed:space.trimmed:case.lower", policy.id)
         assertEquals(null, policy.release)
         assertEquals(null, policy.links.first().dataVersion)
     }
@@ -76,7 +76,7 @@ class TextPolicyTest {
     @Test
     fun rulesWrittenOutOfOrderAreWarnedAboutAndStillBuild() {
         val policy = TextPolicy { ascii { lowercase(); trim() } }
-        val expected = TextPolicyWarning.OrderDiffersFromApplication(written = listOf("lower", "trim"), applied = listOf("trim", "lower"))
+        val expected = TextPolicyWarning.OrderDiffersFromApplication(written = listOf("case.lower", "space.trimmed"), applied = listOf("space.trimmed", "case.lower"))
         assertEquals(listOf<TextPolicyWarning>(expected), policy.warnings)
         assertEquals(listOf<TextPolicyWarning>(expected), reported)
         assertEquals(TextPolicy { ascii { trim(); lowercase() } }.id, policy.id)
@@ -126,13 +126,13 @@ class TextPolicyTest {
     @Test
     fun anythingButTheCanonicalSpellingIsRefused() {
         val notCanonical = listOf(
-            "text+lower+trim",               // out of application order
-            "text+trim.ascii",               // a marker with no Unicode release to be an exception to
-            "text.u17+trim.ascii",           // a release nothing uses
-            "text+casefold",                 // a Unicode rule with no release
-            "text+trim+trim",                // repeated
-            "text.u17+lower+casefold",       // alternatives
-            "text.u17+nfc.ascii",            // a Unicode-only rule cannot run over ASCII
+            "text:case.lower:space.trimmed",               // out of application order
+            "text:space.trimmed.ascii",               // a marker with no Unicode release to be an exception to
+            "text.u17:space.trimmed.ascii",           // a release nothing uses
+            "text:case.folded",                 // a Unicode rule with no release
+            "text:space.trimmed:space.trimmed",                // repeated
+            "text.u17:case.lower:case.folded",       // alternatives
+            "text.u17:nfc.ascii",            // a Unicode-only rule cannot run over ASCII
         )
         for (id in notCanonical) {
             val outcome = UnicodePolicies.resolve(id, 1)
@@ -141,9 +141,9 @@ class TextPolicyTest {
                 "<$id> must be refused as not canonical, got $outcome",
             )
         }
-        val unknown = UnicodePolicies.resolve("text+frobnicate", 1)
+        val unknown = UnicodePolicies.resolve("text:frobnicate", 1)
         assertTrue(unknown is Outcome.Failure && unknown.exception is PolicyIdentityError.UnknownLink)
-        val wrongVersion = UnicodePolicies.resolve("text+trim", 2)
+        val wrongVersion = UnicodePolicies.resolve("text:space.trimmed", 2)
         assertTrue(wrongVersion is Outcome.Failure && wrongVersion.exception is PolicyIdentityError.VersionMismatch)
     }
 
@@ -157,7 +157,7 @@ class TextPolicyTest {
     fun aTextIdRoundTripsThroughItsPortableSpelling() {
         val policy = TextPolicy(u17) { unicode { trim() }; ascii { lowercase() }; nonEmpty() }
         val portable = PolicyId.toPortable(policy.id).dataOrThrow()
-        assertEquals("text.u17_trim_lower.ascii_non-empty", portable)
+        assertEquals("text.u17_space.trimmed_case.lower.ascii_empty.refused", portable)
         val back = PolicyId.fromPortable(portable).dataOrThrow()
         assertEquals(policy, (UnicodePolicies.resolve(back, 1) as Outcome.Success).data)
     }

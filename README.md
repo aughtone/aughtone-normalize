@@ -18,7 +18,7 @@ Every normalizer in the roster is built: email, credit-card/PAN, IBAN, IPv4, IPv
 
 | Module | Coordinate | What it does |
 |---|---|---|
-| `:quodlibet` | `io.github.aughtone.normalize:quodlibet` | every normalizer that needs no lookup table and no external dependency: email and its subaddress, credit-card/PAN, IBAN, IPv4, IPv6 and networks, MAC addresses, UUIDs and usernames, each with named frozen policies and typed, value-free errors |
+| `:quodlibet` | `io.github.aughtone.normalize:quodlibet` | every normalizer that carries no lookup table of its own: email and its pieces, credit-card/PAN, IBAN, IPv4, IPv6 and networks, MAC addresses, UUIDs and usernames, each with named frozen policies and typed, value-free errors. It depends on `:ubilibet`, because an address's domain is normalized as a domain — a caller touching no domain ships none of those tables |
 | `:unicode` | `io.github.aughtone.normalize:unicode` | configurable text normalization — trim, spaces, case, case folding, NFC/NFD/NFKC/NFKD — over ASCII or against tables frozen from a pinned Unicode release, never the platform's; its Android artifact bundles a lint check for rules written out of order |
 | `:ubilibet` | `io.github.aughtone.normalize:ubilibet` | every hostname and domain, ASCII included, under UTS-46 with Punycode, URLs, and validating ToUnicode for display — the full IDNA conformance suite passes on every target |
 | `:confusables` | `io.github.aughtone.normalize:confusables` | UTS-39 skeletons for spoof detection, including the bidirectional algorithm the standard defines them through |
@@ -33,14 +33,16 @@ The example below installs `:quodlibet`, which is the table-free bundle — emai
 
 **Moving from `0.0.1`?** The email normalizer was published as `io.github.aughtone.normalize:email:0.0.1` and now lives in `:quodlibet`. Change the coordinate; nothing else moves. The package, every type name, the canonical output and the policy versions are unchanged, so no stored value is affected. The relaxed email policy has since been renamed twice: `EmailPolicy.Lenient` (`email.lenient`) became `ByteStableV1Lenient` (`email.byte-stable+lenient`) in `0.0.2`, and in `0.0.3` it is `ByteStableV1Subaddressed` (`email.byte-stable+subaddressed`), because it keeps the `+`-subaddress rather than relaxing a rule. Its bytes never changed; only the name and id did. `email:0.0.1` stays on Maven Central.
 
-**Moving from `0.0.2`?** Three changes are breaking, and none changes a stored byte. The Unicode normalization forms moved to text policy ids: `nfc.u17` is now `text.u17+nfc`, and likewise for `nfd`, `nfkc` and `nfkd`, with `TextPolicy.NfcU17` and its siblings kept as presets. The subaddress-keeping email policy is `ByteStableV1Subaddressed` (`email.byte-stable+subaddressed`), as above. A module that rebuilds policies from ids overrides `PublishedPolicies.resolveBase` rather than `resolve`, and `NormalizationStep.link` became `links`. The [changelog](CHANGELOG.md) lists each one.
+**Moving from `0.0.3`?** **Every policy id changes**, and no canonical bytes do. Links now join with `:` instead of `+`, names carry no hyphens, and a link that acts on the value reads `<subject>.<what was done>`: `text.u17+trim+casefold+nfc` becomes `text.u17:space.trimmed:case.folded:nfc`, and `ipv4.dotted-quad+block-24` becomes `ipv4.quad.dotted:block.24`. Email is the one behaviour change: the base now **keeps** the `+`-subaddress, and removing it is the option `email:subaddress.removed`. A stored `0.0.3` id no longer resolves, deliberately — it fails rather than quietly resolving to something else. The [changelog](CHANGELOG.md) lists every rename.
+
+Four more things move in `0.0.4`, and only the first changes bytes. **Whitespace is trimmed more widely**: a no-break space or a byte-order mark around an address or a username is now removed, where it used to end up inside the canonical — so an address pasted out of a formatted page and the same address typed by hand finally produce one token. **A phone extension is refused rather than folded into the number**, which widens what the phone policies reject: `+43 1 58058-0` and its typographic-dash spellings fail instead of returning a different, valid-looking number. **`:quodlibet` now depends on `:ubilibet`**, because an address's domain is normalized as a domain; a consumer that touches no domain ships none of the IDNA tables. And **`iosX64` is no longer published** — Apple silicon simulators use `iosSimulatorArm64`, which is unchanged.
 
 ```kotlin
 // build.gradle.kts
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("io.github.aughtone.normalize:quodlibet:0.0.3")
+            implementation("io.github.aughtone.normalize:quodlibet:0.0.4")
         }
     }
 }
@@ -51,7 +53,7 @@ Or with a version catalog:
 ```toml
 # gradle/libs.versions.toml
 [versions]
-aughtone-normalize = "0.0.3"
+aughtone-normalize = "0.0.4"
 
 [libraries]
 aughtone-normalize-quodlibet = { module = "io.github.aughtone.normalize:quodlibet", version.ref = "aughtone-normalize" }
@@ -63,7 +65,7 @@ aughtone-normalize-quodlibet = { module = "io.github.aughtone.normalize:quodlibe
 
 These are deliberately different promises, and the distinction matters more here than in most libraries:
 
-- **A published policy's output is frozen forever.** `EmailPolicy.ByteStableV1` (id `email.byte-stable`, version 1) will produce the same bytes for the same input in every future release. A rules change mints a *new* policy version; it is never an in-place improvement, because that would orphan every token already derived under the old one. Store `policyId` and `policyVersion` beside anything you derive.
+- **A published policy's output is frozen forever.** `EmailPolicy.Address` (id `email`, version 1) will produce the same bytes for the same input in every future release. A rules change mints a *new* policy version; it is never an in-place improvement, because that would orphan every token already derived under the old one. Store `policyId` and `policyVersion` beside anything you derive.
 - **The Kotlin API is not stable yet.** At `0.0.x` names and signatures may still move. Pin an exact version.
 
 ## 📚 Documentation
@@ -85,7 +87,7 @@ Work is tracked as issues rather than documents — see [WORKFLOW.md](WORKFLOW.m
 ```kotlin
 import io.github.aughtone.normalize.email.normalizeEmail
 import io.github.aughtone.normalize.email.EmailPolicy
-normalizeEmail(value, EmailPolicy.ByteStableV1)
+normalizeEmail(value, EmailPolicy.Address)
     .onSuccess { normalized ->
         // the hash is stable across platforms and builds; keep the policy identity beside it
         store(hash(normalized.canonical), normalized.policyId, normalized.policyVersion)
@@ -93,10 +95,20 @@ normalizeEmail(value, EmailPolicy.ByteStableV1)
     .onFailure { failure -> log(failure.exception) }   // a typed, value-free EmailNormalizationError
 
 // or, where a failure needs no handling of its own
-val canonical: String? = normalizeEmail(value, EmailPolicy.ByteStableV1).dataOrNull()?.canonical
+val canonical: String? = normalizeEmail(value, EmailPolicy.Address).dataOrNull()?.canonical
 ```
 
-To match on the subaddress as well as the mailbox, read both from one parse: `normalizeEmailWithSubaddress(value, EmailSubaddressPolicy.ByteStableV1)` returns the mailbox, byte-identical to `normalizeEmail` under `ByteStableV1`, and the subaddress (`tag` for `user+tag@example.com`, `null` without a `+`). The subaddress carries its own id, `email.subaddress`, so a stored tag token records what it is.
+**The base keeps the `+`-subaddress**, because some mail systems treat it as part of an account and no domain can be asked which behaviour it has. `EmailPolicy.SubaddressRemoved` (`email:subaddress.removed`) removes it, for a caller who knows the provider treats it as a tag.
+
+To match on both, read them from one parse: `normalizeEmailWithSubaddress(value, EmailSubaddressPolicy.V1)` returns the mailbox, byte-identical to `normalizeEmail` under `SubaddressRemoved`, and the subaddress (`tag` for `user+tag@example.com`, `null` without a `+`). The subaddress carries its own id, `email.subaddress`, so a stored tag token records what it is.
+
+**For every piece at once, `normalizeEmailParts(value, emailPolicy, domainPolicy)`** returns the mailbox, the local part (`email.local`), the domain and the subaddress from one reading. Use it instead of splitting the canonical string by hand: a hand-split piece records no policy, so nothing says which reading produced the token. The local part keeps its subaddress whatever the policy does with it.
+
+**The domain is a domain.** It comes back normalized by `normalizeDomain` under the `DomainPolicy` you pass, carrying `domain.ascii.u17` — the same identity and the same bytes as a domain read from a URL or a block list, so the tokens match. `user@Bücher.Example` and `user@XN--BCHER-KVA.example` both give `xn--bcher-kva.example`. There is deliberately no email-flavoured domain identity: two readings of one concept would agree on every ASCII domain and diverge on the rest, which is a silent mismatch rather than a choice.
+
+It is an `Outcome`, because an address can be valid while its domain is not one — `user@[192.0.2.1]` carries an address literal, and a label can fail a UTS-46 check the address carried happily. The address still reads; the domain says why it has no token.
+
+Provider rules — collapsing dots, removing a tag only on domains known to support them — stay with you; this hands you the pieces to apply them to.
 
 ### Text Normalization (`:unicode`)
 ```kotlin
@@ -104,10 +116,10 @@ import io.github.aughtone.normalize.unicode.TextPolicy
 import io.github.aughtone.normalize.unicode.UnicodeRelease
 import io.github.aughtone.normalize.unicode.normalizeText
 
-// ASCII rules only: text+trim+lower. Names no Unicode release, so it never goes stale.
+// ASCII rules only: text:space.trimmed:case.lower. Names no Unicode release, so it never goes stale.
 val field = TextPolicy { ascii { trim(); lowercase() } }
 
-// Unicode rules against frozen Unicode 17 data: text.u17+trim+casefold+nfc
+// Unicode rules against frozen Unicode 17 data: text.u17:space.trimmed:case.folded:nfc
 val caseless = TextPolicy(UnicodeRelease.U17) { unicode { trim(); casefold(); nfc() } }
 
 normalizeText(value, caseless)
@@ -119,7 +131,7 @@ normalizeText(value, caseless)
 
 **Rules always run in one fixed order** — strip control characters, trim, spaces, case, normalization form, then the non-empty check — however you write them, so the same rules always produce the same bytes and one configuration has one id. Writing them in a different order still works, and is reported two ways: at runtime through `policy.warnings` and `TextPolicy.warningHandler` (printed by default, replaceable or silenceable), and in the editor by the `TextPolicyRuleOrder` lint check that ships inside the `:unicode` Android artifact. The lint check needs no setup in a build with an Android target, where Android Studio underlines the builder and `./gradlew lint` reports it; JVM-only, iOS and web builds get the runtime warning.
 
-The id states the Unicode release once and only when a rule uses it: `text+trim+lower` is all ASCII, `text.u17+trim+lower.ascii` marks the one ASCII rule inside a Unicode policy. `NfkcU17`, `NfkdU17` and the `nfkc`/`nfkd` rules are deliberately lossy — a ligature becomes its letters and cannot be turned back — so they are for search, not for a token you expect to round-trip. Named presets such as `TextPolicy.NfcU17`, `TrimLowercase` and `CaselessU17` are conveniences for common configurations, nothing more.
+The id states the Unicode release once and only when a rule uses it: `text:space.trimmed:case.lower` is all ASCII, `text.u17:space.trimmed:case.lower.ascii` marks the one ASCII rule inside a Unicode policy. `NfkcU17`, `NfkdU17` and the `nfkc`/`nfkd` rules are deliberately lossy — a ligature becomes its letters and cannot be turned back — so they are for search, not for a token you expect to round-trip. Named presets such as `TextPolicy.NfcU17`, `TrimLowercase` and `CaselessU17` are conveniences for common configurations, nothing more.
 
 This is not an identifier normalizer: emails, domains, phone numbers and handles have their own.
 
@@ -137,11 +149,11 @@ normalizeIpv4Blocks("192.0.2.57", Ipv4Policy.DottedQuad, listOf(24, 16)) // "192
 normalizeIpv4Cidr("192.0.2.0/24", Ipv4Policy.DottedQuad.cidr())         // "192.0.2.0/24"; host bits set is refused
 ```
 
-Block derivation buckets an address into the network it falls in, and every prefix is its own identity (`ipv4.dotted-quad+block-24`). **To match an address against a range from a list, run both through the same block policy**: the range's network address, which CIDR input exposes, and the incoming address, at the same prefix. CIDR input comes strict (`cidr`, refusing host bits) or masked (`cidrMasked`, clearing them), and both write a network exactly as block derivation does.
+Block derivation buckets an address into the network it falls in, and every prefix is its own identity (`ipv4.quad.dotted:block.24`). **To match an address against a range from a list, run both through the same block policy**: the range's network address, which CIDR input exposes, and the incoming address, at the same prefix. CIDR input comes strict (`cidr`, refusing host bits) or masked (`cidrMasked`, clearing them), and both write a network exactly as block derivation does.
 
-IPv6 works the same way, and has modes for systems that need a different reading, each named in the id: `unmap` writes an IPv4-mapped address as IPv4 so it matches the IPv4 spelling of the same host, `nat64` does the same for `64:ff9b::/96`, and `zone` keeps a zone identifier. A block under `unmap` or `nat64` carries both prefixes: `Ipv6Policy.Rfc5952.unmap().block(24, 64)`.
+IPv6 works the same way, and has modes for systems that need a different reading, each named in the id: `unmap()` writes an IPv4-mapped address as IPv4 so it matches the IPv4 spelling of the same host and reads `ipv4.mapped` in the id, `nat64()` does the same for `64:ff9b::/96` as `ipv4.nat64`, and `zone()` keeps a zone identifier as `zone.kept`. A block under `unmap` or `nat64` carries both prefixes: `Ipv6Policy.Rfc5952.unmap().block(24, 64)`.
 
-These policies declare comparable forms (`IpForms`), so the matches they exist for are explicit rather than coincidental: an IPv4 address is comparable with its `unmap` or `nat64` spelling in `ipv4.address`, and a derived block with a CIDR range in `ipv4.network` or `ipv6.network`. `inet-aton` only offers its forms, because its reading of `010` as 8 is an interpretation: opt in with `Ipv4Policy.InetAton.withForms(setOf(IpForms.Ipv4Address))`, which stores `ipv4.inet-aton+form.ipv4.address`.
+These policies declare comparable forms (`IpForms`), so the matches they exist for are explicit rather than coincidental: an IPv4 address is comparable with its `ipv4.mapped` or `ipv4.nat64` spelling in `ipv4.address`, and a derived block with a CIDR range in `ipv4.network` or `ipv6.network`. `InetAton` only offers its forms, because its reading of `010` as 8 is an interpretation: opt in with `Ipv4Policy.InetAton.withForms(setOf(IpForms.Ipv4Address))`, which stores `ipv4.inet.aton:form.ipv4.address`.
 
 ### MAC Addresses (`:quodlibet`)
 ```kotlin
@@ -198,7 +210,11 @@ normalizePhone("+1 (212) 555-0123", PhonePolicy.E164).dataOrNull()?.canonical   
 normalizePhone("(212) 555-0123", PhonePolicy.e164ForRegion("us")).dataOrNull()?.canonical   // "+12125550123"
 ```
 
-**The region travels on the policy, and nothing is ever guessed.** `E164` accepts only input carrying its own country code; `e164ForRegion` reads national-format input against a region you named. A guessed country code does not fail loudly — it produces a valid-looking token for a *different number*, and by then the input is gone. The region is part of the identity, because it records how national input was read, so `phone.e164` and `phone.e164+region-ca` are different policies. Every phone policy writes the same E.164 number, though, and declares the comparable form `phone.e164` (`PhoneForms.E164`): systems that read numbers with different regions, or leniently, match through `comparability` rather than by trusting that their strings agree.
+**An extension can be kept, or refused.** `normalizePhoneWithExtension(value, ExtensionPolicy.E164)` returns the E.164 number and the extension beside it, each with its own identity — the same shape as the email mailbox and its subaddress. Use it when an extension is data you want to keep; use `normalizePhone` when you want one canonical string and nothing else. The marker is the boundary: the number is whatever `normalizePhone` makes of the text before it, so the two calls agree about every number and about every refusal. A marker with nothing after it introduces nothing, so `+1 212 555 0123#` is that number with no extension.
+
+**An extension is refused, not dropped.** `#`, `,` and `;` are refused under every policy, and a trailing group written with ordinary formatting — the `+43 1 58058-0` Durchwahl style — is refused when the number is already valid without it. Folding those digits into the subscriber number would produce a different, entirely plausible number, which is the one failure a token cannot survive.
+
+**The region travels on the policy, and nothing is ever guessed.** `E164` accepts only input carrying its own country code; `e164ForRegion` reads national-format input against a region you named. A guessed country code does not fail loudly — it produces a valid-looking token for a *different number*, and by then the input is gone. The region is part of the identity, because it records how national input was read, so `phone.e164` and `phone.e164:region.ca` are different policies. Every phone policy writes the same E.164 number, though, and declares the comparable form `phone.e164` (`PhoneForms.E164`): systems that read numbers with different regions, or leniently, match through `comparability` rather than by trusting that their strings agree.
 
 ### Spoof Detection (`:confusables`)
 ```kotlin
@@ -212,7 +228,7 @@ val b = normalizeSkeleton("раypal", ConfusablePolicy.SkeletonU17).dataOrNull()
 
 **A skeleton is a check, never an account key.** It is deliberately many-to-one — that is what makes a lookalike collide with its target — so two genuinely different users can share one. Derive your identity from the plain value, compute the skeleton beside it, and use a collision to *flag* something for review.
 
-It is also a `NormalizationStep`, so a table-free normalizer can take it from a caller: `normalizeUsername(value, UsernamePolicy.Basic, listOf(ConfusablePolicy.SkeletonU17))` produces the policy identity `username.basic+skeleton.u17`, which never matches the plain `username.basic`.
+It is also a `NormalizationStep`, so a table-free normalizer can take it from a caller: `normalizeUsername(value, UsernamePolicy.Basic, listOf(ConfusablePolicy.SkeletonU17))` produces the policy identity `username.basic:skeleton.u17`, which never matches the plain `username.basic`.
 
 ### Resolving a Stored Policy (`:common`)
 
@@ -228,7 +244,7 @@ val policy = QuodlibetPolicies.resolve(policyId, policyVersion).dataOrThrow() as
 normalizeEmail(newValue, policy)
 ```
 
-**Matching across policies is explicit.** Values from different policies never match by coincidence, but policies can declare a *comparable form* they both write, and a caller can opt into one a policy offers by naming it in the id (`…+form.ipv4.address`). Ask before matching:
+**Matching across policies is explicit.** Values from different policies never match by coincidence, but policies can declare a *comparable form* they both write, and a caller can opt into one a policy offers by naming it in the id (`…:form.ipv4.address`). Ask before matching:
 
 ```kotlin
 import io.github.aughtone.normalize.common.Comparability

@@ -12,13 +12,18 @@ package io.github.aughtone.normalize.common
  * match, even where their canonical strings happen to agree - so parties that must match each other
  * have to agree on the same policy, not merely on a similar rule.
  *
- * [policyId] is a chain of links joined by `+`: the base rule set, then anything qualifying it, then
+ * [policyId] is a chain of links joined by `:`: the base rule set, then anything qualifying it, then
  * any steps contributed by other modules. It describes the policy rather than labelling it, which is
  * what allows a stored id to be resolved back to the policy that produced it. The full contract is in
  * `docs/knowledge/specifications/DOC-0001-normalization-suite.md`.
  */
 interface Normalized {
+    /** The canonical text the policy wrote. Hash or match on this, never on the input it came from. */
     val canonical: String
+
+    /** The [Policy.id] that produced [canonical]. Store it: without it the bytes cannot be re-derived. */
     val policyId: String
+
+    /** The [Policy.version] that produced [canonical]. Store it beside [policyId]; neither is enough alone. */
     val policyVersion: Int
 }

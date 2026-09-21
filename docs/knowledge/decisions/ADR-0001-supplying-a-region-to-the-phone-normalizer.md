@@ -16,9 +16,9 @@ Feeds from [RAD-0001](../research/RAD-0001-identifier-and-text-normalization.md)
 **Two policies, and neither ever guesses.**
 
 - **`PhonePolicy.E164`** — id `phone.e164`. For input that already carries its own country code. National-format input is refused with a typed failure, not defaulted.
-- **`PhonePolicy.e164ForRegion(region)`** — id `phone.e164+region-<region>`, e.g. `phone.e164+region-ca`. For national-format input, interpreted against the region the caller named deliberately.
+- **`PhonePolicy.e164ForRegion(region)`** — id `phone.e164:region.<region>`, e.g. `phone.e164:region.ca`. For national-format input, interpreted against the region the caller named deliberately.
 
-*Corrected 2026-09-11:* the ids and the factory name were restated to match the suite-wide policy grammar in DOC-0001 — a policy identity is an ordered chain of links joined by `+`, with the region as a qualifier link and any relaxation last, lowercase throughout. The decision itself is unchanged: the region rides on the policy identity.
+*Corrected 2026-09-11:* the ids and the factory name were restated to match the suite-wide policy grammar in DOC-0001 — a policy identity is an ordered chain of links joined by `:`, with the region as a qualifier link and any relaxation last, lowercase throughout. The decision itself is unchanged: the region rides on the policy identity.
 
 The region is part of the policy `id`, so it travels with every derived token. The two-argument contract `normalizeX(value, policy)` is unchanged.
 
@@ -32,7 +32,7 @@ The region is part of the policy `id`, so it travels with every derived token. T
 
 **Harder.** Policy identities multiply — one per region actually used. That is a cost in the abstract and close to free in practice, since `id` is a derived string and policies are cheap objects.
 
-**What this gives up, and it needs stating loudly.** `phone.e164` and `phone.e164+region-ca` produce *identical bytes* for input already in E.164 form, but they carry **different policy identities**. Matching is scoped by identity, so two consumers using different policies do not match each other by default, even where the canonical strings agree.
+**What this gives up, and it needs stating loudly.** `phone.e164` and `phone.e164:region.ca` produce *identical bytes* for input already in E.164 form, but they carry **different policy identities**. Matching is scoped by identity, so two consumers using different policies do not match each other by default, even where the canonical strings agree.
 
 *Corrected 2026-09-13:* the suite now has comparable forms (DOC-0001). Every phone policy declares the form `phone.e164`, so values from different phone policies are comparable **explicitly**, through `PolicyResolver.comparability`, and the region stays in each identity. What remains true is that a match across phone policies has to be asked for; it never happens by coincidence.
 

@@ -11,7 +11,7 @@ import io.github.aughtone.types.outcome.runOutcome
  * Every text policy this module can produce, resolvable from its stored id.
  *
  * Text policies are configured rather than enumerated, so resolution rebuilds the policy an id names
- * instead of looking it up: `text.u17+trim+casefold` parses into its release and rules, is built through
+ * instead of looking it up: `text.u17:space.trimmed:case.folded` parses into its release and rules, is built through
  * the same builder a caller uses, and is refused unless it renders back to exactly the id given. That
  * keeps the round trip total - anything this module can build, it can resolve - without accepting a
  * second spelling of any policy.

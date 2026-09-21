@@ -27,7 +27,7 @@ class ComparableFormTest {
     }
 
     private val strict = Stub("example.strict", forms = setOf(value), offeredForms = setOf(loose, wide))
-    private val lenient = Stub("example.strict+lenient", forms = setOf(value))
+    private val lenient = Stub("example.strict:lenient", forms = setOf(value))
     private val other = Stub("example.other", offeredForms = setOf(loose))
     private val plain = Stub("example.plain")
 
@@ -54,7 +54,7 @@ class ComparableFormTest {
     @Test
     fun aFormNameFollowsTheLinkGrammar() {
         assertFailsWith<IllegalArgumentException> { ComparableForm("Example.Value") }
-        assertFailsWith<IllegalArgumentException> { ComparableForm("example+value") }
+        assertFailsWith<IllegalArgumentException> { ComparableForm("example:value") }
         assertEquals("form.example.value", value.link.name)
         assertEquals(LinkKind.Form, value.link.kind)
     }
@@ -64,7 +64,7 @@ class ComparableFormTest {
         val base = PolicyLink("example.strict", LinkKind.Base)
         val ok = PolicyId.of(listOf(base, PolicyLink.Lenient, loose.link, wide.link))
         assertTrue(ok is Outcome.Success)
-        assertEquals("example.strict+lenient+form.example.loose+form.example.wide", ok.data.rendered)
+        assertEquals("example.strict:lenient:form.example.loose:form.example.wide", ok.data.rendered)
 
         val reversed = PolicyId.of(listOf(base, wide.link, loose.link))
         assertTrue(reversed is Outcome.Failure && reversed.exception is PolicyIdentityError.OutOfOrder)
@@ -79,7 +79,7 @@ class ComparableFormTest {
     @Test
     fun optingInKeepsThePolicyAndRecordsTheChoice() {
         val opted = strict.withForms(setOf(wide, loose))
-        assertEquals("example.strict+form.example.loose+form.example.wide", opted.id)
+        assertEquals("example.strict:form.example.loose:form.example.wide", opted.id)
         assertEquals(setOf(value, loose, wide), opted.forms)
         assertEquals(strict.version, opted.version)
         assertEquals(strict, (opted as OptedInPolicy).policy)
@@ -89,50 +89,50 @@ class ComparableFormTest {
 
     @Test
     fun anOptedInIdResolves() {
-        val outcome = module.resolve("example.strict+form.example.loose+form.example.wide", 1)
+        val outcome = module.resolve("example.strict:form.example.loose:form.example.wide", 1)
         assertTrue(outcome is Outcome.Success, "got $outcome")
         assertEquals(setOf(value, loose, wide), outcome.data.forms)
 
         val throughComposite = (module + object : PublishedPolicies() {
             override val policies: List<Policy> = emptyList()
             override val links: List<PolicyLink> = emptyList()
-        }).resolve("example.other+form.example.loose", 1)
+        }).resolve("example.other:form.example.loose", 1)
         assertTrue(throughComposite is Outcome.Success, "got $throughComposite")
-        assertEquals("example.other+form.example.loose", throughComposite.data.id)
+        assertEquals("example.other:form.example.loose", throughComposite.data.id)
     }
 
     @Test
     fun anythingButTheOfferedCanonicalSpellingIsRefused() {
-        val notOffered = module.resolve("example.plain+form.example.loose", 1)
+        val notOffered = module.resolve("example.plain:form.example.loose", 1)
         assertTrue(notOffered is Outcome.Failure && notOffered.exception is PolicyIdentityError.FormNotOffered, "got $notOffered")
-        val reversed = module.resolve("example.strict+form.example.wide+form.example.loose", 1)
+        val reversed = module.resolve("example.strict:form.example.wide:form.example.loose", 1)
         assertTrue(reversed is Outcome.Failure && reversed.exception is PolicyIdentityError.NotCanonical, "got $reversed")
-        val repeated = module.resolve("example.strict+form.example.loose+form.example.loose", 1)
+        val repeated = module.resolve("example.strict:form.example.loose:form.example.loose", 1)
         assertTrue(repeated is Outcome.Failure && repeated.exception is PolicyIdentityError.DuplicateLink, "got $repeated")
         val onlyForms = module.resolve("form.example.loose", 1)
         assertTrue(onlyForms is Outcome.Failure && onlyForms.exception is PolicyIdentityError, "got $onlyForms")
-        val inTheMiddle = module.resolve("example.strict+form.example.loose+lenient", 1)
+        val inTheMiddle = module.resolve("example.strict:form.example.loose:lenient", 1)
         assertTrue(inTheMiddle is Outcome.Failure && inTheMiddle.exception is PolicyIdentityError, "got $inTheMiddle")
     }
 
     @Test
     fun theCheckReportsSamePolicyInFormOrNotComparable() {
         assertEquals(Comparability.SamePolicy, module.comparability("example.strict", 1, "example.strict", 1).dataOrThrow())
-        assertEquals(Comparability.InForm(value), module.comparability("example.strict", 1, "example.strict+lenient", 1).dataOrThrow())
+        assertEquals(Comparability.InForm(value), module.comparability("example.strict", 1, "example.strict:lenient", 1).dataOrThrow())
         assertEquals(Comparability.NotComparable, module.comparability("example.strict", 1, "example.plain", 1).dataOrThrow())
         // Not comparable until the caller opts in, and then comparable in exactly that form.
         assertEquals(Comparability.NotComparable, module.comparability("example.strict", 1, "example.other", 1).dataOrThrow())
         assertEquals(
             Comparability.InForm(loose),
-            module.comparability("example.strict+form.example.loose", 1, "example.other+form.example.loose", 1).dataOrThrow(),
+            module.comparability("example.strict:form.example.loose", 1, "example.other:form.example.loose", 1).dataOrThrow(),
         )
     }
 
     @Test
     fun severalSharedFormsReportTheFirstByName() {
         val result = module.comparability(
-            "example.strict+form.example.loose+form.example.wide", 1,
-            "example.strict+form.example.wide", 1,
+            "example.strict:form.example.loose:form.example.wide", 1,
+            "example.strict:form.example.wide", 1,
         ).dataOrThrow()
         // Shared: example.value (declared) and example.wide (opted into). First by name wins.
         assertEquals(Comparability.InForm(value), result)

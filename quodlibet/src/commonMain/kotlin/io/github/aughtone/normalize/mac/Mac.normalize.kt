@@ -194,6 +194,9 @@ sealed class MacNormalizationError(message: String) : Exception(message) {
 
 /** The comparable forms MAC policies write: [Eui48] and [Eui64], in the canonical colon notation. */
 object MacForms {
+    /** A 48-bit address, lowercase hex, colon-separated. */
     val Eui48: ComparableForm = ComparableForm("mac.eui48")
+
+    /** A 64-bit address, lowercase hex, colon-separated. Never comparable with [Eui48]: different widths. */
     val Eui64: ComparableForm = ComparableForm("mac.eui64")
 }
