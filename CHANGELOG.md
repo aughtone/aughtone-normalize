@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-09-21
+
+### Breaking
+
+- **`iosX64` is no longer published.** The Intel iOS simulator target is dropped from every module. Apple silicon simulators are `iosSimulatorArm64`, which stays, as do `iosArm64` and every other target. A consumer still building for an Intel simulator has to stop at `0.0.3`.
+- **`:quodlibet` now depends on `:ubilibet`.** `normalizeEmailParts` returns an address's domain as a real domain token, which needs the IDNA tables, and reading a domain correctly is worth a dependency — see ADR-0003, amended. A consumer that touches no domain ships none of those tables, because unused code is eliminated; what changes is a coordinate in the POM.
+
 ### Added
 
 - **Every piece of an email address from one reading.** `normalizeEmailParts(value, emailPolicy, domainPolicy)` returns the mailbox, the local part (`email.local`), the domain and the subaddress (`NormalizedEmailParts`, `NormalizedEmailLocal`). `normalizeEmail` and `normalizeEmailWithSubaddress` are views over that same reading and are unchanged. The local part keeps its subaddress whatever the policy does with it. **The domain comes back as a real domain token** — `normalizeDomain`'s output under the policy given, carrying `domain.ascii.u17`, so an address's domain matches a domain read anywhere else; it is an `Outcome`, because an address can be valid while its domain is not a domain. There is no email-flavoured domain identity, and `:quodlibet` now depends on `:ubilibet` to do this properly rather than publish a second reading (ADR-0003, amended). Provider rules such as collapsing dots stay with the caller.
@@ -100,7 +107,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Multiplatform targets**: published for JVM, Android, iOS (`arm64`, `x64`, `simulatorArm64`), JS (browser), wasmJs (browser) and Linux x64. The same test suite runs on each, so the canonical form is verified identical across them rather than assumed.
 - **Shared `Normalized` contract (`:common`)**: the `Normalized` interface (`canonical`, `policyId`, `policyVersion`) is the common result shape every normalizer in the suite reports, so a derived hash can always be stored beside the policy identity that produced it.
 
-[Unreleased]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.3...HEAD
+[Unreleased]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.4...HEAD
+[0.0.4]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/aughtone/aughtone-normalize/releases/tag/v0.0.1

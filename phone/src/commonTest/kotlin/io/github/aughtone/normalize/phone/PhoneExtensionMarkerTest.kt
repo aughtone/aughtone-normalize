@@ -22,7 +22,7 @@ import kotlin.test.assertTrue
  * went unnoticed while an acceptance criterion claimed one was pinned. Read it as "these agree", never as
  * "nothing is missing". Localised labels are refused deliberately and `PhoneLocalisedLabelTest` says so.
  *
- * Pinned against `io.github.aughtone:phonenumber:0.0.3`.
+ * Pinned against `io.github.aughtone:phonenumber:0.0.4`.
  */
 class PhoneExtensionMarkerTest {
 
@@ -80,7 +80,7 @@ class PhoneExtensionMarkerTest {
 
     @Test
     fun aSingleCommaIsTheOddOneOut() {
-        // Measured on 0.0.4 and reported to them: `,` reads as an extension while `,,` and every other
+        // Measured on `phonenumber` 0.0.4 and reported to them: `,` reads as an extension while `,,` and every other
         // post-dial character reads as post-dial. Pinned so we notice whichever way it is settled - it is
         // either deliberate compatibility with upstream's extension pattern, or the one that slipped.
         assertEquals("4", PhoneNumberUtil.parse("+1 212 555 0123,4", "US").extension)
