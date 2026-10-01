@@ -37,12 +37,14 @@ The example below installs `:quodlibet`, which is the table-free bundle — emai
 
 Four more things move in `0.0.4`, and only the first changes bytes. **Whitespace is trimmed more widely**: a no-break space or a byte-order mark around an address or a username is now removed, where it used to end up inside the canonical — so an address pasted out of a formatted page and the same address typed by hand finally produce one token. **A phone extension is refused rather than folded into the number**, which widens what the phone policies reject: `+43 1 58058-0` and its typographic-dash spellings fail instead of returning a different, valid-looking number. **`:quodlibet` now depends on `:ubilibet`**, because an address's domain is normalized as a domain; a consumer that touches no domain ships none of the IDNA tables. And **`iosX64` is no longer published** — Apple silicon simulators use `iosSimulatorArm64`, which is unchanged.
 
+**Moving from `0.0.4`?** Two things change and **no canonical bytes do**. `Outcome`'s accessors follow `kotlin.Result` now — `dataOrNull()` is `getOrNull()`, `dataOrThrow()` is `getOrThrow()`, `dataOrElse { }` is `getOrElse { }` — and the old names are gone rather than deprecated, so a caller sees unresolved references rather than warnings. The one thing the compiler will not catch: a failure callback now receives the `Throwable` itself, whose `message` is nullable, so `it.message` keeps compiling and starts writing `null`; use `it.message ?: it.toString()`. Separately, `ExtensionPolicy.forRegion(region)` writes `phone.extension:region.ca` where it used to write `phone.extension` — it shared an identity with `ExtensionPolicy.E164`, which accepts different input. A stored extension's own bytes are unaffected.
+
 ```kotlin
 // build.gradle.kts
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("io.github.aughtone.normalize:quodlibet:0.0.4")
+            implementation("io.github.aughtone.normalize:quodlibet:0.0.5")
         }
     }
 }
@@ -53,7 +55,7 @@ Or with a version catalog:
 ```toml
 # gradle/libs.versions.toml
 [versions]
-aughtone-normalize = "0.0.4"
+aughtone-normalize = "0.0.5"
 
 [libraries]
 aughtone-normalize-quodlibet = { module = "io.github.aughtone.normalize:quodlibet", version.ref = "aughtone-normalize" }

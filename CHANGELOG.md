@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-09-30
+
 ### Breaking
 
 - **`Outcome`'s accessors are renamed to match `kotlin.Result`,** following `io.github.aughtone:types` `4.1.0`: `dataOrNull()` is `getOrNull()`, `dataOrThrow()` is `getOrThrow()`, and `dataOrElse { }` is `getOrElse { }`. The old names are gone rather than deprecated, so a caller sees them as unresolved references rather than as warnings. The failure callbacks — `onFailure`, `fold`'s second parameter, `recover`, `getOrElse` — now receive the `Throwable` itself instead of the `Outcome.Failure` wrapper, so `failure.exception` becomes the value handed to you. `Outcome.Failure.exception`, `Success.data` and `runOutcome` are unchanged.
@@ -117,7 +119,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Multiplatform targets**: published for JVM, Android, iOS (`arm64`, `x64`, `simulatorArm64`), JS (browser), wasmJs (browser) and Linux x64. The same test suite runs on each, so the canonical form is verified identical across them rather than assumed.
 - **Shared `Normalized` contract (`:common`)**: the `Normalized` interface (`canonical`, `policyId`, `policyVersion`) is the common result shape every normalizer in the suite reports, so a derived hash can always be stored beside the policy identity that produced it.
 
-[Unreleased]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.4...HEAD
+[Unreleased]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.5...HEAD
+[0.0.5]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.4...v0.0.5
 [0.0.4]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.2...v0.0.3
 [0.0.2]: https://github.com/aughtone/aughtone-normalize/compare/v0.0.1...v0.0.2

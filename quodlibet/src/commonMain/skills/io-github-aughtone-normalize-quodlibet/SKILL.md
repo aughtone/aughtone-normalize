@@ -17,7 +17,7 @@ description: >-
   (io.github.aughtone.normalize:ubilibet).
 license: Apache-2.0
 metadata:
-  version: "0.0.4"
+  version: "0.0.5"
   repository: https://github.com/aughtone/aughtone-normalize
 ---
 
@@ -107,7 +107,7 @@ when (QuodlibetPolicies.comparability(idA, versionA, idB, versionB).getOrThrow()
 
 **As of `0.0.4` this module depends on `io.github.aughtone.normalize:ubilibet`,** because `normalizeEmailParts` normalizes a domain as a domain and that needs the IDNA tables. A consumer that touches no domain ships none of them.
 
-**The `Outcome` accessors were renamed to match `kotlin.Result` in this release,** following the `io.github.aughtone:types` library every result here is built on: `dataOrNull()` is `getOrNull()`, `dataOrThrow()` is `getOrThrow()`, `dataOrElse { }` is `getOrElse { }`, and the failure callbacks receive the `Throwable` rather than the `Outcome.Failure` wrapper. The old names are gone rather than deprecated. **What the compiler will not catch:** `Outcome.Failure.message` is a non-null `String` and `Throwable.message` is `String?`, so a `getOrElse { }` interpolating `it.message` keeps compiling and starts writing `null`.
+**The `Outcome` accessors were renamed to match `kotlin.Result` in `0.0.5`,** following the `io.github.aughtone:types` library every result here is built on: `dataOrNull()` is `getOrNull()`, `dataOrThrow()` is `getOrThrow()`, `dataOrElse { }` is `getOrElse { }`, and the failure callbacks receive the `Throwable` rather than the `Outcome.Failure` wrapper. The old names are gone rather than deprecated. **What the compiler will not catch:** `Outcome.Failure.message` is a non-null `String` and `Throwable.message` is `String?`, so a `getOrElse { }` interpolating `it.message` keeps compiling and starts writing `null`.
 
 ## Called from Kotlin
 
@@ -115,4 +115,12 @@ when (QuodlibetPolicies.comparability(idA, versionA, idB, versionB).getOrThrow()
 
 ## What it is not for
 
-*This section needs the maintainer and is unwritten.*
+**It does not tell you how to fix a value.** A refusal is a typed error carrying no part of the input, on purpose. It says this is not a canonical value; it never says what to change, and never that the value is wrong — only that these rules cannot produce bytes for it.
+
+**It encodes universal standards, never one provider's behaviour.** Collapsing Gmail's dots, removing a subaddress only on domains known to support it, honouring one platform's length cap or its rules about a leading sigil — each is one provider's behaviour, and no domain can be asked which it has. Those stay with the caller, in the code that knows which provider it is talking to. RAD-0001 argues this at length.
+
+**It does not report what an identifier means.** No issuer network from a card number, no country or bank from an IBAN, no vendor from a MAC address, no version or variant from a UUID, no scope from an IP address. Every `Normalized*` carries the canonical text and the identity that produced it, and nothing else. `normalizeEmailParts` is not an exception: the parts it returns are themselves canonical forms with their own identities.
+
+**It is not for display.** These are forms for matching and hashing. Masking a card number, grouping an IBAN into fours, writing a UUID as a URN, abbreviating an IPv6 address for a person to read — presentation, and not here.
+
+**It answers nothing about the world.** Whether a domain is disposable, a card is live, an IBAN belongs to an open account, an address receives mail: the canonical form is what you take to whatever does know.

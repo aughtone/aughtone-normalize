@@ -16,7 +16,7 @@ description: >-
   other identifiers (io.github.aughtone.normalize:quodlibet).
 license: Apache-2.0
 metadata:
-  version: "0.0.4"
+  version: "0.0.5"
   repository: https://github.com/aughtone/aughtone-normalize
 ---
 
@@ -95,7 +95,7 @@ toUnicodeDomain(value, DomainPolicy.AsciiU17).onSuccess { domain ->
 
 **Both entry points arrived in `0.0.2`**, so there is no earlier shape of this module to unlearn — but an agent will guess at one anyway. There is no `toAscii`/`toUnicode` pair of top-level functions, no `IDN` class, no flags parameter, and no separate ASCII entry point: the whole surface is `normalizeDomain`, `String.normalizeDomainOrNull`, `toUnicodeDomain`, `normalizeUrl`, the `DomainPolicy` and `UrlPolicy` constants, `DomainForms`, and `UbilibetPolicies`.
 
-**The `Outcome` accessors were renamed to match `kotlin.Result` in this release,** following the `io.github.aughtone:types` library every result here is built on: `dataOrNull()` is `getOrNull()`, `dataOrThrow()` is `getOrThrow()`, `dataOrElse { }` is `getOrElse { }`, and the failure callbacks receive the `Throwable` rather than the `Outcome.Failure` wrapper. The old names are gone rather than deprecated. **What the compiler will not catch:** `Outcome.Failure.message` is a non-null `String` and `Throwable.message` is `String?`, so a `getOrElse { }` interpolating `it.message` keeps compiling and starts writing `null`.
+**The `Outcome` accessors were renamed to match `kotlin.Result` in `0.0.5`,** following the `io.github.aughtone:types` library every result here is built on: `dataOrNull()` is `getOrNull()`, `dataOrThrow()` is `getOrThrow()`, `dataOrElse { }` is `getOrElse { }`, and the failure callbacks receive the `Throwable` rather than the `Outcome.Failure` wrapper. The old names are gone rather than deprecated. **What the compiler will not catch:** `Outcome.Failure.message` is a non-null `String` and `Throwable.message` is `String?`, so a `getOrElse { }` interpolating `it.message` keeps compiling and starts writing `null`.
 
 ## Called from Kotlin
 
@@ -103,4 +103,10 @@ toUnicodeDomain(value, DomainPolicy.AsciiU17).onSuccess { domain ->
 
 ## What it is not for
 
-*This section needs the maintainer and is unwritten.*
+**It is not a URL library.** It canonicalises a URL's host and leaves every other part byte for byte. It does not build URLs, resolve a relative reference against a base, normalize a path or reorder a query, and it has no opinion about a default port.
+
+**It is not a public-suffix list.** Whether a label is a registrable domain, where the registry boundary falls, who the registrar is, whether a suffix is public — none of that is here, and a canonical domain is the input to whatever does know.
+
+**It does not tell you a domain exists.** A host that canonicalises is well formed. It is not resolvable, not registered, not reachable, and not safe; nothing here performs a lookup of any kind.
+
+**It encodes universal standards, never one provider's behaviour.** UTS-46 and the IDNA tables decide what a label may be. How one registry restricts its own namespace, or which hosts one platform treats as equivalent, stays with the caller.

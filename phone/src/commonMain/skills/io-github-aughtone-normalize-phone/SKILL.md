@@ -17,7 +17,7 @@ description: >-
   (io.github.aughtone.normalize:unicode).
 license: Apache-2.0
 metadata:
-  version: "0.0.4"
+  version: "0.0.5"
   repository: https://github.com/aughtone/aughtone-normalize
 ---
 
@@ -87,6 +87,8 @@ normalizePhoneWithExtension("+1 212 555 0123 x4", ExtensionPolicy.E164)
 
 ## What moved, and what it used to be called
 
+**`ExtensionPolicy.forRegion(region)` writes a different policy id in `0.0.5`, and the compiler cannot show you this one.** Same signature, same canonical extension digits, different identity: it used to carry `ExtensionPolicy.E164`'s id, `phone.extension`, and now carries `phone.extension:region.ca`. Two policies that do not accept the same input shared one `(id, version)` pair, so `resolve("phone.extension", 1)` handed back the policy that refuses national-format input whichever one had produced the value. If you stored `phone.extension` beside an extension read under `forRegion`, that id resolves to `ExtensionPolicy.E164` and always did — the extension's own bytes are unaffected, because the region governs the number beside them, so re-deriving the extension gives what you already stored. There is no lenient extension policy, so `phone.extension:region.ca:lenient` resolves to nothing rather than to something close.
+
 **Every policy id was respelled in `0.0.4`, and no canonical bytes changed with it.** Links join with `:` instead of `+` and a link name carries no hyphen: `phone.e164+lenient` is now `phone.e164:lenient`, `phone.e164+region-ca` is `phone.e164:region.ca`, and `phone.e164+region-ca+lenient` is `phone.e164:region.ca:lenient`. A `0.0.3` id is refused rather than aliased.
 
 **Extension handling changed behaviour in `0.0.4`, and this is the one change the compiler cannot show you.** Previously the lenient policies dropped `#`, `,` or `;` and spliced the digits after it onto the subscriber number, and the strict policies did the same wherever the folded result was still valid — so `+1 212 555 0123 #4` returned `+121255501234`, a different and entirely plausible number. Both are now refused. Separately, a trailing group after ordinary formatting is refused when the number is already valid without it, so `+43 1 58058-0` now fails where it used to return `+431580580`. Same signatures, same policy ids, **more input refused**. Ordinary numbers written with separators are unaffected.
@@ -95,7 +97,7 @@ normalizePhoneWithExtension("+1 212 555 0123 x4", ExtensionPolicy.E164)
 
 **The module arrived in `0.0.2`,** and an agent will guess at a shape it never had. There is no `PhoneNumber` type to hold a parsed number, no `format(number, Format.E164)` call, no `isValidNumber` predicate, no default region argument, and no region *parameter* on `normalizePhone`: the region lives on the policy, because it is part of the identity of anything derived under it.
 
-**The `Outcome` accessors were renamed to match `kotlin.Result` in this release,** following the `io.github.aughtone:types` library every result here is built on: `dataOrNull()` is `getOrNull()`, `dataOrThrow()` is `getOrThrow()`, `dataOrElse { }` is `getOrElse { }`, and the failure callbacks receive the `Throwable` rather than the `Outcome.Failure` wrapper. The old names are gone rather than deprecated. **What the compiler will not catch:** `Outcome.Failure.message` is a non-null `String` and `Throwable.message` is `String?`, so a `getOrElse { }` interpolating `it.message` keeps compiling and starts writing `null`.
+**The `Outcome` accessors were renamed to match `kotlin.Result` in `0.0.5`,** following the `io.github.aughtone:types` library every result here is built on: `dataOrNull()` is `getOrNull()`, `dataOrThrow()` is `getOrThrow()`, `dataOrElse { }` is `getOrElse { }`, and the failure callbacks receive the `Throwable` rather than the `Outcome.Failure` wrapper. The old names are gone rather than deprecated. **What the compiler will not catch:** `Outcome.Failure.message` is a non-null `String` and `Throwable.message` is `String?`, so a `getOrElse { }` interpolating `it.message` keeps compiling and starts writing `null`.
 
 ## Called from Kotlin
 
@@ -103,4 +105,10 @@ normalizePhoneWithExtension("+1 212 555 0123 x4", ExtensionPolicy.E164)
 
 ## What it is not for
 
-*This section needs the maintainer and is unwritten.*
+**It is not a phone-number library.** Number type, carrier, time zone, geocoding, as-you-type formatting, short codes, premium-rate classification — the `io.github.aughtone:phonenumber` library's business. This module canonicalises to E.164 and does nothing else with a number.
+
+**It tells you nothing about the number.** No region is inferred, nothing is reported about where it is or who serves it, and a number that normalizes is well formed rather than real: nobody answers it, it may never have been assigned, and nothing here dials or checks anything.
+
+**It is not a formatter.** National and international display forms are presentation, and a person's number should be shown to them the way their country writes it — which this does not do, and which no byte-stable form can.
+
+**It encodes universal standards, never one provider's behaviour.** E.164 decides what the canonical string is. Which numbers one carrier, one country's regulator or one product will accept is a rule above this suite.

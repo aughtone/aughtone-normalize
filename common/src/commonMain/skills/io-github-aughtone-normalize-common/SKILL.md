@@ -17,7 +17,7 @@ description: >-
   io.github.aughtone.normalize.
 license: Apache-2.0
 metadata:
-  version: "0.0.4"
+  version: "0.0.5"
   repository: https://github.com/aughtone/aughtone-normalize
 ---
 
@@ -86,7 +86,7 @@ when (policies.comparability(idA, versionA, idB, versionB).getOrThrow()) {
 
 **`PublishedPolicies.resolve` became final in `0.0.3`.** A module that rebuilds policies from their ids overrides `resolveBase` instead, so opted-in comparable forms are handled once for every module rather than per module.
 
-**The `Outcome` accessors were renamed to match `kotlin.Result` in this release,** following the `io.github.aughtone:types` library every result type here is built on: `dataOrNull()` is now `getOrNull()`, `dataOrThrow()` is `getOrThrow()`, and `dataOrElse { }` is `getOrElse { }`. The old names are gone rather than deprecated. The failure callbacks — `onFailure`, `fold`'s second parameter, `recover`, `getOrElse` — now receive the `Throwable` itself rather than the `Outcome.Failure` wrapper. `Outcome.Failure.exception`, `Success.data` and `runOutcome` are unchanged. **One thing the compiler will not catch:** `Outcome.Failure.message` is a non-null `String` and `Throwable.message` is `String?`, so a `getOrElse { }` interpolating `it.message` keeps compiling and starts writing `null`; `it.message ?: it.toString()` is what `Failure.message` did.
+**The `Outcome` accessors were renamed to match `kotlin.Result` in `0.0.5`,** following the `io.github.aughtone:types` library every result type here is built on: `dataOrNull()` is now `getOrNull()`, `dataOrThrow()` is `getOrThrow()`, and `dataOrElse { }` is `getOrElse { }`. The old names are gone rather than deprecated. The failure callbacks — `onFailure`, `fold`'s second parameter, `recover`, `getOrElse` — now receive the `Throwable` itself rather than the `Outcome.Failure` wrapper. `Outcome.Failure.exception`, `Success.data` and `runOutcome` are unchanged. **One thing the compiler will not catch:** `Outcome.Failure.message` is a non-null `String` and `Throwable.message` is `String?`, so a `getOrElse { }` interpolating `it.message` keeps compiling and starts writing `null`; `it.message ?: it.toString()` is what `Failure.message` did.
 
 ## Called from Kotlin
 
@@ -94,4 +94,10 @@ when (policies.comparability(idA, versionA, idB, versionB).getOrThrow()) {
 
 ## What it is not for
 
-*This section needs the maintainer and is unwritten.*
+**It is not a normalizer.** Nothing here canonicalises a value: this module holds the identity grammar, the result shapes and the resolver contract, and no rules and no tables at all. A value is normalized by the module that owns its kind.
+
+**It is not a registry, and resolution is not discovery.** No module registers itself anywhere, nothing is found at runtime, and there is no global resolver. A caller combines the resolvers of the modules it depends on, deliberately, with `+`.
+
+**It is not a general-purpose result type.** `Outcome` belongs to `io.github.aughtone:types`; this module only returns it.
+
+**It encodes universal standards, never one provider's behaviour.** A rule that cannot be true everywhere cannot be frozen, so a policy here never captures how one vendor, platform or mail host happens to behave. Where a caller needs that, it belongs above this suite, in the code that knows which provider it is talking to.

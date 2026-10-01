@@ -18,7 +18,7 @@ description: >-
   io.github.aughtone.normalize:ubilibet.
 license: Apache-2.0
 metadata:
-  version: "0.0.4"
+  version: "0.0.5"
   repository: https://github.com/aughtone/aughtone-normalize
 ---
 
@@ -75,7 +75,7 @@ normalizeUsername(value, UsernamePolicy.Basic, listOf(ConfusablePolicy.SkeletonU
 
 **The shape an agent will guess at, and does not exist here.** There is no `Confusables.isConfusable(a, b)`, no `SpoofChecker`, no ICU-style checker object with settable restriction levels, and no default policy argument: `normalizeSkeleton` takes a policy because a caller must name the Unicode release the fold ran against, and comparing skeletons is the caller's own equality test.
 
-**The `Outcome` accessors were renamed to match `kotlin.Result` in this release,** following the `io.github.aughtone:types` library every result here is built on: `dataOrNull()` is `getOrNull()`, `dataOrThrow()` is `getOrThrow()`, `dataOrElse { }` is `getOrElse { }`, and the failure callbacks receive the `Throwable` rather than the `Outcome.Failure` wrapper. The old names are gone rather than deprecated. **What the compiler will not catch:** `Outcome.Failure.message` is a non-null `String` and `Throwable.message` is `String?`, so a `getOrElse { }` interpolating `it.message` keeps compiling and starts writing `null`.
+**The `Outcome` accessors were renamed to match `kotlin.Result` in `0.0.5`,** following the `io.github.aughtone:types` library every result here is built on: `dataOrNull()` is `getOrNull()`, `dataOrThrow()` is `getOrThrow()`, `dataOrElse { }` is `getOrElse { }`, and the failure callbacks receive the `Throwable` rather than the `Outcome.Failure` wrapper. The old names are gone rather than deprecated. **What the compiler will not catch:** `Outcome.Failure.message` is a non-null `String` and `Throwable.message` is `String?`, so a `getOrElse { }` interpolating `it.message` keeps compiling and starts writing `null`.
 
 ## Called from Kotlin
 
@@ -83,4 +83,10 @@ normalizeUsername(value, UsernamePolicy.Basic, listOf(ConfusablePolicy.SkeletonU
 
 ## What it is not for
 
-*This section needs the maintainer and is unwritten.*
+**It does not return a verdict.** A skeleton is evidence. Mixed-script detection, restriction levels, allowed-character profiles and whitelisting are not here, so a collision means two strings fold together and nothing more — what to do about it is a decision for a policy or a person, with the context this module does not have.
+
+**It is not a similarity measure.** There is no score, no distance, no ranking and no threshold. Two values collide or they do not.
+
+**It is not a security boundary.** A skeleton check raises a question about a name. It does not establish that a name is safe, that an account is legitimate, or that an attack was prevented, and it is one signal among several rather than a gate.
+
+**It encodes universal standards, never one provider's behaviour.** The confusables data is Unicode's. Which names a platform refuses, reserves or holds back for review is that platform's rule, and stays with the caller.
