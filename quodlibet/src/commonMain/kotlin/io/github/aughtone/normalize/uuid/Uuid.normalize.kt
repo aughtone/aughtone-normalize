@@ -28,7 +28,7 @@ import io.github.aughtone.types.outcome.runOutcome
  * ```
  * normalizeUuid("{919108F7-52D1-4320-9BAC-F847DB4148A8}", UuidPolicy.Hex)
  *     .onSuccess { normalized -> store(normalized.canonical) }   // "919108f7-52d1-4320-9bac-f847db4148a8"
- *     .onFailure { failure -> log(failure.exception) }           // a typed UuidNormalizationError
+ *     .onFailure { error -> log(error) }           // a typed UuidNormalizationError
  * ```
  */
 fun normalizeUuid(value: String, policy: UuidPolicy): Outcome<NormalizedUuid> = runOutcome {
@@ -193,7 +193,7 @@ class UuidPolicy internal constructor(
             if (guidBytes) add(GuidBytesLink)
             addAll(optedIn.sorted().map { it.link })
         },
-    ).dataOrThrow().rendered
+    ).getOrThrow().rendered
 
     override val version: Int = 1
 

@@ -7,7 +7,7 @@ import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.types.outcome.Outcome
-import io.github.aughtone.types.outcome.dataOrElse
+import io.github.aughtone.types.outcome.getOrElse
 import io.github.aughtone.types.outcome.runOutcome
 
 /**
@@ -48,7 +48,7 @@ import io.github.aughtone.types.outcome.runOutcome
  * ```
  * normalizeUrl(value, UrlPolicy.Rfc3986U17)
  *     .onSuccess { normalized -> store(normalized.canonical) }   // "https://xn--caf-dma.fr/menu"
- *     .onFailure { failure -> log(failure.exception) }           // a typed, value-free UrlNormalizationError
+ *     .onFailure { error -> log(error) }           // a typed, value-free UrlNormalizationError
  * ```
  */
 fun normalizeUrl(value: String, policy: UrlPolicy): Outcome<NormalizedUrl> = runOutcome {
@@ -84,7 +84,7 @@ fun normalizeUrl(value: String, policy: UrlPolicy): Outcome<NormalizedUrl> = run
             if (!hostText.isCanonicalDottedQuad()) throw UrlNormalizationError.AmbiguousAddressHost()
             hostText
         } else {
-            normalizeDomain(hostText, policy.domainPolicy).dataOrNull()?.canonical
+            normalizeDomain(hostText, policy.domainPolicy).getOrNull()?.canonical
                 ?: throw UrlNormalizationError.InvalidHost()
         }
         canonical.append("//").append(host)
@@ -268,7 +268,7 @@ class UrlPolicy internal constructor(
 
         private fun chainOf(vararg links: PolicyLink): String =
             PolicyId.of(links.toList())
-                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .getOrElse { error("not a valid policy chain: ${it.message ?: it.toString()}") }
                 .rendered
     }
 }

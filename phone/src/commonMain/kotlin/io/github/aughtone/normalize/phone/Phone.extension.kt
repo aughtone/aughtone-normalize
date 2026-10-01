@@ -8,7 +8,7 @@ import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.phonenumber.decimalDigitValue
 import io.github.aughtone.types.outcome.Outcome
-import io.github.aughtone.types.outcome.dataOrElse
+import io.github.aughtone.types.outcome.getOrElse
 import io.github.aughtone.types.outcome.runOutcome
 
 /**
@@ -60,11 +60,11 @@ fun normalizePhoneWithExtension(
 
     val marker = findMarker(value)
         ?: return@runOutcome NormalizedPhoneWithExtension(
-            number = normalizePhone(value, policy.number).dataOrThrow(),
+            number = normalizePhone(value, policy.number).getOrThrow(),
             extension = null,
         )
 
-    val number = normalizePhone(value.substring(0, marker.start), policy.number).dataOrThrow()
+    val number = normalizePhone(value.substring(0, marker.start), policy.number).getOrThrow()
     val extension = readExtension(value, marker.end)
 
     NormalizedPhoneWithExtension(
@@ -190,19 +190,44 @@ class ExtensionPolicy internal constructor(
 
         /** The extension beside a number read under [PhonePolicy.E164]. */
         val E164: ExtensionPolicy = ExtensionPolicy(
-            id = PolicyId.of(listOf(Base)).dataOrElse { error("not a valid policy chain: ${it.message}") }.rendered,
+            id = chainOf(Base),
             version = 1,
             number = PhonePolicy.E164,
         )
 
-        /** The extension beside a number read for [region], an ISO region code such as `"ca"`. */
-        fun forRegion(region: String): ExtensionPolicy = ExtensionPolicy(
-            id = E164.id,
-            version = 1,
-            number = PhonePolicy.e164ForRegion(region),
-        )
+        /**
+         * The extension beside a number read for [region], an ISO region code such as `"ca"`.
+         *
+         * **The region is in this identity too**, as it is in [PhonePolicy.e164ForRegion]'s:
+         * `phone.extension:region.ca`. It has to be, because the two policies do not accept the same
+         * input - this one reads national form and [E164] refuses it - and an identity that did not say
+         * which of them was used would resolve back to the wrong one.
+         *
+         * The extension digits themselves are read the same way under every extension policy, so an
+         * extension normalized here has the same canonical bytes it would have under [E164]. What differs
+         * is what the whole input is allowed to be.
+         *
+         * @throws IllegalArgumentException if [region] is not two ASCII letters, or the phonenumber
+         * library carries no metadata for it. Thrown by [PhonePolicy.e164ForRegion], which reads the
+         * number beside the extension.
+         */
+        fun forRegion(region: String): ExtensionPolicy {
+            val number = PhonePolicy.e164ForRegion(region)
+            val code = checkNotNull(number.region) { "a region policy must carry its region" }.lowercase()
+            return ExtensionPolicy(
+                id = chainOf(Base, PolicyLink("region.$code", LinkKind.Parameter)),
+                version = 1,
+                number = number,
+            )
+        }
 
+        /** The policies published without a region. The region ones are built on demand, as phone's are. */
         internal val all: List<ExtensionPolicy> = listOf(E164)
+
+        private fun chainOf(vararg links: PolicyLink): String =
+            PolicyId.of(links.toList())
+                .getOrElse { error("not a valid policy chain: ${it.message ?: it.toString()}") }
+                .rendered
     }
 }
 

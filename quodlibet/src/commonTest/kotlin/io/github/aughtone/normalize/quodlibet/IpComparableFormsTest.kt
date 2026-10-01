@@ -41,7 +41,7 @@ class IpComparableFormsTest {
         is Outcome.Failure -> throw AssertionError("FROZEN: must normalize, failed with ${outcome.exception::class.simpleName}")
     }
 
-    private fun comparability(a: String, b: String): Comparability = resolver.comparability(a, 1, b, 1).dataOrThrow()
+    private fun comparability(a: String, b: String): Comparability = resolver.comparability(a, 1, b, 1).getOrThrow()
 
     @Test
     fun anIpv4AddressAndItsMappedAndNat64SpellingsShareTheIpv4AddressForm() {

@@ -37,12 +37,14 @@ The example below installs `:quodlibet`, which is the table-free bundle — emai
 
 Four more things move in `0.0.4`, and only the first changes bytes. **Whitespace is trimmed more widely**: a no-break space or a byte-order mark around an address or a username is now removed, where it used to end up inside the canonical — so an address pasted out of a formatted page and the same address typed by hand finally produce one token. **A phone extension is refused rather than folded into the number**, which widens what the phone policies reject: `+43 1 58058-0` and its typographic-dash spellings fail instead of returning a different, valid-looking number. **`:quodlibet` now depends on `:ubilibet`**, because an address's domain is normalized as a domain; a consumer that touches no domain ships none of the IDNA tables. And **`iosX64` is no longer published** — Apple silicon simulators use `iosSimulatorArm64`, which is unchanged.
 
+**Moving from `0.0.4`?** Two things change and **no canonical bytes do**. `Outcome`'s accessors follow `kotlin.Result` now — `dataOrNull()` is `getOrNull()`, `dataOrThrow()` is `getOrThrow()`, `dataOrElse { }` is `getOrElse { }` — and the old names are gone rather than deprecated, so a caller sees unresolved references rather than warnings. The one thing the compiler will not catch: a failure callback now receives the `Throwable` itself, whose `message` is nullable, so `it.message` keeps compiling and starts writing `null`; use `it.message ?: it.toString()`. Separately, `ExtensionPolicy.forRegion(region)` writes `phone.extension:region.ca` where it used to write `phone.extension` — it shared an identity with `ExtensionPolicy.E164`, which accepts different input. A stored extension's own bytes are unaffected.
+
 ```kotlin
 // build.gradle.kts
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("io.github.aughtone.normalize:quodlibet:0.0.4")
+            implementation("io.github.aughtone.normalize:quodlibet:0.0.5")
         }
     }
 }
@@ -53,13 +55,19 @@ Or with a version catalog:
 ```toml
 # gradle/libs.versions.toml
 [versions]
-aughtone-normalize = "0.0.4"
+aughtone-normalize = "0.0.5"
 
 [libraries]
 aughtone-normalize-quodlibet = { module = "io.github.aughtone.normalize:quodlibet", version.ref = "aughtone-normalize" }
 ```
 
 **Targets:** JVM, Android, iOS (`arm64`, `x64`, `simulatorArm64`), JS (browser), wasmJs (browser), Linux x64.
+
+## 🤖 Guidance for coding agents
+
+Every published module carries a **dependency skill** — a `SKILL.md` written for the agents of the people who depend on it, shipped inside the module's own sources jar at `commonMain/skills/` rather than hosted anywhere. An agent that resolves `io.github.aughtone.normalize:quodlibet` reads the guidance for exactly the version it resolved: what the module is for, the two or three patterns that cover most callers, the traps that compile and are wrong, and every rename with the release it happened in. They live at `<module>/src/commonMain/skills/io-github-aughtone-normalize-<module>/SKILL.md` and follow the [Agent Skills specification](https://agentskills.io/specification) and [what a dependency skill contains](https://github.com/dependencyskills/dependencyskills/blob/master/spec/content.md).
+
+They exist because an agent writing against this suite already believes it knows it, and what it knows is averaged over every version it was trained on. During alpha that is exactly wrong: policy ids have been respelled twice and the email default has flipped. A skill is the one place the library's own authors get to contradict a confident wrong answer, for the version in front of it.
 
 ## ⚖️ What is stable, and what is not
 
@@ -92,10 +100,10 @@ normalizeEmail(value, EmailPolicy.Address)
         // the hash is stable across platforms and builds; keep the policy identity beside it
         store(hash(normalized.canonical), normalized.policyId, normalized.policyVersion)
     }
-    .onFailure { failure -> log(failure.exception) }   // a typed, value-free EmailNormalizationError
+    .onFailure { error -> log(error) }   // a typed, value-free EmailNormalizationError
 
 // or, where a failure needs no handling of its own
-val canonical: String? = normalizeEmail(value, EmailPolicy.Address).dataOrNull()?.canonical
+val canonical: String? = normalizeEmail(value, EmailPolicy.Address).getOrNull()?.canonical
 ```
 
 **The base keeps the `+`-subaddress**, because some mail systems treat it as part of an account and no domain can be asked which behaviour it has. `EmailPolicy.SubaddressRemoved` (`email:subaddress.removed`) removes it, for a caller who knows the provider treats it as a tag.
@@ -124,7 +132,7 @@ val caseless = TextPolicy(UnicodeRelease.U17) { unicode { trim(); casefold(); nf
 
 normalizeText(value, caseless)
     .onSuccess { normalized -> store(normalized.canonical, normalized.policyId, normalized.policyVersion) }
-    .onFailure { failure -> log(failure.exception) }          // a typed, value-free TextNormalizationError
+    .onFailure { error -> log(error) }          // a typed, value-free TextNormalizationError
 ```
 
 `normalizeText` is one configurable normalizer for general text fields. The rules are `stripControl`, `trim`, `collapseSpace`, `removeSpace`, `lowercase`, `uppercase`, `casefold`, the four normalization forms and `nonEmpty`, and each runs over the character set of the block it sits in: `ascii { }` touches only ASCII, `unicode { }` uses tables frozen from the named Unicode release and shipped with the library, never the platform's. A new OS release cannot change what your application produces, and a new Unicode release is a new policy (`text.u18…`), never a changed one.
@@ -165,7 +173,7 @@ import io.github.aughtone.normalize.mac.normalizeMac
 normalizeMac("00-00-5E-00-53-01", MacPolicy.Eui48)   // "00:00:5e:00:53:01"
 normalizeMac("0000.5e00.5301", MacPolicy.Eui48)      // "00:00:5e:00:53:01"
 
-val address = normalizeMac("0:0:5e:0:53:1", MacPolicy.Eui48).dataOrThrow()
+val address = normalizeMac("0:0:5e:0:53:1", MacPolicy.Eui48).getOrThrow()
 formatMac(address, MacNotation.Ieee)                  // "00-00-5E-00-53-01", for display only
 ```
 
@@ -194,7 +202,7 @@ import io.github.aughtone.normalize.ubilibet.normalizeDomain
 
 normalizeDomain(value, DomainPolicy.AsciiU17)
     .onSuccess { normalized -> store(normalized.canonical) }   // "café.fr" -> "xn--caf-dma.fr"
-    .onFailure { failure -> log(failure.exception) }          // a typed, value-free DomainNormalizationError
+    .onFailure { error -> log(error) }          // a typed, value-free DomainNormalizationError
 ```
 
 Every hostname goes through the same function, ASCII included: a second, simpler rule for ASCII names would produce identical bytes under a different policy identity, which is a mismatch waiting to happen. `AsciiU17` applies every UTS-46 check; `AsciiU17Lenient` relaxes hyphen placement, the STD3 character restriction and DNS length, and keeps the bidi and joiner rules — those exist to stop a name that displays as one thing and resolves as another, which is not something leniency should buy.
@@ -206,8 +214,8 @@ To show a domain to a person, `toUnicodeDomain(value, policy)` converts it to U-
 import io.github.aughtone.normalize.phone.PhonePolicy
 import io.github.aughtone.normalize.phone.normalizePhone
 
-normalizePhone("+1 (212) 555-0123", PhonePolicy.E164).dataOrNull()?.canonical               // "+12125550123"
-normalizePhone("(212) 555-0123", PhonePolicy.e164ForRegion("us")).dataOrNull()?.canonical   // "+12125550123"
+normalizePhone("+1 (212) 555-0123", PhonePolicy.E164).getOrNull()?.canonical               // "+12125550123"
+normalizePhone("(212) 555-0123", PhonePolicy.e164ForRegion("us")).getOrNull()?.canonical   // "+12125550123"
 ```
 
 **An extension can be kept, or refused.** `normalizePhoneWithExtension(value, ExtensionPolicy.E164)` returns the E.164 number and the extension beside it, each with its own identity — the same shape as the email mailbox and its subaddress. Use it when an extension is data you want to keep; use `normalizePhone` when you want one canonical string and nothing else. The marker is the boundary: the number is whatever `normalizePhone` makes of the text before it, so the two calls agree about every number and about every refusal. A marker with nothing after it introduces nothing, so `+1 212 555 0123#` is that number with no extension.
@@ -221,8 +229,8 @@ normalizePhone("(212) 555-0123", PhonePolicy.e164ForRegion("us")).dataOrNull()?.
 import io.github.aughtone.normalize.confusables.ConfusablePolicy
 import io.github.aughtone.normalize.confusables.normalizeSkeleton
 
-val a = normalizeSkeleton("paypal", ConfusablePolicy.SkeletonU17).dataOrNull()?.canonical
-val b = normalizeSkeleton("раypal", ConfusablePolicy.SkeletonU17).dataOrNull()?.canonical   // Cyrillic р and а
+val a = normalizeSkeleton("paypal", ConfusablePolicy.SkeletonU17).getOrNull()?.canonical
+val b = normalizeSkeleton("раypal", ConfusablePolicy.SkeletonU17).getOrNull()?.canonical   // Cyrillic р and а
 // equal canonical values: the second is a lookalike of the first
 ```
 
@@ -240,7 +248,7 @@ import io.github.aughtone.normalize.email.normalizeEmail
 import io.github.aughtone.normalize.quodlibet.QuodlibetPolicies
 
 // policyId and policyVersion were stored next to the hash when the first value was normalized
-val policy = QuodlibetPolicies.resolve(policyId, policyVersion).dataOrThrow() as EmailPolicy
+val policy = QuodlibetPolicies.resolve(policyId, policyVersion).getOrThrow() as EmailPolicy
 normalizeEmail(newValue, policy)
 ```
 
@@ -250,7 +258,7 @@ normalizeEmail(newValue, policy)
 import io.github.aughtone.normalize.common.Comparability
 import io.github.aughtone.normalize.common.comparability
 
-when (val result = policies.comparability(idA, versionA, idB, versionB).dataOrThrow()) {
+when (val result = policies.comparability(idA, versionA, idB, versionB).getOrThrow()) {
     Comparability.SamePolicy -> match()
     is Comparability.InForm -> match()          // result.form names the declaration that allows it
     Comparability.NotComparable -> skip()

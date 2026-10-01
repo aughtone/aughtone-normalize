@@ -117,14 +117,14 @@ class ComparableFormTest {
 
     @Test
     fun theCheckReportsSamePolicyInFormOrNotComparable() {
-        assertEquals(Comparability.SamePolicy, module.comparability("example.strict", 1, "example.strict", 1).dataOrThrow())
-        assertEquals(Comparability.InForm(value), module.comparability("example.strict", 1, "example.strict:lenient", 1).dataOrThrow())
-        assertEquals(Comparability.NotComparable, module.comparability("example.strict", 1, "example.plain", 1).dataOrThrow())
+        assertEquals(Comparability.SamePolicy, module.comparability("example.strict", 1, "example.strict", 1).getOrThrow())
+        assertEquals(Comparability.InForm(value), module.comparability("example.strict", 1, "example.strict:lenient", 1).getOrThrow())
+        assertEquals(Comparability.NotComparable, module.comparability("example.strict", 1, "example.plain", 1).getOrThrow())
         // Not comparable until the caller opts in, and then comparable in exactly that form.
-        assertEquals(Comparability.NotComparable, module.comparability("example.strict", 1, "example.other", 1).dataOrThrow())
+        assertEquals(Comparability.NotComparable, module.comparability("example.strict", 1, "example.other", 1).getOrThrow())
         assertEquals(
             Comparability.InForm(loose),
-            module.comparability("example.strict:form.example.loose", 1, "example.other:form.example.loose", 1).dataOrThrow(),
+            module.comparability("example.strict:form.example.loose", 1, "example.other:form.example.loose", 1).getOrThrow(),
         )
     }
 
@@ -133,7 +133,7 @@ class ComparableFormTest {
         val result = module.comparability(
             "example.strict:form.example.loose:form.example.wide", 1,
             "example.strict:form.example.wide", 1,
-        ).dataOrThrow()
+        ).getOrThrow()
         // Shared: example.value (declared) and example.wide (opted into). First by name wins.
         assertEquals(Comparability.InForm(value), result)
     }

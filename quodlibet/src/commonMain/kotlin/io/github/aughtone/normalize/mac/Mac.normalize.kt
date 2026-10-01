@@ -7,7 +7,7 @@ import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.types.outcome.Outcome
-import io.github.aughtone.types.outcome.dataOrElse
+import io.github.aughtone.types.outcome.getOrElse
 import io.github.aughtone.types.outcome.runOutcome
 
 /**
@@ -31,7 +31,7 @@ import io.github.aughtone.types.outcome.runOutcome
  * ```
  * normalizeMac("00-00-5E-00-53-01", MacPolicy.Eui48)
  *     .onSuccess { normalized -> store(normalized.canonical) }   // "00:00:5e:00:53:01"
- *     .onFailure { failure -> log(failure.exception) }           // a typed MacNormalizationError
+ *     .onFailure { error -> log(error) }           // a typed MacNormalizationError
  * ```
  */
 fun normalizeMac(value: String, policy: MacPolicy): Outcome<NormalizedMac> = runOutcome {
@@ -164,7 +164,7 @@ class MacPolicy internal constructor(
 
         private fun chainOf(vararg links: PolicyLink): String =
             PolicyId.of(links.toList())
-                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .getOrElse { error("not a valid policy chain: ${it.message ?: it.toString()}") }
                 .rendered
     }
 }

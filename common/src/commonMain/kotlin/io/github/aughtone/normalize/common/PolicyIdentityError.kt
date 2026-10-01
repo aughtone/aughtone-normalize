@@ -55,7 +55,7 @@ sealed class PolicyIdentityError(message: String) : Exception(message) {
     /** An id opts into a comparable form its policy does not offer. */
     class FormNotOffered(val id: String, val form: String) : PolicyIdentityError("policy id '$id': comparable form '$form' is not offered")
 
-    /** A value given as a portable id contains `+`, so it is not one - see [PolicyId.fromPortable]. */
+    /** A value given as a portable id contains `:`, so it is not one - see [PolicyId.fromPortable]. */
     class NotPortable(val id: String) : PolicyIdentityError("policy id '$id': not a portable spelling")
 
     /** The chain is well-formed and every link is known, but no module publishes this exact policy. */

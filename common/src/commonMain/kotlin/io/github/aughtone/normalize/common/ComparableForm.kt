@@ -36,7 +36,7 @@ class ComparableForm(val name: String) : Comparable<ComparableForm> {
 
     init {
         require(PolicyLink.isValidLinkName(name)) {
-            "a comparable form name must be lowercase segments of [a-z0-9-] joined by '.', was: $name"
+            "a comparable form name must be lowercase segments of [a-z0-9] joined by '.', was: $name"
         }
     }
 
@@ -116,8 +116,8 @@ sealed class Comparability {
  */
 fun PolicyResolver.comparability(idA: String, versionA: Int, idB: String, versionB: Int): Outcome<Comparability> =
     runOutcome {
-        val a = resolve(idA, versionA).dataOrThrow()
-        val b = resolve(idB, versionB).dataOrThrow()
+        val a = resolve(idA, versionA).getOrThrow()
+        val b = resolve(idB, versionB).getOrThrow()
         when {
             a.id == b.id && a.version == b.version -> Comparability.SamePolicy
             else -> a.forms.intersect(b.forms).minOrNull()?.let { Comparability.InForm(it) } ?: Comparability.NotComparable

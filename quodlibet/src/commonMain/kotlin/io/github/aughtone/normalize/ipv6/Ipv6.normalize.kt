@@ -9,7 +9,7 @@ import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.normalize.ipv4.formatIpv4
 import io.github.aughtone.normalize.quodlibet.IpForms
 import io.github.aughtone.types.outcome.Outcome
-import io.github.aughtone.types.outcome.dataOrElse
+import io.github.aughtone.types.outcome.getOrElse
 import io.github.aughtone.types.outcome.runOutcome
 
 /**
@@ -26,7 +26,7 @@ import io.github.aughtone.types.outcome.runOutcome
  * ```
  * normalizeIpv6(value, Ipv6Policy.Rfc5952)
  *     .onSuccess { normalized -> store(normalized.canonical) }   // "2001:db8::1"
- *     .onFailure { failure -> log(failure.exception) }           // a typed Ipv6NormalizationError
+ *     .onFailure { error -> log(error) }           // a typed Ipv6NormalizationError
  * ```
  */
 fun normalizeIpv6(value: String, policy: Ipv6Policy): Outcome<NormalizedIpv6> = runOutcome {
@@ -230,7 +230,7 @@ class Ipv6Policy internal constructor(
     }
 
     override val id: String = PolicyId.of(links)
-        .dataOrElse { error("not a valid policy chain: ${it.message}") }
+        .getOrElse { error("not a valid policy chain: ${it.message ?: it.toString()}") }
         .rendered
 
     override val version: Int = 1

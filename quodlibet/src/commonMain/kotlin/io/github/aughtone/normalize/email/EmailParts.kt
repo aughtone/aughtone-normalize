@@ -9,7 +9,7 @@ import io.github.aughtone.normalize.ubilibet.DomainPolicy
 import io.github.aughtone.normalize.ubilibet.NormalizedDomain
 import io.github.aughtone.normalize.ubilibet.normalizeDomain
 import io.github.aughtone.types.outcome.Outcome
-import io.github.aughtone.types.outcome.dataOrElse
+import io.github.aughtone.types.outcome.getOrElse
 import io.github.aughtone.types.outcome.runOutcome
 
 /**
@@ -122,7 +122,7 @@ class EmailLocalPolicy internal constructor(
 
         /** The local part, version 1. */
         val V1: EmailLocalPolicy = EmailLocalPolicy(
-            id = PolicyId.of(listOf(Base)).dataOrElse { error("not a valid policy chain: ${it.message}") }.rendered,
+            id = PolicyId.of(listOf(Base)).getOrElse { error("not a valid policy chain: ${it.message ?: it.toString()}") }.rendered,
             version = 1,
         )
 

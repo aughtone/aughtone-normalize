@@ -157,7 +157,7 @@ class UuidByteStabilityTest {
         assertEquals("uuid.hex:bytes.guid", UuidPolicy.Hex.guidBytes().id)
         assertEquals("uuid.rfc9562:bytes.guid", UuidPolicy.Rfc9562.guidBytes().id)
 
-        fun comparability(a: String, b: String) = QuodlibetPolicies.comparability(a, 1, b, 1).dataOrThrow()
+        fun comparability(a: String, b: String) = QuodlibetPolicies.comparability(a, 1, b, 1).getOrThrow()
         assertEquals(Comparability.InForm(UuidForms.Uuid), comparability("uuid.hex", "uuid.rfc9562"))
         assertEquals(Comparability.NotComparable, comparability("uuid.hex", "uuid.hex:bytes.guid"))
         assertEquals(Comparability.InForm(UuidForms.Uuid), comparability("uuid.hex", "uuid.hex:bytes.guid:form.uuid"))

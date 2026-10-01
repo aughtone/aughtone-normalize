@@ -8,7 +8,7 @@ import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.normalize.common.PublishedPolicies
 import io.github.aughtone.phonenumber.PhoneNumberUtil
 import io.github.aughtone.types.outcome.Outcome
-import io.github.aughtone.types.outcome.dataOrElse
+import io.github.aughtone.types.outcome.getOrElse
 
 /**
  * A frozen phone-normalization policy.
@@ -133,7 +133,7 @@ class PhonePolicy internal constructor(
 
         private fun chainOf(vararg links: PolicyLink): String =
             PolicyId.of(links.toList())
-                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .getOrElse { error("not a valid policy chain: ${it.message ?: it.toString()}") }
                 .rendered
     }
 }
@@ -143,7 +143,10 @@ class PhonePolicy internal constructor(
  *
  * A region policy is built on demand rather than enumerated - there are hundreds of regions and a caller
  * uses one or two - so resolution accepts any `region.xx` link whose metadata exists, and rebuilds the
- * policy from it. That keeps the round trip total: anything this module can produce, it can resolve.
+ * policy from it. That holds for both bases: `phone.e164:region.ca` rebuilds a [PhonePolicy] and
+ * `phone.extension:region.ca` an [ExtensionPolicy]. The rebuilt id must equal the one asked for, so a
+ * combination that names no policy - a lenient extension, say - is refused rather than approximated. That
+ * keeps the round trip total: anything this module can produce, it can resolve.
  */
 object PhonePolicies : PublishedPolicies() {
 
@@ -154,10 +157,10 @@ object PhonePolicies : PublishedPolicies() {
     override fun resolveBase(id: String, version: Int): Outcome<Policy> {
         val region = regionOf(id) ?: return super.resolveBase(id, version)
         val rebuilt = try {
-            if (id.endsWith(":lenient")) {
-                PhonePolicy.e164ForRegionLenient(region)
-            } else {
-                PhonePolicy.e164ForRegion(region)
+            when {
+                id.startsWith("${ExtensionPolicy.Base.name}:") -> ExtensionPolicy.forRegion(region)
+                id.endsWith(":lenient") -> PhonePolicy.e164ForRegionLenient(region)
+                else -> PhonePolicy.e164ForRegion(region)
             }
         } catch (failure: IllegalArgumentException) {
             return super.resolveBase(id, version)

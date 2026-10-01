@@ -72,7 +72,7 @@ class TextPolicy internal constructor(
         for (configured in rules) add(PolicyLink(linkName(configured), LinkKind.Parameter))
     }
 
-    override val id: String = PolicyId.of(links).dataOrThrow().rendered
+    override val id: String = PolicyId.of(links).getOrThrow().rendered
 
     override val version: Int = 1
 
@@ -163,7 +163,7 @@ class TextPolicy internal constructor(
          * equivalent, because a policy with two ids has values that never match each other.
          */
         internal fun parse(id: String): Outcome<TextPolicy> = runOutcome {
-            val names = PolicyId.split(id).dataOrThrow()
+            val names = PolicyId.split(id).getOrThrow()
             val base = names.first()
             val release = when {
                 base == BASE -> null

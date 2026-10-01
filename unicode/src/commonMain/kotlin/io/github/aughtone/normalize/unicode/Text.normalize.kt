@@ -20,7 +20,7 @@ import io.github.aughtone.types.outcome.runOutcome
  * ```
  * normalizeText(value, TextPolicy { ascii { trim(); lowercase() } })
  *     .onSuccess { normalized -> store(normalized.canonical, normalized.policyId, normalized.policyVersion) }
- *     .onFailure { failure -> log(failure.exception) }           // a TextNormalizationError
+ *     .onFailure { error -> log(error) }           // a TextNormalizationError
  * ```
  */
 fun normalizeText(
@@ -35,7 +35,7 @@ fun normalizeText(
             throw TextPolicyError.MismatchedRelease(policy.release.segment, stepRelease)
         }
     }
-    val policyId = if (steps.isEmpty()) policy.id else PolicyId.of(policy.links + steps.flatMap { it.links }).dataOrThrow().rendered
+    val policyId = if (steps.isEmpty()) policy.id else PolicyId.of(policy.links + steps.flatMap { it.links }).getOrThrow().rendered
     val canonical = steps.fold(policy.apply(value)) { text, step -> step.apply(text) }
     NormalizedText(canonical = canonical, policyId = policyId, policyVersion = policy.version)
 }
@@ -45,7 +45,7 @@ fun normalizeText(
  * NOT for anything you intend to store a token from - use [normalizeText] and keep the policy identity.
  */
 fun String.normalizeTextOrNull(policy: TextPolicy): String? =
-    normalizeText(this, policy).dataOrNull()?.canonical
+    normalizeText(this, policy).getOrNull()?.canonical
 
 /**
  * The normalized string plus the policy identity that produced it. Store all three beside anything

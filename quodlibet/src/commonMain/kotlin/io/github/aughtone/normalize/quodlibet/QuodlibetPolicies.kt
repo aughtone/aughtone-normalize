@@ -25,7 +25,7 @@ import io.github.aughtone.types.outcome.Outcome
  *
  * ```
  * // the id and version were stored beside the hash when the value was first normalized
- * val policy = QuodlibetPolicies.resolve(storedId, storedVersion).dataOrThrow() as EmailPolicy
+ * val policy = QuodlibetPolicies.resolve(storedId, storedVersion).getOrThrow() as EmailPolicy
  * normalizeEmail(newValue, policy)
  * ```
  *

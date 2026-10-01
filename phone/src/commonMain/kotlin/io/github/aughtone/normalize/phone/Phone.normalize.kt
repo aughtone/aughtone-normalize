@@ -30,8 +30,9 @@ import io.github.aughtone.types.outcome.runOutcome
  *
  * E.164 has no room for an extension, and dropping the characters that introduce one would splice its
  * digits onto the subscriber number - `+1 212 555 0123 #4` would become `+121255501234`, a different and
- * entirely plausible number. So `#`, `,` and `;` are refused under every policy, leniency included:
- * leniency widens what is accepted and may never invent data.
+ * entirely plausible number. So `#`, `,` and `;` are refused under every policy, leniency included, and
+ * so is the wait-for-dial-tone marker in each of its four spellings - `~`, `⁓`, `∼` and `～`: leniency
+ * widens what is accepted and may never invent data.
  *
  * The harder half is that an extension is usually written with ordinary formatting. `+43 1 58058-0` is
  * the Durchwahl convention of German-speaking countries, and `-`, `.`, `/`, `(`, `)` and the space all
@@ -150,14 +151,6 @@ fun normalizePhone(value: String, policy: PhonePolicy): Outcome<NormalizedPhone>
 }
 
 /**
- * The region used to parse input that already carries its own country code.
- *
- * A region is required by the underlying parser even when the number is international, where it has no
- * effect on the result. The E.164-only policies refuse national-format input outright, so this is never
- * consulted for anything it could change - and a frozen corpus test pins that, because "it does not
- * matter" is the kind of claim that quietly stops being true.
- */
-/**
  * The typed error one of the dependency's failures becomes.
  *
  * Every error type is mapped deliberately rather than through an `else`: the dependency added four of
@@ -189,6 +182,14 @@ internal fun PhoneNumberUtil.NumberParseException.toNormalizationError(): PhoneN
         PhoneNumberUtil.ErrorType.ALPHA_NUMBER_DISALLOWED -> PhoneNormalizationError.NotANumber()
     }
 
+/**
+ * The region used to parse input that already carries its own country code.
+ *
+ * A region is required by the underlying parser even when the number is international, where it has no
+ * effect on the result. The E.164-only policies refuse national-format input outright, so this is never
+ * consulted for anything it could change - and a frozen corpus test pins that, because "it does not
+ * matter" is the kind of claim that quietly stops being true.
+ */
 internal const val NEUTRAL_REGION = "US"
 
 /**
@@ -242,9 +243,10 @@ private fun Int.isPlus(): Boolean = this == 0x2B || this == 0xFF0B
 internal fun Int.isAsciiLetter(): Boolean = this in 0x41..0x5A || this in 0x61..0x7A
 
 /**
- * `#`, `,` and `;`, each of which says that what follows is not part of the number: an extension, a DTMF
- * sequence, or a dialling pause. Refused under every policy, because leniency widens what is accepted and
- * may never invent data - dropping the marker would splice the digits after it onto the subscriber number.
+ * `#`, `,`, `;` and the wait-for-dial-tone marker in its four spellings, each of which says that what
+ * follows is not part of the number: an extension, a DTMF sequence, or a dialling pause. Refused under
+ * every policy, because leniency widens what is accepted and may never invent data - dropping the marker
+ * would splice the digits after it onto the subscriber number.
  */
 private fun Int.isExtensionMarker(): Boolean =
     this == 0x23 || this == 0x2C || this == 0x3B ||
@@ -300,9 +302,10 @@ sealed class PhoneNormalizationError(message: String) : Exception(message) {
     class NotValidForRegion : PhoneNormalizationError("phone: not valid for its region")
 
     /**
-     * A marker that introduces something other than the number - `#`, `,` or `;`. The digits after it are
-     * an extension or a dialling sequence, and E.164 has no room for either, so the input is refused
-     * rather than silently folded into the subscriber number.
+     * A marker that introduces something other than the number - `#`, `,`, `;`, or the wait-for-dial-tone
+     * marker in any of its four spellings, `~`, `⁓`, `∼` and `～`. The digits after it are an extension or a
+     * dialling sequence, and E.164 has no room for either, so the input is refused rather than silently
+     * folded into the subscriber number.
      */
     class ExtensionNotSupported(val index: Int, val codePoint: Int) :
         PhoneNormalizationError("phone: extension marker at index $index (U+${codePoint.toHex()})")

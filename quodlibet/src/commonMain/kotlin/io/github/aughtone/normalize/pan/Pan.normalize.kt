@@ -7,7 +7,7 @@ import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.types.outcome.Outcome
-import io.github.aughtone.types.outcome.dataOrElse
+import io.github.aughtone.types.outcome.getOrElse
 import io.github.aughtone.types.outcome.runOutcome
 
 /**
@@ -25,7 +25,7 @@ import io.github.aughtone.types.outcome.runOutcome
  * ```
  * normalizePan(value, PanPolicy.Digits)
  *     .onSuccess { normalized -> store(normalized.canonical) }   // "4111111111111111"
- *     .onFailure { failure -> log(failure.exception) }           // a typed PanNormalizationError
+ *     .onFailure { error -> log(error) }           // a typed PanNormalizationError
  * ```
  */
 fun normalizePan(value: String, policy: PanPolicy): Outcome<NormalizedPan> = runOutcome {
@@ -103,7 +103,7 @@ class PanPolicy internal constructor(
 
         private fun chainOf(vararg links: PolicyLink): String =
             PolicyId.of(links.toList())
-                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .getOrElse { error("not a valid policy chain: ${it.message ?: it.toString()}") }
                 .rendered
     }
 }
