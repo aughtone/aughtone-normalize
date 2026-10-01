@@ -213,7 +213,7 @@ private fun networkResult(network: Long, prefixLength: Int, policy: Policy): Nor
 }
 
 private fun chain(address: Ipv4Policy, optedIn: Set<ComparableForm>, vararg parameters: PolicyLink): String =
-    PolicyId.of(listOf(PolicyLink(address.base, LinkKind.Base)) + parameters + optedIn.sorted().map { it.link }).dataOrThrow().rendered
+    PolicyId.of(listOf(PolicyLink(address.base, LinkKind.Base)) + parameters + optedIn.sorted().map { it.link }).getOrThrow().rendered
 
 /** `ipv4.quad.dotted` networks write the IPv4 network form; `ipv4.inet.aton` networks only once a caller opts in. */
 private fun networkForms(address: Ipv4Policy, optedIn: Set<ComparableForm>): Set<ComparableForm> =

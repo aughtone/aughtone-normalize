@@ -26,7 +26,7 @@ import io.github.aughtone.types.outcome.runOutcome
  * ```
  * normalizeEmail(value, EmailPolicy.Address)
  *     .onSuccess { normalized -> store(hash(normalized.canonical), normalized.policyId, normalized.policyVersion) }
- *     .onFailure { failure -> log(failure.exception) }   // a typed, value-free EmailNormalizationError
+ *     .onFailure { error -> log(error) }   // a typed, value-free EmailNormalizationError
  * ```
  */
 fun normalizeEmail(value: String, policy: EmailPolicy): Outcome<NormalizedEmail> = runOutcome {
@@ -92,7 +92,7 @@ internal fun readEmail(value: String, policy: EmailPolicy): EmailReading {
  * NOT for blind tokenization — use [normalizeEmail] and persist `policyId` + `policyVersion` there.
  */
 fun String.normalizeEmailOrNull(policy: EmailPolicy): String? =
-    normalizeEmail(this, policy).dataOrNull()?.canonical
+    normalizeEmail(this, policy).getOrNull()?.canonical
 
 // --- byte-level helpers: ASCII only, Unicode-version-independent ---
 

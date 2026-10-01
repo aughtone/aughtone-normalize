@@ -6,7 +6,7 @@ import io.github.aughtone.normalize.common.Policy
 import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.types.outcome.Outcome
-import io.github.aughtone.types.outcome.dataOrElse
+import io.github.aughtone.types.outcome.getOrElse
 import io.github.aughtone.types.outcome.runOutcome
 
 /**
@@ -74,7 +74,7 @@ class EmailSubaddressPolicy internal constructor(
          * [EmailPolicy.SubaddressRemoved] - the address with the tag taken off, which is what a mailbox is.
          */
         val V1: EmailSubaddressPolicy = EmailSubaddressPolicy(
-            id = PolicyId.of(listOf(Base)).dataOrElse { error("not a valid policy chain: ${it.message}") }.rendered,
+            id = PolicyId.of(listOf(Base)).getOrElse { error("not a valid policy chain: ${it.message ?: it.toString()}") }.rendered,
             version = 1,
             mailbox = EmailPolicy.SubaddressRemoved,
         )

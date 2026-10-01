@@ -27,7 +27,7 @@ import kotlin.test.assertNotEquals
  */
 class LenientPairFormsTest {
 
-    private fun comparability(a: String, b: String): Comparability = QuodlibetPolicies.comparability(a, 1, b, 1).dataOrThrow()
+    private fun comparability(a: String, b: String): Comparability = QuodlibetPolicies.comparability(a, 1, b, 1).getOrThrow()
 
     @Test
     fun theCardNumberPairSharesItsForm() {

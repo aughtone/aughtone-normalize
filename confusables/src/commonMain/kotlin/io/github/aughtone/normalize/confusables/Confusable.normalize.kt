@@ -9,7 +9,7 @@ import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.normalize.common.PublishedPolicies
 import io.github.aughtone.normalize.common.StepPhase
 import io.github.aughtone.types.outcome.Outcome
-import io.github.aughtone.types.outcome.dataOrElse
+import io.github.aughtone.types.outcome.getOrElse
 import io.github.aughtone.types.outcome.runOutcome
 
 /**
@@ -38,7 +38,7 @@ import io.github.aughtone.types.outcome.runOutcome
  * ```
  * normalizeSkeleton(value, ConfusablePolicy.SkeletonU17)
  *     .onSuccess { normalized -> store(normalized.canonical) }
- *     .onFailure { failure -> log(failure.exception) }
+ *     .onFailure { error -> log(error) }
  * ```
  */
 fun normalizeSkeleton(value: String, policy: ConfusablePolicy): Outcome<NormalizedSkeleton> = runOutcome {
@@ -75,7 +75,7 @@ class ConfusablePolicy internal constructor(
         val SkeletonU17: ConfusablePolicy = run {
             val link = PolicyLink("skeleton.u17", LinkKind.Base, StepPhase.Map)
             val id = PolicyId.of(listOf(link))
-                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .getOrElse { error("not a valid policy chain: ${it.message ?: it.toString()}") }
                 .rendered
             ConfusablePolicy(id = id, version = 1, link = link)
         }

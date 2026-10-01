@@ -122,7 +122,7 @@ class MacByteStabilityTest {
         assertEquals("mac.eui64", MacPolicy.Eui64.id)
         assertEquals(setOf(MacForms.Eui48), MacPolicy.Eui48.forms)
         assertEquals(setOf(MacForms.Eui64), MacPolicy.Eui64.forms)
-        assertEquals(Comparability.NotComparable, QuodlibetPolicies.comparability("mac.eui48", 1, "mac.eui64", 1).dataOrThrow())
+        assertEquals(Comparability.NotComparable, QuodlibetPolicies.comparability("mac.eui48", 1, "mac.eui64", 1).getOrThrow())
         for (policy in listOf(MacPolicy.Eui48, MacPolicy.Eui64)) {
             val resolved = QuodlibetPolicies.resolve(policy.id, policy.version)
             assertTrue(resolved is Outcome.Success, "<${policy.id}> must resolve")

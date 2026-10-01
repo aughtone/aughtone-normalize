@@ -103,17 +103,17 @@ class CompositePolicyResolver(internal val resolvers: List<PolicyResolver>) : Po
         val directFailure = (direct as Outcome.Failure).exception
         if (directFailure !is PolicyIdentityError || directFailure.isOwned()) throw directFailure
 
-        val names = PolicyId.split(id).dataOrThrow()
+        val names = PolicyId.split(id).getOrThrow()
         val openers = links.filter { it.phase != null }.mapTo(HashSet()) { it.name }
         val groups = splitGroups(names, openers)
         if (groups.size < 2) throw directFailure
 
-        val base = resolveDirect(groups.first().joinToString(SEPARATOR), version).dataOrThrow()
+        val base = resolveDirect(groups.first().joinToString(SEPARATOR), version).getOrThrow()
         val steps = groups.drop(1).map { group ->
             val groupId = group.joinToString(SEPARATOR)
             // A step carries no version of its own: a changed step is a new link (see NormalizationStep),
             // so each group has exactly one version, and it is the first.
-            val resolved = resolveDirect(groupId, STEP_VERSION).dataOrThrow()
+            val resolved = resolveDirect(groupId, STEP_VERSION).getOrThrow()
             resolved as? NormalizationStep ?: throw PolicyIdentityError.NotAStep(id, groupId)
         }
         val composed = ComposedPolicy(base, steps)
@@ -208,10 +208,10 @@ abstract class PublishedPolicies : PolicyResolver {
 private fun resolveWithForms(id: String, version: Int, base: (String, Int) -> Outcome<Policy>): Outcome<Policy> = runOutcome {
     val names = id.split(':')
     val formCount = names.reversed().takeWhile { it.startsWith(ComparableForm.FORM_PREFIX) }.size
-    if (formCount == 0) return@runOutcome base(id, version).dataOrThrow()
+    if (formCount == 0) return@runOutcome base(id, version).getOrThrow()
     if (formCount == names.size) throw PolicyIdentityError.MissingBase(id)
 
-    val policy = base(names.dropLast(formCount).joinToString(":"), version).dataOrThrow()
+    val policy = base(names.dropLast(formCount).joinToString(":"), version).getOrThrow()
     val formNames = names.takeLast(formCount)
     val forms = formNames.map { ComparableForm.ofLink(it) ?: throw PolicyIdentityError.MalformedLink(it) }
     if (forms.toSet().size != forms.size) throw PolicyIdentityError.DuplicateLink(id, formNames.first { name -> formNames.count { it == name } > 1 })
@@ -231,7 +231,7 @@ private fun resolveIn(
     id: String,
     version: Int,
 ): Outcome<Policy> = runOutcome {
-    val chain = PolicyId.parse(id, links).dataOrThrow()
+    val chain = PolicyId.parse(id, links).getOrThrow()
     val matches = policies.filter { it.id == chain.rendered }
     if (matches.isEmpty()) throw PolicyIdentityError.UnknownPolicy(chain.rendered)
     matches.firstOrNull { it.version == version }

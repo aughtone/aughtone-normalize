@@ -26,7 +26,7 @@ import io.github.aughtone.types.outcome.runOutcome
  * ```
  * normalizeDomain(value, DomainPolicy.AsciiU17)
  *     .onSuccess { normalized -> store(normalized.canonical) }   // "xn--caf-dma.fr"
- *     .onFailure { failure -> log(failure.exception) }           // a typed, value-free DomainNormalizationError
+ *     .onFailure { error -> log(error) }           // a typed, value-free DomainNormalizationError
  * ```
  */
 fun normalizeDomain(value: String, policy: DomainPolicy): Outcome<NormalizedDomain> = runOutcome {
@@ -44,7 +44,7 @@ fun normalizeDomain(value: String, policy: DomainPolicy): Outcome<NormalizedDoma
  * NOT for tokenization - use [normalizeDomain] and keep the policy identity beside whatever you derive.
  */
 fun String.normalizeDomainOrNull(policy: DomainPolicy): String? =
-    normalizeDomain(this, policy).dataOrNull()?.canonical
+    normalizeDomain(this, policy).getOrNull()?.canonical
 
 /**
  * The canonical A-label form plus the policy identity that produced it. Store all three beside anything

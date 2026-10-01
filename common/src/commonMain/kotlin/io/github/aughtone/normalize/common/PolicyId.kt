@@ -135,13 +135,13 @@ class PolicyId private constructor(val links: List<PolicyLink>) {
          */
         fun parse(id: String, known: Collection<PolicyLink>): Outcome<PolicyId> = runOutcome {
             val byName = known.associateBy { it.name }
-            val names = split(id).dataOrThrow()
+            val names = split(id).getOrThrow()
             val links = names.map { name ->
                 // A form link is recognized from its name: no module publishes one, and whether the policy
                 // offers that form is the resolver's question, not the grammar's.
                 byName[name] ?: ComparableForm.ofLink(name)?.link ?: throw PolicyIdentityError.UnknownLink(id, name)
             }
-            of(links).dataOrThrow()
+            of(links).getOrThrow()
         }
 
         /**
@@ -172,7 +172,7 @@ class PolicyId private constructor(val links: List<PolicyLink>) {
          * Only the lexical grammar is checked, as in [split].
          */
         fun toPortable(id: String): Outcome<String> = runOutcome {
-            split(id).dataOrThrow().joinToString(PORTABLE_SEPARATOR.toString())
+            split(id).getOrThrow().joinToString(PORTABLE_SEPARATOR.toString())
         }
 
         /**
@@ -185,7 +185,7 @@ class PolicyId private constructor(val links: List<PolicyLink>) {
         fun fromPortable(portable: String): Outcome<String> = runOutcome {
             if (portable.contains(SEPARATOR)) throw PolicyIdentityError.NotPortable(portable)
             val names = portable.split(PORTABLE_SEPARATOR)
-            split(names.joinToString(SEPARATOR.toString())).dataOrThrow().joinToString(SEPARATOR.toString())
+            split(names.joinToString(SEPARATOR.toString())).getOrThrow().joinToString(SEPARATOR.toString())
         }
     }
 }

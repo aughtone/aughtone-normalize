@@ -14,7 +14,7 @@ kotlinx-datetime = "0.8.0"
 vanniktech = "0.37.0"
 kotlinBrowser = "2026.9.2"
 
-aughtone-types = "4.0.0"
+aughtone-types = "4.1.0-SNAPSHOT"
 aughtone-phonenumber = "0.0.4"
 
 [libraries]

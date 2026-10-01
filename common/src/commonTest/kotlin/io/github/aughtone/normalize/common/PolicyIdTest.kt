@@ -118,9 +118,9 @@ class PolicyIdTest {
             "email_nfc.u17_punycode.u17",
         )
         for ((id, expected) in ids.zip(portable)) {
-            assertEquals(expected, PolicyId.toPortable(id).dataOrThrow(), "FROZEN: portable spelling of <$id>")
+            assertEquals(expected, PolicyId.toPortable(id).getOrThrow(), "FROZEN: portable spelling of <$id>")
             assertEquals(expected, parsed(id).portable)
-            assertEquals(id, PolicyId.fromPortable(expected).dataOrThrow(), "<$expected> must recover <$id>")
+            assertEquals(id, PolicyId.fromPortable(expected).getOrThrow(), "<$expected> must recover <$id>")
             // Only letters, digits, '-', '_' and '.' - the set restricted identifier slots accept.
             assertTrue(expected.all { it in 'a'..'z' || it in '0'..'9' || it in "-_." }, expected)
         }

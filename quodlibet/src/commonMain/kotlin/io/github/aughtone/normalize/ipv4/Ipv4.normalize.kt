@@ -8,7 +8,7 @@ import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.normalize.quodlibet.IpForms
 import io.github.aughtone.types.outcome.Outcome
-import io.github.aughtone.types.outcome.dataOrElse
+import io.github.aughtone.types.outcome.getOrElse
 import io.github.aughtone.types.outcome.runOutcome
 
 /**
@@ -182,7 +182,7 @@ class Ipv4Policy internal constructor(
 
         private fun chainOf(vararg links: PolicyLink): String =
             PolicyId.of(links.toList())
-                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .getOrElse { error("not a valid policy chain: ${it.message ?: it.toString()}") }
                 .rendered
     }
 }

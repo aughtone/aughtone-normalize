@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
  * policies, which are built on demand rather than enumerated.
  *
  * That is the interesting case here. There are hundreds of regions and a caller uses one or two, so the
- * module does not publish a constant per region; resolution rebuilds the policy from the `region-xx`
+ * module does not publish a constant per region; resolution rebuilds the policy from the `region.xx`
  * link instead. If it could not, a value normalized under `phone.e164:region.ca` would be impossible to
  * re-derive from what the caller stored, which is the whole point of keeping the identity.
  */
@@ -89,11 +89,39 @@ class PhonePolicyRoundTripTest {
     }
 
     @Test
+    fun noTwoPoliciesShareAnIdentity() {
+        // #42: ExtensionPolicy.forRegion used to carry ExtensionPolicy.E164's id, so two policies that
+        // accept different input - one reads national form, the other refuses it - had one (id, version)
+        // between them, and `phone.extension` resolved to whichever was enumerated. Nothing caught it
+        // because the checks above walk PhonePolicies.policies, and a policy built on demand is not in it.
+        val identities = everyPolicy.map { it.id to it.version }
+        val collisions = identities.groupBy { it }.filterValues { it.size > 1 }.keys
+        assertTrue(collisions.isEmpty(), "policies sharing an identity: $collisions")
+        assertEquals("phone.extension:region.ca", ExtensionPolicy.forRegion("ca").id)
+    }
+
+    @Test
+    fun aRegionExtensionPolicyResolvesToItselfAndNotToTheE164One() {
+        val ca = ExtensionPolicy.forRegion("ca")
+        val outcome = PhonePolicies.resolve(ca.id, ca.version)
+        assertTrue(outcome is Outcome.Success, "<${ca.id}> must resolve: $outcome")
+        assertEquals(ca.id, outcome.data.id)
+
+        // The identity has to come back as the policy that wrote it, not as one that reads other input.
+        val resolved = outcome.data as ExtensionPolicy
+        assertEquals(ca.number.id, resolved.number.id, "<${ca.id}> resolved to a policy reading a different number")
+
+        // There is no lenient extension policy, so nothing may be invented for its id.
+        val lenient = PhonePolicies.resolve("phone.extension:region.ca:lenient", 1)
+        assertTrue(lenient is Outcome.Failure, "a policy this module cannot produce must not resolve")
+    }
+
+    @Test
     fun everyPublishedIdSurvivesThePortableSpelling() {
         // #29 asked for this over *every* published id, not a sample: the portable form exists for slots
         // that cannot hold a `:`, and an id that does not come back from it is an identity a caller can
         // store and never resolve again. A sample cannot cover a name the mapping happens to mangle.
-        for (policy in PhonePolicies.policies) {
+        for (policy in everyPolicy) {
             val portable = PolicyId.toPortable(policy.id)
             assertTrue(portable is Outcome.Success, "<${policy.id}> has no portable spelling: $portable")
             assertTrue(
@@ -105,4 +133,17 @@ class PhonePolicyRoundTripTest {
             assertEquals(policy.id, back.data, "<${policy.id}> did not survive the portable round trip")
         }
     }
+
+    /**
+     * Every policy this module can produce, not only the ones it enumerates.
+     *
+     * The region policies are built on demand, so `PhonePolicies.policies` does not list them - which is
+     * exactly how two of them came to share an identity. A check that means "every policy" has to say so.
+     */
+    private val everyPolicy: List<Policy> = PhonePolicies.policies + listOf(
+        PhonePolicy.e164ForRegion("ca"),
+        PhonePolicy.e164ForRegionLenient("gb"),
+        ExtensionPolicy.forRegion("ca"),
+        ExtensionPolicy.forRegion("gb"),
+    )
 }

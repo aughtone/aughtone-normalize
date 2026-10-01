@@ -111,7 +111,7 @@ class Ipv6BlockPolicy internal constructor(
         } else {
             listOf(ipv4BlockLink(ipv4PrefixLength), ipv6BlockLink(prefixLength))
         },
-    ).dataOrThrow().rendered
+    ).getOrThrow().rendered
 
     override val version: Int = 1
 
@@ -141,7 +141,7 @@ class Ipv6CidrPolicy internal constructor(
 ) : Policy {
 
     override val id: String =
-        PolicyId.of(address.links + if (masked) listOf(CIDR_LINK, MASKED_LINK) else listOf(CIDR_LINK)).dataOrThrow().rendered
+        PolicyId.of(address.links + if (masked) listOf(CIDR_LINK, MASKED_LINK) else listOf(CIDR_LINK)).getOrThrow().rendered
 
     override val version: Int = 1
 

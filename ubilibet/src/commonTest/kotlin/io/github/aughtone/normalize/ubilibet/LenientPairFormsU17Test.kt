@@ -15,7 +15,7 @@ import kotlin.test.assertEquals
  */
 class LenientPairFormsU17Test {
 
-    private fun comparability(a: String, b: String): Comparability = UbilibetPolicies.comparability(a, 1, b, 1).dataOrThrow()
+    private fun comparability(a: String, b: String): Comparability = UbilibetPolicies.comparability(a, 1, b, 1).getOrThrow()
 
     @Test
     fun theDomainPairSharesItsForm() {

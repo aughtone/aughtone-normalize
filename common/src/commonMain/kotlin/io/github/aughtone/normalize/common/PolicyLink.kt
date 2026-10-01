@@ -73,7 +73,7 @@ class PolicyLink(
 ) {
     init {
         require(isValidLinkName(name)) {
-            "policy link name must be lowercase segments of [a-z0-9-] joined by '.', was: $name"
+            "policy link name must be lowercase segments of [a-z0-9] joined by '.', was: $name"
         }
         require(kind != LinkKind.Step || phase != null) {
             "a Step link must declare the phase at which it runs: $name"

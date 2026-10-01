@@ -156,9 +156,9 @@ class TextPolicyTest {
     @Test
     fun aTextIdRoundTripsThroughItsPortableSpelling() {
         val policy = TextPolicy(u17) { unicode { trim() }; ascii { lowercase() }; nonEmpty() }
-        val portable = PolicyId.toPortable(policy.id).dataOrThrow()
+        val portable = PolicyId.toPortable(policy.id).getOrThrow()
         assertEquals("text.u17_space.trimmed_case.lower.ascii_empty.refused", portable)
-        val back = PolicyId.fromPortable(portable).dataOrThrow()
+        val back = PolicyId.fromPortable(portable).getOrThrow()
         assertEquals(policy, (UnicodePolicies.resolve(back, 1) as Outcome.Success).data)
     }
 }

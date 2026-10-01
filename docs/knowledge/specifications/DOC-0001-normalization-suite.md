@@ -172,7 +172,7 @@ The hard case is that an extension is usually written with ordinary formatting �
 
 ### Keeping an extension
 
-`normalizePhoneWithExtension` with `ExtensionPolicy.E164` returns the E.164 number and, when the input carries one, the extension under its own identity (id `phone.extension`, version 1). The number is exactly what `normalizePhone` writes, so its tokens match either way; the extension declares no comparable form, because an extension only means something beside its own number.
+`normalizePhoneWithExtension` with `ExtensionPolicy.E164` returns the E.164 number and, when the input carries one, the extension under its own identity (id `phone.extension`, version 1). `ExtensionPolicy.forRegion("ca")` is `phone.extension:region.ca` — the region is in this identity as it is in the number's, because the two policies do not accept the same input and an id that omitted the region would resolve back to the one that refuses national form. The extension digits are read identically under both, so its canonical bytes do not depend on the region. The number is exactly what `normalizePhone` writes, so its tokens match either way; the extension declares no comparable form, because an extension only means something beside its own number.
 
 **The marker is the boundary, so the number is read by the ordinary rules.** A recognised marker — `x`, `ext`, `ext.`, `extn`, `xtn`, `extension`, `#`, `,`, `;`, `;ext=`, each followed by digits — says where the number ends. Everything before it goes through `normalizePhone` under the policy's number policy, and everything after it is read as extension digits. So the number is that function's output by construction, and an input whose number part it refuses is refused here with the same error, extension or no extension.
 

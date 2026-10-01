@@ -35,7 +35,7 @@ class PhoneComparableFormsTest {
         )
         for (a in ids) {
             for (b in ids) {
-                val result = PhonePolicies.comparability(a, 1, b, 1).dataOrThrow()
+                val result = PhonePolicies.comparability(a, 1, b, 1).getOrThrow()
                 val expected = if (a == b) Comparability.SamePolicy else Comparability.InForm(PhoneForms.E164)
                 assertEquals(expected, result, "FROZEN: <$a> against <$b>")
             }

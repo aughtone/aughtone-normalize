@@ -8,17 +8,18 @@ import io.github.aughtone.normalize.common.PolicyId
 import io.github.aughtone.normalize.common.PolicyLink
 import io.github.aughtone.normalize.quodlibet.trimWhitespace
 import io.github.aughtone.types.outcome.Outcome
-import io.github.aughtone.types.outcome.dataOrElse
+import io.github.aughtone.types.outcome.getOrElse
 import io.github.aughtone.types.outcome.runOutcome
 
 /**
  * Normalize a username or handle under [policy], optionally through [steps] contributed by another
  * module.
  *
- * The base rules are email's, and for email's reason: trim ASCII whitespace, lowercase ASCII `A`-`Z`,
- * and leave every non-ASCII character exactly as it arrived, case included. Folding non-ASCII case
- * needs a Unicode table, and a table in this module would reintroduce the version drift the suite
- * exists to remove.
+ * The base rules are email's, and for email's reason: trim a frozen list of whitespace and invisible
+ * format characters from both ends - the ASCII set, the rest of Unicode's whitespace, and the zero-width
+ * space, word joiner and byte-order mark - lowercase ASCII `A`-`Z`, and leave every non-ASCII character
+ * exactly as it arrived, case included. Folding non-ASCII case needs a Unicode table, and a table in
+ * this module would reintroduce the version drift the suite exists to remove.
  *
  * ## No platform rules
  *
@@ -77,7 +78,7 @@ class UsernamePolicy internal constructor(
      */
     internal fun idWith(steps: List<NormalizationStep>): String {
         if (steps.isEmpty()) return id
-        return PolicyId.of(listOf(Base) + steps.flatMap { it.links }).dataOrThrow().rendered
+        return PolicyId.of(listOf(Base) + steps.flatMap { it.links }).getOrThrow().rendered
     }
 
     override fun toString(): String = id
@@ -89,7 +90,7 @@ class UsernamePolicy internal constructor(
         /** Trim, ASCII-lowercase, and nothing else. */
         val Basic: UsernamePolicy = UsernamePolicy(
             id = PolicyId.of(listOf(Base))
-                .dataOrElse { error("not a valid policy chain: ${it.message}") }
+                .getOrElse { error("not a valid policy chain: ${it.message ?: it.toString()}") }
                 .rendered,
             version = 1,
         )
@@ -108,7 +109,7 @@ data class NormalizedUsername(
 /** Why a handle could not be normalized. No message carries any part of the input. */
 sealed class UsernameNormalizationError(message: String) : Exception(message) {
 
-    /** Empty, or nothing but ASCII whitespace. */
+    /** Empty, or nothing a value is made of: only characters the trim removes. */
     class Empty : UsernameNormalizationError("username: empty")
 
     /** Half a character: an unpaired surrogate has no valid UTF-8 form. */
