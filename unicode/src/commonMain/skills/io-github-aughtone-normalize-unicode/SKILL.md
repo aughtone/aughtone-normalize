@@ -17,7 +17,7 @@ description: >-
   io.github.aughtone.normalize:ubilibet.
 license: Apache-2.0
 metadata:
-  version: "0.0.4"
+  version: "0.0.5"
   repository: https://github.com/aughtone/aughtone-normalize
 ---
 
@@ -92,7 +92,7 @@ normalizeUsername(value, UsernamePolicy.Basic, listOf(TextPolicy.NfcU17))
 
 **`NormalizationStep` grew from one link to a group in `0.0.3`.** `link: PolicyLink` became `links: List<PolicyLink>`, which is what lets a configured text policy travel into another module's chain whole — `username.basic:text.u17:space.trimmed:nfc` — rather than as a single-link alias for one of its rules.
 
-**The `Outcome` accessors were renamed to match `kotlin.Result` in this release,** following the `io.github.aughtone:types` library every result here is built on: `dataOrNull()` is `getOrNull()`, `dataOrThrow()` is `getOrThrow()`, `dataOrElse { }` is `getOrElse { }`, and the failure callbacks receive the `Throwable` rather than the `Outcome.Failure` wrapper. The old names are gone rather than deprecated. **What the compiler will not catch:** `Outcome.Failure.message` is a non-null `String` and `Throwable.message` is `String?`, so a `getOrElse { }` interpolating `it.message` keeps compiling and starts writing `null`.
+**The `Outcome` accessors were renamed to match `kotlin.Result` in `0.0.5`,** following the `io.github.aughtone:types` library every result here is built on: `dataOrNull()` is `getOrNull()`, `dataOrThrow()` is `getOrThrow()`, `dataOrElse { }` is `getOrElse { }`, and the failure callbacks receive the `Throwable` rather than the `Outcome.Failure` wrapper. The old names are gone rather than deprecated. **What the compiler will not catch:** `Outcome.Failure.message` is a non-null `String` and `Throwable.message` is `String?`, so a `getOrElse { }` interpolating `it.message` keeps compiling and starts writing `null`.
 
 ## Called from Kotlin
 
@@ -100,4 +100,12 @@ normalizeUsername(value, UsernamePolicy.Basic, listOf(TextPolicy.NfcU17))
 
 ## What it is not for
 
-*This section needs the maintainer and is unwritten.*
+**It does not make similar things equal, only equal things equal.** There is no edit distance, no stemming, no transliteration, no accent-insensitive match. Two values that normalize to the same bytes are the same value; two that do not are simply different, however close they look.
+
+**It is not a collation or sorting library.** Nothing here orders text. Ordering is locale business and changes with the reader; these forms exist so that a comparison can be exact.
+
+**It is not a sanitiser.** Removing control characters is not escaping. Nothing here makes text safe for HTML, SQL, a shell, a filename or a log line, and a normalized string is no more trusted than the one that arrived.
+
+**A Unicode release is not a per-call choice.** The release is in the policy identity, because it decides the bytes. There is no "use the latest tables" option and there will not be one.
+
+**It encodes universal standards, never one provider's behaviour.** A rule that cannot be true everywhere cannot be frozen, so no policy here captures how one platform happens to fold or trim text.
