@@ -71,3 +71,21 @@ jobs:
         with:
           check_name: JUnit Test Report (linuxX64)
           report_paths: '**/build/test-results/**/*.xml'
+
+  docs-links:
+    # The knowledge base publishes to the repo wiki, where every relative link is
+    # rewritten to a wiki page or a `blob/HEAD` repo URL. Neither rewrite notices
+    # that its target was renamed - the published link just 404s, and GitHub never
+    # warns. Deliberately NOT filtered on `paths: docs/**`: several documents link
+    # out to files that are never synced (AGENTS.md, WORKFLOW.md, docs/README.md),
+    # so the commit that breaks the wiki is often one that touches no doc at all.
+    name: Knowledge base links
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Check knowledge base links resolve
+        run: python3 -I tools/check-docs-links.py
