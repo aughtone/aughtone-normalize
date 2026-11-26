@@ -56,7 +56,9 @@ fun main(args: Array<String>) {
     val caseFolding = mappingTable("case-folding", Family.Text, source.readCaseFolding())
     val simpleLowercase = mappingTable("simple-lowercase", Family.Text, unicodeData.simpleLowercase.mapValues { listOf(it.value) })
     val simpleUppercase = mappingTable("simple-uppercase", Family.Text, unicodeData.simpleUppercase.mapValues { listOf(it.value) })
-    val text = listOf(whiteSpace, controls, caseFolding, simpleLowercase, simpleUppercase)
+    val generalCategories = rangeTable("general-categories", Family.Text, unicodeData.categories)
+    verifyCategoriesAgreeWithTheFrozenSets(unicodeData)
+    val text = listOf(whiteSpace, controls, caseFolding, simpleLowercase, simpleUppercase, generalCategories)
     val tables = normalization + listOf(bidiClasses, idnaMappings, joiningTypes, marks, confusables, defaultIgnorable, brackets, mirroring) + text
 
     val baselineDirectory = File(ucdDirectory, "baseline")
@@ -126,8 +128,12 @@ fun main(args: Array<String>) {
                 |/**
                 | * The frozen data behind the configurable text rules for Unicode ${source.version}: the White_Space
                 | * and control (General_Category Cc) code points, full case folding (statuses C and F), and the
-                | * simple one-to-one case mappings. Membership tables are ranges `first-last:y` or bare code
-                | * points; mappings are `codepoint>mapping`. Entries are joined by `;`.
+                | * simple one-to-one case mappings, and General_Category for every assigned code point.
+                | *
+                | * Membership tables are ranges `first-last:y` or bare code points, the category table is
+                | * `first-last:Xx` carrying the two-letter category as the UCD spells it, and mappings are
+                | * `codepoint>mapping`. Entries are joined by `;`. A code point no category range covers is
+                | * unassigned, which the rules that read the table treat as an answer rather than a gap.
                 | */
                 """.trimMargin(),
                 text.map { it.name to it.encode() },
@@ -323,4 +329,36 @@ private fun unescape(raw: String): String {
         }
     }
     return out.toString()
+}
+
+/**
+ * Prove the new General_Category table agrees with the two frozen sets built the old way.
+ *
+ * `marks` and `controls` are read by skipping the `First>`/`Last>` range pairs, and their canonical
+ * bytes are frozen. That is correct only because no mark and no control lives inside a range - which is
+ * true of Unicode 17 and is not a guarantee anybody made. The category table knows the ranges, so it
+ * can say so rather than the comment having to be believed: if a later release puts a mark or a control
+ * inside one, this stops the generator instead of leaving two checked-in tables disagreeing about the
+ * same character.
+ */
+private fun verifyCategoriesAgreeWithTheFrozenSets(data: UnicodeData) {
+    val marksFromCategories = sortedSetOf<Int>()
+    val controlsFromCategories = sortedSetOf<Int>()
+    for (entry in data.categories) {
+        val isMark = entry.value.startsWith("M")
+        if (!isMark && entry.value != "Cc") continue
+        for (codePoint in entry.first..entry.last) {
+            if (isMark) marksFromCategories += codePoint else controlsFromCategories += codePoint
+        }
+    }
+    require(marksFromCategories == data.marks.toSortedSet()) {
+        "the General_Category table and the frozen mark set disagree: " +
+            "${(marksFromCategories - data.marks).map { hex(it) }} only in the ranges, " +
+            "${(data.marks - marksFromCategories).map { hex(it) }} only in the set"
+    }
+    require(controlsFromCategories == data.controls.toSortedSet()) {
+        "the General_Category table and the frozen control set disagree: " +
+            "${(controlsFromCategories - data.controls).map { hex(it) }} only in the ranges, " +
+            "${(data.controls - controlsFromCategories).map { hex(it) }} only in the set"
+    }
 }

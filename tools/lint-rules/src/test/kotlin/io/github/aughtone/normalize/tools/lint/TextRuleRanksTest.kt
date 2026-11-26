@@ -34,6 +34,9 @@ class TextRuleRanksTest {
         "nfd" to { unicode { nfd() } },
         "nfkc" to { unicode { nfkc() } },
         "nfkd" to { unicode { nfkd() } },
+        "removeMarks" to { unicode { removeMarks() } },
+        "keepAlnum" to { unicode { keepAlnum() } },
+        "keepAlnumSpaced" to { unicode { keepAlnumSpaced() } },
         "nonEmpty" to { nonEmpty() },
     )
 

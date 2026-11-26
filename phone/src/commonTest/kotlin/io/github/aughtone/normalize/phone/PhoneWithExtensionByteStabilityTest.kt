@@ -31,9 +31,10 @@ class PhoneWithExtensionByteStabilityTest {
 
         // Markers: the marker is the boundary, so the number is the text before it read by the ordinary
         // rules, and the extension is the digits after it.
-        Triple("+1 212 555 0123#4", "+12125550123", "4"),
-        Triple("+1 212 555 0123,4", "+12125550123", "4"),
-        Triple("+1 212 555 0123;4", "+12125550123", "4"),
+        // `#4`, `,4` and `;4` stood here, each reading as extension `4`, until
+        // aughtone/aughtone-normalize#38. They are post-dial markers rather than extension markers, so
+        // what followed them was a dialling instruction being minted as a `phone.extension` token. All
+        // three now refuse; see `postDial` below for the inputs and the error.
         Triple("+1 212 555 0123x4", "+12125550123", "4"),
         Triple("+1 212 555 0123 ext 4", "+12125550123", "4"),
         Triple("+1 212 555 0123 ext. 4", "+12125550123", "4"),
@@ -44,10 +45,12 @@ class PhoneWithExtensionByteStabilityTest {
 
         // A marker introducing nothing leaves the number alone and reads no extension - the behaviour the
         // phonenumber library takes from the release fixing aughtone/aughtone-phonenumber#23 and #24.
-        Triple("+1 212 555 0123#", "+12125550123", null),
+        // `+1 212 555 0123#` and `+1 212 555 0123,` stood here, each the number with no extension, until
+        // aughtone/aughtone-normalize#38: a dangling post-dial marker is no longer a marker this function
+        // knows, so the input reaches `normalizePhone` whole and is refused. A dangling *extension* marker
+        // still reads nothing, which is the next three lines.
         Triple("+1 212 555 0123 ext", "+12125550123", null),
         Triple("+1 212 555 0123 x", "+12125550123", null),
-        Triple("+1 212 555 0123,", "+12125550123", null),
         Triple("+1 212 555 0123;ext=", "+12125550123", null),
 
         // A space-separated trailing group is refused only when the whole number is invalid with it, so
@@ -63,6 +66,21 @@ class PhoneWithExtensionByteStabilityTest {
         // scalar value, so it survives compilation on every target - unlike a lone surrogate, which does
         // not and is constructed rather than written wherever one is needed (#34).
         Triple("+1 212 555 0123 ext 𝟒", "+12125550123", "4"),
+    )
+
+    /**
+     * Input that carries a post-dial marker, and must be refused as one. Frozen in the same sense as the
+     * corpus: a refusal that turns back into an acceptance mints tokens from dialling instructions, which
+     * is what aughtone/aughtone-normalize#38 removed.
+     */
+    private val postDial: List<String> = listOf(
+        // Was extension "4" under all three, before #38.
+        "+1 212 555 0123#4",
+        "+1 212 555 0123,4",
+        "+1 212 555 0123;4",
+        // Was the number with a null extension, before #38.
+        "+1 212 555 0123#",
+        "+1 212 555 0123,",
     )
 
     @Test
@@ -97,16 +115,83 @@ class PhoneWithExtensionByteStabilityTest {
     }
 
     @Test
-    fun aMarkerWithNoDigitsReadsNoExtensionRatherThanAnEmptyOne() {
-        // The number is complete and the marker introduces nothing, so it is dropped - it cannot be told
-        // from an input that never carried one, which is the cost recorded on the function.
-        for (input in listOf("+1 212 555 0123 ext", "+1 212 555 0123#", "+1 212 555 0123 x")) {
+    fun aPostDialMarkerIsRefusedByBothEntryPoints() {
+        // The error names what it found, rather than calling it an extension marker: #38's whole point is
+        // that `#`, `,` and `;` do not say an extension follows.
+        for (input in postDial) {
+            val outcome = normalizePhoneWithExtension(input, ExtensionPolicy.E164)
+            assertTrue(
+                outcome is Outcome.Failure && outcome.exception is PhoneNormalizationError.PostDialNotSupported,
+                "<$input> must be refused as post-dial, got $outcome",
+            )
+            val direct = normalizePhone(input, PhonePolicy.E164)
+            assertTrue(
+                direct is Outcome.Failure && direct.exception is PhoneNormalizationError.PostDialNotSupported,
+                "<$input> must be refused as post-dial by normalizePhone too, got $direct",
+            )
+        }
+    }
+
+    @Test
+    fun aPostDialMarkerInsideTheExtensionIsRefusedByName() {
+        // `x4#5` is an extension marker and then a post-dial one. Only this entry point reaches the `#`
+        // at all - `normalizePhone` refuses the whole input on the `x` first, which is its own rule and
+        // not a disagreement. What matters is that the extension reader does not call the `#` an
+        // unsupported character: it has a name, and both paths use it. See #38.
+        val outcome = normalizePhoneWithExtension("+1 212 555 0123 x4#5", ExtensionPolicy.E164)
+        assertTrue(
+            outcome is Outcome.Failure && outcome.exception is PhoneNormalizationError.PostDialNotSupported,
+            "must be refused as post-dial, got $outcome",
+        )
+    }
+
+    @Test
+    fun aDanglingExtensionMarkerReadsNoExtensionWhereADanglingPostDialMarkerRefuses() {
+        // These look inconsistent and are not. A dangling extension marker introduces nothing, so the
+        // number is complete and dropping the marker invents no data - the cost being that a truncated
+        // extension reads the same as one never written. A dangling post-dial marker is not a marker this
+        // function recognises at all: the input goes whole to `normalizePhone`, which refuses it, because
+        // the characters after it would have been a dialling instruction rather than an extension.
+        // Different markers, different meanings. See aughtone/aughtone-normalize#38.
+        for (input in listOf("+1 212 555 0123 ext", "+1 212 555 0123 x", "+1 212 555 0123;ext=")) {
             assertEquals(null, read(input).extension, "<$input> must read no extension")
             assertEquals("+12125550123", read(input).number.canonical, "<$input> must keep the number")
         }
-        // `normalizePhone` still refuses the same text, because it reads no extensions at all and a marker
-        // there could only mean digits it would have to splice onto the number.
-        assertTrue(normalizePhone("+1 212 555 0123#", PhonePolicy.E164) is Outcome.Failure)
+        for (input in listOf("+1 212 555 0123#", "+1 212 555 0123,", "+1 212 555 0123;")) {
+            val outcome = normalizePhoneWithExtension(input, ExtensionPolicy.E164)
+            assertTrue(outcome is Outcome.Failure, "<$input> must be refused, got $outcome")
+        }
+    }
+
+    @Test
+    fun theSeparateArgumentOverloadReadsBothPiecesAndGuessesNothing() {
+        // For a caller who already holds the two apart. No marker vocabulary is involved on either side,
+        // so there is nothing to guess; the extension folds across scripts exactly as in the free-text
+        // path. Added by aughtone/aughtone-normalize#38.
+        val read = normalizePhoneWithExtension("+1 (212) 555-0123", "4", ExtensionPolicy.E164)
+        assertTrue(read is Outcome.Success, "must normalize, got $read")
+        assertEquals("+12125550123", read.data.number.canonical)
+        assertEquals("4", read.data.extension?.canonical)
+        assertEquals("phone.extension", read.data.extension?.policyId)
+        assertEquals(1, read.data.extension?.policyVersion)
+
+        for (absent in listOf(null, "", " ")) {
+            val outcome = normalizePhoneWithExtension("+12125550123", absent, ExtensionPolicy.E164)
+            assertTrue(outcome is Outcome.Success, "<$absent> must normalize, got $outcome")
+            assertEquals(null, outcome.data.extension, "<$absent> must read no extension")
+        }
+
+        // Any decimal digits, one spelling - the same frozen fold the number gets.
+        val folded = normalizePhoneWithExtension("+12125550123", "４", ExtensionPolicy.E164)
+        assertTrue(folded is Outcome.Success, "got $folded")
+        assertEquals("4", folded.data.extension?.canonical)
+
+        // The field is the extension, not something to re-read: a marker left in it is refused rather
+        // than stripped, on its letter or by its own name.
+        for (input in listOf("x4", "ext 4", "#4", ",4")) {
+            val outcome = normalizePhoneWithExtension("+12125550123", input, ExtensionPolicy.E164)
+            assertTrue(outcome is Outcome.Failure, "<$input> must be refused, got $outcome")
+        }
     }
 
     @Test
@@ -117,6 +202,8 @@ class PhoneWithExtensionByteStabilityTest {
         for (input in listOf(
             "+43 1 58058-0",
             "+49 30 12345678-12",
+            // `#4` refuses as post-dial now rather than as an ambiguous group (#38); either way the
+            // guard cannot be walked around by writing the extension out.
             "+43 1 58058-0#4",
             "+43 1 58058-0 x4",
             "+49 30 12345678-12 x4",

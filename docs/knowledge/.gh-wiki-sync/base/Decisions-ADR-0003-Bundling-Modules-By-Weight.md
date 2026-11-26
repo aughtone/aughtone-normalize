@@ -20,7 +20,7 @@ At the other end, one module per no-table normalizer isolates nothing. Email, PA
 | Module | Holds | Depends on | Carries |
 | :--- | :--- | :--- | :--- |
 | `:common` | the shared contract | `aughtone-types` | nothing |
-| `:quodlibet` | every normalizer needing no table and no external dependency: email, PAN, IBAN, IPv6, the username base, and slug if it does not transliterate | `:common` | nothing |
+| `:quodlibet` | every normalizer needing no table of its own: email, PAN, IBAN, IPv6, the username base, and slug if it does not transliterate | `:common`, `:ubilibet` (see the amendment) | nothing a caller who touches no domain ships |
 | `:phone` | E.164 | `:common` + `aughtone-phonenumber` | region metadata, via the dependency |
 | `:unicode` | NFC, NFD, NFKC, NFKD, and any character property more than one module needs | `:common` | normalization tables, shared properties |
 | `:confusables` | UTS-39 skeletons | `:unicode` | confusable mappings, mirroring, paired brackets |
@@ -37,6 +37,18 @@ The names are a deliberate pair of Latin: `quodlibet`, "whatever you please", is
 **Rejected: a single `:unicode` holding every table.** The simplest dependency story, and it makes every NFC caller ship IDNA and confusables data. It would also put tables with a stability guarantee and a table with none under one packaging scheme.
 
 **Rejected: ASCII hostnames in `:quodlibet`, internationalized domains in `:ubilibet`.** It kept a table-free hostname rule available, at the cost of two policy identities for identical bytes.
+
+## Amended: correctness outranks weight, and `:quodlibet` depends on `:ubilibet`
+
+*Amended 2026-09-20.* The table above said `:quodlibet` carries nothing and depends only on `:common`. It now depends on `:ubilibet`, because the email reader returns the domain of an address as a **real domain token** — normalized by `normalizeDomain` under a `DomainPolicy`, carrying `domain.ascii.u17`.
+
+The alternative was a second, table-free reading of a domain published from `:quodlibet`: raw bytes, ASCII-lowercased, no ToASCII. It was built, and it was wrong. A domain taken out of an address is a domain, and two identities for one concept agree on every ASCII domain and diverge on the rest — so every test passes and the mismatch waits for the input that mattered. Avoiding a dependency is not a reason to publish an identity that produces tokens matching nothing.
+
+**The weight argument does not survive either.** A caller using nothing that touches a domain does not ship the IDNA tables: unused code is eliminated by the toolchain — dead-code elimination on JS and wasm, R8 on Android. What the dependency costs is a coordinate on the compile classpath, not bytes a user downloads. The original rule was written as though a module dependency were a runtime cost, and for the cases it was protecting it is not.
+
+**What the boundary rule becomes:** a module boundary still sits where what a caller must carry changes — but *carrying* is what the toolchain cannot strip, not what appears in a POM. Where the two conflict, the normalizer is correct first and lean second.
+
+**This does not license a general relaxation.** `:unicode` still does not hold every table, and `:ubilibet` still does not depend on `:confusables`: those boundaries separate data a caller genuinely uses, not a dependency that elimination removes. The amendment is narrow — it applies where avoiding a dependency would mean publishing a second identity for something another module already reads correctly.
 
 ## Consequences
 

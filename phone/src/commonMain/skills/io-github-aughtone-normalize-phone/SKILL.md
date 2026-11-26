@@ -17,7 +17,7 @@ description: >-
   (io.github.aughtone.normalize:unicode).
 license: Apache-2.0
 metadata:
-  version: "0.0.5"
+  version: "0.0.6"
   repository: https://github.com/aughtone/aughtone-normalize
 ---
 
@@ -53,6 +53,9 @@ normalizePhone(value, policy)
 ```kotlin
 normalizePhoneWithExtension("+1 212 555 0123 x4", ExtensionPolicy.E164)
     .onSuccess { it.number.canonical to it.extension?.canonical }      // "+12125550123" to "4"
+
+// Two fields already, as most CRMs store them - nothing is split and nothing is guessed.
+normalizePhoneWithExtension("+1 (212) 555-0123", "4", ExtensionPolicy.E164)
 ```
 
 ## Invariants and traps
@@ -63,17 +66,19 @@ normalizePhoneWithExtension("+1 212 555 0123 x4", ExtensionPolicy.E164)
 
 **A number carrying an international dialling prefix is not a number carrying a country code.** `011…` is a national way of writing "international" and means nothing without knowing where it was dialled from, so it is refused under a policy with no region.
 
-**An extension is refused by `normalizePhone`, never dropped — and the marker set is wider than it looks.** `#`, `,` and `;` are refused under **every** policy, leniency included, because leniency widens what is accepted and may never invent data: dropping the marker splices the extension's digits onto the subscriber number. The wait-for-dial-tone characters `~`, `⁓`, `∼` and `～` are refused for the same reason. **Symptom:** `ExtensionNotSupported` carrying the index and code point, for input that used to normalize — reach for `normalizePhoneWithExtension` if the extension is data you want.
+**A post-dial marker is refused by **both** entry points, never dropped and never read as an extension.** `#`, `,`, `;` and the wait-for-dial-tone characters `~`, `⁓`, `∼` and `～` are refused under **every** policy, leniency included, because leniency widens what is accepted and may never invent data: dropping the marker splices the digits after it onto the subscriber number. **Symptom:** `PostDialNotSupported` carrying the index and code point.
+
+**`normalizePhoneWithExtension` will not read an extension after `#`, `,` or `;` either, and that is the trap to expect.** RFC 3966 writes an extension as `;ext=` and a post-dial string as `;postd=`: what follows a bare `#`, `,` or `;` is a dialling instruction — a DTMF sequence, an IVR menu path, a pause — which may or may not be an extension, and nothing in the characters says which. There is no `phone.postdial` identity, deliberately: a token claiming to be an extension when it is a menu path is undetectable, because the number beside it is correct. **Symptom:** `PostDialNotSupported` for `+1 212 555 0123,4`, which earlier drafts of this module accepted as extension `4`. If your data writes extensions that way, split the field yourself and use the two-argument overload.
 
 **An extension written with ordinary formatting is also refused, and this is the subtlest rule here.** `-`, `.`, `/`, `(`, `)` and the space all separate parts of ordinary numbers, so no character test tells an extension from a group. What the module asks instead is whether the number is **already valid without its last group**: `+43 1 58058-0`, the Durchwahl convention, is refused with `AmbiguousTrailingGroup`. After a hyphen that is enough on its own; after any other separator the whole number must *also* be invalid, because in a variable-length plan an ordinary number often has a valid number as its leading part — `+49 89 636 48018` is one number, not two, and is accepted. Every dash in the Unicode dash family counts as that hyphen, including an autocorrected en dash. **Symptom:** a genuine Durchwahl-style number refused rather than silently shortened; the refusal is the library declining to return a different number.
 
 **Letters are always refused, in every position and under every policy.** `1-800-FLOWERS` cannot be dialled without a keypad mapping, and inventing one produces a token for a number nobody typed. `LetterNotSupported` carries the index and the code point.
 
-**No localised extension label is recognised, deliberately.** `Durchwahl`, `poste`, `anexo`, `ramal`, `interno` and the rest are how extensions are written in most of the world, and input carrying one is refused **on its letters**. The recognised vocabulary is `;ext=`, `extension`, `ext.`, `extn`, `xtn`, `ext`, `x`, `#`, `,`, `;` and nothing else. A label list has no end and no owner, it would have to be versioned because it decides where a number ends, and every label admitted is a carve-out in the letter refusal. **Symptom:** `LetterNotSupported` for a perfectly ordinary Spanish or Portuguese number — strip the label in the place that knows the language, then call.
+**No localised extension label is recognised, deliberately.** `Durchwahl`, `poste`, `anexo`, `ramal`, `interno` and the rest are how extensions are written in most of the world, and input carrying one is refused **on its letters**. The recognised vocabulary is `;ext=`, `extension`, `ext.`, `extn`, `xtn`, `ext`, `x` and nothing else — `;ext=` being the only spelling any standard specifies. A label list has no end and no owner, it would have to be versioned because it decides where a number ends, and every label admitted is a carve-out in the letter refusal. **Symptom:** `LetterNotSupported` for a perfectly ordinary Spanish or Portuguese number — strip the label in the place that knows the language, then call.
 
 **Leniency relaxes the validity check and nothing else.** `E164Lenient` and `e164ForRegionLenient` normalize a number the metadata calls invalid instead of refusing it, and drop characters a strict policy reports as `UnsupportedCharacter`. They do not accept letters, extensions, or a misplaced `+`. A number can be well-formed and not exist, and which of those you want depends on whether you are dialling it or matching it.
 
-**Two errors carry a code point and an index; the rest are value-free.** `LetterNotSupported`, `UnsupportedCharacter` and `ExtensionNotSupported` report "something is wrong at position 7, and it is U+00A0" — a single character is not the number, and the alternative is a caller guessing. Everything else says only what failed. Match on the subclass; the message text is not API.
+**Two errors carry a code point and an index; the rest are value-free.** `LetterNotSupported`, `UnsupportedCharacter` and `PostDialNotSupported` report "something is wrong at position 7, and it is U+00A0" — a single character is not the number, and the alternative is a caller guessing. Everything else says only what failed. Match on the subclass; the message text is not API.
 
 **Every phone policy declares one comparable form, so cross-policy matching is explicit.** The output is always the E.164 number, whatever region read it and however lenient the reading, so all four policy shapes declare `PhoneForms.E164`. Ask `PolicyResolver.comparability(idA, versionA, idB, versionB)` rather than trusting that two stored strings agree.
 
@@ -86,6 +91,8 @@ normalizePhoneWithExtension("+1 212 555 0123 x4", ExtensionPolicy.E164)
 **There is no `normalizePhoneOrNull`.** Use the `Outcome`, or `getOrNull()?.canonical` where a failure needs no handling of its own.
 
 ## What moved, and what it used to be called
+
+**`ExtensionNotSupported` is now `PostDialNotSupported` in `0.0.6`, and `#`, `,` and `;` no longer introduce an extension.** Same characters, same refusal from `normalizePhone` — but the name says post-dial, the message reads `phone: post-dial marker at index 7 (U+0023)`, and `normalizePhoneWithExtension` now refuses them too instead of returning the digits after one as an extension. A `catch`/`is` on the old class name will not compile; a stored `phone.extension` token minted from `+1 212 555 0123,4` was never an extension and cannot be re-derived. A dangling `#` or `,` also refuses again, where `0.0.5` returned the number with a null extension. The two-argument `normalizePhoneWithExtension(number, extension, policy)` arrives in the same change for callers who hold the pieces apart.
 
 **`ExtensionPolicy.forRegion(region)` writes a different policy id in `0.0.5`, and the compiler cannot show you this one.** Same signature, same canonical extension digits, different identity: it used to carry `ExtensionPolicy.E164`'s id, `phone.extension`, and now carries `phone.extension:region.ca`. Two policies that do not accept the same input shared one `(id, version)` pair, so `resolve("phone.extension", 1)` handed back the policy that refuses national-format input whichever one had produced the value. If you stored `phone.extension` beside an extension read under `forRegion`, that id resolves to `ExtensionPolicy.E164` and always did — the extension's own bytes are unaffected, because the region governs the number beside them, so re-deriving the extension gives what you already stored. There is no lenient extension policy, so `phone.extension:region.ca:lenient` resolves to nothing rather than to something close.
 

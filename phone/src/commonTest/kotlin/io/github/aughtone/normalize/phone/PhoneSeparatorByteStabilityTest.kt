@@ -101,7 +101,7 @@ class PhoneSeparatorByteStabilityTest {
             for (policy in listOf(PhonePolicy.E164, PhonePolicy.E164Lenient)) {
                 val outcome = read(input, policy)
                 assertTrue(
-                    outcome is Outcome.Failure && outcome.exception is PhoneNormalizationError.ExtensionNotSupported,
+                    outcome is Outcome.Failure && outcome.exception is PhoneNormalizationError.PostDialNotSupported,
                     "FROZEN CORPUS BROKEN: <$input> under ${policy.id} must refuse, got $outcome",
                 )
             }

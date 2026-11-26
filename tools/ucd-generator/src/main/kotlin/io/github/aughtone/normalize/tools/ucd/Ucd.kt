@@ -51,12 +51,25 @@ class UcdSource(private val directory: File) {
     }
 
     /**
-     * Parse `UnicodeData.txt` into the fields normalization needs: canonical and compatibility
-     * decompositions, and canonical combining classes.
+     * Parse `UnicodeData.txt` into the fields the suite uses: canonical and compatibility
+     * decompositions, canonical combining classes, the mark and control sets, the simple case
+     * mappings, and General_Category for every assigned code point.
      *
-     * Ranges (`First>`/`Last>` pairs) are skipped deliberately: no character inside one carries a
-     * decomposition or a non-zero combining class, and expanding them would add tens of thousands of
-     * entries that all say nothing.
+     * ## Why the `First>`/`Last>` range pairs are read for the category and nothing else
+     *
+     * A range pair stands for every code point between its two lines, and it carries only the
+     * properties those code points share. For everything this file fed originally that is nothing at
+     * all: no character inside a range has a decomposition or a non-zero combining class, and all 20
+     * pairs are `Lo`, `Cs` or `Co`, so none is a mark or a control either. Skipping them cost nothing
+     * and expanding them would have added tens of thousands of entries that all said nothing.
+     *
+     * That reasoning does not extend to General_Category, which is the one property a range entry does
+     * carry. The 14 `Lo` pairs - CJK Ideographs with Extensions A to J, Hangul Syllables, and Tangut
+     * with its Supplement - are 119,331 code points, most of them above U+FFFF, and a letter table
+     * built by skipping them would report every supplementary-plane ideograph as a non-letter.
+     *
+     * So the category is read from the pairs as a range, and the fields a range entry does not carry
+     * are not invented for its members. See aughtone/aughtone-normalize#44.
      */
     fun readUnicodeData(): UnicodeData {
         val canonical = LinkedHashMap<Int, List<Int>>()
@@ -66,15 +79,33 @@ class UcdSource(private val directory: File) {
         val controls = sortedSetOf<Int>()
         val simpleUppercase = LinkedHashMap<Int, Int>()
         val simpleLowercase = LinkedHashMap<Int, Int>()
+        val categories = mutableListOf<RangeEntry>()
+        var rangeStart: Pair<Int, String>? = null
 
         File(directory, "UnicodeData.txt").forEachLine { line ->
             if (line.isBlank()) return@forEachLine
             val fields = line.split(';')
             require(fields.size >= 6) { "malformed UnicodeData line: $line" }
             val name = fields[1]
-            if (name.endsWith(", First>") || name.endsWith(", Last>")) return@forEachLine
 
             val codePoint = fields[0].toInt(16)
+
+            // A range pair carries one property for every code point between its two lines: the
+            // category. Nothing else on the line is true of the members, so nothing else is read here.
+            if (name.endsWith(", First>")) {
+                require(rangeStart == null) { "a First> line follows another without its Last>: $line" }
+                rangeStart = codePoint to fields[2]
+                return@forEachLine
+            }
+            if (name.endsWith(", Last>")) {
+                val start = rangeStart
+                require(start != null) { "a Last> line with no First> before it: $line" }
+                require(start.second == fields[2]) { "a range pair disagrees about its category: $line" }
+                categories += RangeEntry(start.first, codePoint, fields[2])
+                rangeStart = null
+                return@forEachLine
+            }
+            categories += RangeEntry(codePoint, codePoint, fields[2])
 
             // General_Category=M: a label may not begin with one, and combining class alone does not
             // identify them - a spacing mark has class zero and is still a mark.
@@ -102,7 +133,38 @@ class UcdSource(private val directory: File) {
                 }
             }
         }
-        return UnicodeData(canonical, compatibility, combiningClasses, marks, controls, simpleUppercase, simpleLowercase)
+        require(rangeStart == null) { "a First> line with no Last> after it" }
+        return UnicodeData(
+            canonical,
+            compatibility,
+            combiningClasses,
+            marks,
+            controls,
+            simpleUppercase,
+            simpleLowercase,
+            coalesce(categories.sortedBy { it.first }),
+        )
+    }
+
+    /**
+     * Merge adjacent entries that share a value into one range.
+     *
+     * General_Category runs in long stretches, so this is the difference between 3,409 entries and the
+     * 155,000 assigned code points they cover. Nothing is reordered and no gap is bridged: two entries
+     * merge only when the second begins exactly where the first ends, which leaves every unassigned
+     * code point outside every range and therefore recognisable as unassigned.
+     */
+    private fun coalesce(entries: List<RangeEntry>): List<RangeEntry> {
+        val merged = mutableListOf<RangeEntry>()
+        for (entry in entries) {
+            val last = merged.lastOrNull()
+            if (last != null && last.value == entry.value && last.last + 1 == entry.first) {
+                merged[merged.lastIndex] = RangeEntry(last.first, entry.last, last.value)
+            } else {
+                merged += entry
+            }
+        }
+        return merged
     }
 
     /**
@@ -344,6 +406,11 @@ class UnicodeData(
     val controls: Set<Int>,
     val simpleUppercase: Map<Int, Int>,
     val simpleLowercase: Map<Int, Int>,
+    /**
+     * General_Category for every assigned code point, as coalesced ranges. A code point no range covers
+     * is unassigned, which is a meaningful answer rather than a gap in the table.
+     */
+    val categories: List<RangeEntry>,
 )
 
 /** A code point range carrying one property value, as the derived property files publish them. */

@@ -30,8 +30,10 @@ import io.github.aughtone.types.outcome.runOutcome
  * ## Blocks choose the character set, never the order
  *
  * Rules always run in one fixed order - strip control characters, trim, collapse or remove spaces, case,
- * normalization form, then the non-empty check - however they were written. Two callers enabling the same
- * rules therefore always produce the same bytes. Writing them in a different order is allowed, and it
+ * normalization form, remove combining marks, keep only letters and digits, then the non-empty check -
+ * however they were written. Two callers enabling the same rules therefore always produce the same bytes.
+ * The last two are placed where they are so the three together actually fold: decompose, then drop the
+ * marks the decomposition exposed, then filter what is left. Writing them in a different order is allowed, and it
  * is reported through [warnings] because code that reads as one order and runs as another is confusing.
  * [id] always lists the rules in the order they actually run.
  *
@@ -255,6 +257,30 @@ sealed class TextRules(private val ascii: Boolean, private val sink: MutableList
 
     /** Map to uppercase: `a`-`z` only over ASCII, simple case mappings over Unicode. */
     fun uppercase() = add(TextRule.Uppercase)
+
+    /**
+     * Keep only letters, decimal digits and combining marks, and delete everything else.
+     *
+     * Over Unicode that is General_Category `L*`, `Nd` and `M*`, the supplementary planes included.
+     * Over ASCII it is `A`-`Z`, `a`-`z` and `0`-`9` and **nothing else, every non-ASCII letter
+     * included**: `Jørn` becomes `Jrn`. See [keepAlnumSpaced] for the variant that leaves a word
+     * boundary behind, and the rule's own documentation for why `ø` is not folded to `o`.
+     */
+    fun keepAlnum() = add(TextRule.KeepAlnum)
+
+    /**
+     * Keep only letters, decimal digits and combining marks, and stand a single space where a run of
+     * anything else was.
+     *
+     * The alternative to [keepAlnum] at the same point in the order, so a policy chooses one. Deleting
+     * welds words together - `Hello, World` becomes `HelloWorld`, because the boundary was in the
+     * punctuation - and this is the choice that keeps it. A leading or trailing run leaves no space.
+     *
+     * Not everything dropped becomes a boundary: a format character or an unassigned code point is
+     * deleted, and over ASCII so is every non-ASCII code point, because neither is something a word
+     * can be said to end at. `J\u00F8rn` becomes `Jrn` under an ASCII keep-set, not `J rn`.
+     */
+    fun keepAlnumSpaced() = add(TextRule.KeepAlnumSpaced)
 }
 
 /** Rules that run over ASCII only: the six ASCII whitespace characters, C0 controls and DEL, and `A`-`Z`. */
@@ -277,6 +303,23 @@ class UnicodeRules internal constructor(sink: MutableList<ConfiguredRule>) : Tex
 
     /** Compatibility decomposition. **Lossy.** */
     fun nfkd() = add(TextRule.Nfkd)
+
+    /**
+     * Remove every combining mark: General_Category `Mn`, `Mc` and `Me`.
+     *
+     * After `nfd()` or `nfkd()` this **folds a diacritic to its base letter** - `é` to `e`, `ǎ` to `a`,
+     * `ṣ̄` to `s` - because a decomposition puts the base letter and the mark in sequence and this drops
+     * the mark. Without a decomposition form in the policy it removes only marks that were written
+     * separately, and leaves every precomposed character alone, which is almost certainly not what you
+     * meant.
+     *
+     * **This is folding, not transliteration.** It cannot touch a letter that has no canonical
+     * decomposition: `ø`, `đ`, `ł`, `æ` and `þ` are single letters with no mark to remove, so they
+     * survive under a Unicode keep-set and are dropped under an ASCII one. Mapping them to `o`, `d`,
+     * `l`, `ae` and `th` is a language-specific editorial choice, which a frozen policy has no standing
+     * to make.
+     */
+    fun removeMarks() = add(TextRule.RemoveMarks)
 }
 
 /** Configures a policy whose rules are all ASCII. */

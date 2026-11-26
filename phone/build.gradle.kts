@@ -73,6 +73,11 @@ kotlin {
     }
 
     linuxX64()
+    linuxArm64()
+
+    // Native macOS, for command-line tools and native desktop apps. The code is all common, so the
+    // target needs nothing of its own.
+    macosArm64()
 
     sourceSets {
         val commonMain by getting {

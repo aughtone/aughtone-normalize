@@ -22,7 +22,7 @@ import io.github.aughtone.types.outcome.runOutcome
  *
  * ## The marker is the boundary, so the number is read by the ordinary rules
  *
- * A recognised marker - `x`, `ext`, `ext.`, `extn`, `xtn`, `extension`, `#`, `,`, `;`, `;ext=` - says
+ * A recognised marker - `x`, `ext`, `ext.`, `extn`, `xtn`, `extension`, `;ext=` - says
  * where the number ends. Everything before it is handed to [normalizePhone] under [ExtensionPolicy.number]
  * and everything after it is read as extension digits.
  *
@@ -41,7 +41,9 @@ import io.github.aughtone.types.outcome.runOutcome
  * - **The extension carries its own identity**, because a stored extension token has to record what it is.
  * - **A missing extension is `null`**, never an empty string.
  * - **A marker with nothing after it introduces nothing**, so the number is returned without it and the
- *   extension is `null`: `+1 212 555 0123#` and `+1 212 555 0123 ext` are that number and no extension.
+ *   extension is `null`: `+1 212 555 0123 ext`, `+1 212 555 0123 x` and `+1 212 555 0123;ext=` are that
+ *   number and no extension. `+1 212 555 0123#` is **refused**, because `#` is not a marker here at all -
+ *   see below.
  * - **The extension folds across scripts** by the number's own rule, so an extension written in any
  *   decimal digits has one spelling. Separators are allowed between the marker and the first digit, and
  *   nothing but digits after it.
@@ -50,7 +52,42 @@ import io.github.aughtone.types.outcome.runOutcome
  * normalizePhoneWithExtension("+1 212 555 0123 x4", ExtensionPolicy.E164)   // +12125550123, ext "4"
  * normalizePhoneWithExtension("+1 (212) 555-0123", ExtensionPolicy.E164)    // +12125550123, ext null
  * normalizePhoneWithExtension("+43 1 58058-0 x4", ExtensionPolicy.E164)     // refused: ambiguous
+ * normalizePhoneWithExtension("+1 212 555 0123,4", ExtensionPolicy.E164)    // refused: post-dial
+ * normalizePhoneWithExtension("+12125550123", "4", ExtensionPolicy.E164)    // +12125550123, ext "4"
  * ```
+ *
+ * ## A post-dial string is refused, and given no identity
+ *
+ * `#`, `,` and `;` are **not** extension markers. RFC 3966 writes an extension as `;ext=` and a post-dial
+ * string as `;postd=`, because they are different things, and the dependency's parser draws the same
+ * line. What follows a bare `#`, `,` or `;` is a dialling instruction - a DTMF sequence, an IVR menu
+ * path, a pause - which may or may not also be an extension, and nothing in the characters says which.
+ * Input carrying one is refused with [PhoneNormalizationError.PostDialNotSupported], by this function and
+ * by [normalizePhone] alike.
+ *
+ * **There is no `phone.postdial` identity, deliberately.** A parser is right to hand back everything the
+ * text carried; this module mints tokens that people match on, and a dialling instruction is not a
+ * property of who is reached. We cannot tell an IVR menu path from an extension somebody typed after a
+ * comma, so an identity over it would be a claim this module cannot back - and a mislabelled token is
+ * undetectable, because the number beside it is correct. Refusing says something true instead.
+ *
+ * The cost is stated rather than hidden: a system that writes extensions as `+1 212 555 0123,4` is
+ * refused, and has to write them differently or split the field itself.
+ *
+ * ## Why the caller is not simply made to split the input
+ *
+ * [normalizePhone] refuses to guess a region, and makes the caller supply one - so the symmetrical move
+ * here would be to take the number and the extension apart and read free text never. It is the wrong
+ * move, on a disanalogy worth recording. **A caller knows their region**: their users are in a country,
+ * their data came from a form that asked. **A caller does not know where the extension ends** - they hold
+ * the same single CRM or contact-import string this function does, and handing the problem back does not
+ * make it knowable. It makes it worse solved: they write their own marker list, in application code,
+ * against the same open-ended convention, and nobody argues with it or measures it against the
+ * dependency. **Pushing that guess out distributes it rather than removing it.**
+ *
+ * So free-text reading stays, narrowed to markers that can mean nothing else, and an unrecognised marker
+ * is refused - which is the safe direction. The overload below exists for the caller who genuinely does
+ * hold the two pieces apart, and guesses nothing at all.
  */
 fun normalizePhoneWithExtension(
     value: String,
@@ -72,6 +109,41 @@ fun normalizePhoneWithExtension(
         extension = extension?.let {
             NormalizedExtension(canonical = it, policyId = policy.id, policyVersion = policy.version)
         },
+    )
+}
+
+/**
+ * Normalize a number and an extension the caller already holds separately.
+ *
+ * Nothing is split and nothing is guessed: [number] is read by [normalizePhone] under
+ * [ExtensionPolicy.number] and [extension] is read as extension digits, with no marker vocabulary
+ * involved on either side. For a caller whose storage has two fields - and most CRMs do - this is the
+ * exact function, and the free-text reading above is the one they do not need.
+ *
+ * The extension is folded across scripts exactly as in the free-text path, so an extension written in any
+ * decimal digits has one spelling. Separators may lead it, because a stored field often carries one;
+ * after the first digit there are only digits. A `null`, empty or separator-only [extension] is no
+ * extension, never an empty token. An extension marker left in the field - `"x4"` - is refused on its
+ * letter, and a post-dial marker on its own name: the field is the extension, not a thing to re-read.
+ *
+ * ```
+ * normalizePhoneWithExtension("+1 (212) 555-0123", "4", ExtensionPolicy.E164)  // +12125550123, ext "4"
+ * normalizePhoneWithExtension("+1 (212) 555-0123", null, ExtensionPolicy.E164) // +12125550123, ext null
+ * normalizePhoneWithExtension("+1 (212) 555-0123", "x4", ExtensionPolicy.E164) // refused: letter
+ * ```
+ */
+fun normalizePhoneWithExtension(
+    number: String,
+    extension: String?,
+    policy: ExtensionPolicy,
+): Outcome<NormalizedPhoneWithExtension> = runOutcome {
+    if (extension != null && extension.hasUnpairedSurrogate()) throw PhoneNormalizationError.UnpairedSurrogate()
+
+    NormalizedPhoneWithExtension(
+        number = normalizePhone(number, policy.number).getOrThrow(),
+        extension = extension
+            ?.let { readExtension(it, 0) }
+            ?.let { NormalizedExtension(canonical = it, policyId = policy.id, policyVersion = policy.version) },
     )
 }
 
@@ -130,26 +202,43 @@ internal fun findMarker(value: String): MarkerMatch? {
     return null
 }
 
-/** Longest first, and `;ext=` before the bare `;` it starts with. */
-private val MARKERS = listOf(";ext=", "extension", "ext.", "extn", "xtn", "ext", "x", "#", ",", ";")
+/**
+ * Longest first, so `ext.` is not cut short by `ext`.
+ *
+ * **`#`, `,` and `;` are not here, and that is the whole of aughtone/aughtone-normalize#38.** They are
+ * post-dial markers: RFC 3966 writes an extension as `;ext=` and a post-dial string as `;postd=`, and
+ * what follows a bare `#`, `,` or `;` is a dialling instruction that may or may not be an extension.
+ * While they were in this list, `+1 212 555 0123,4` returned extension `4` - a `phone.extension` token
+ * minted from an IVR menu selection, with the number correct and only the smaller value lying about what
+ * it is. Input carrying one now finds no marker here, falls through to [normalizePhone] whole, and is
+ * refused with [PhoneNormalizationError.PostDialNotSupported].
+ *
+ * A bare `;` still reaches this list, because `;ext=` begins with one; it matches nothing else, so a `;`
+ * that does not open `;ext=` leaves the input markerless and refused.
+ */
+private val MARKERS = listOf(";ext=", "extension", "ext.", "extn", "xtn", "ext", "x")
 
 /** The characters a marker can begin with, so the list above is only walked where it could match. */
 private fun Char.couldStartMarker(): Boolean =
-    this == '#' || this == ',' || this == ';' || this == 'x' || this == 'X' || this == 'e' || this == 'E'
+    this == ';' || this == 'x' || this == 'X' || this == 'e' || this == 'E'
 
 /**
- * The extension digits from [from] to the end of [value], folded to ASCII, or `null` when the marker has
- * nothing after it.
+ * The extension digits from [from] to the end of [value], folded to ASCII, or `null` when there are none
+ * after [from]. Also the reader for a separately supplied extension field, from index 0.
  *
  * Separators are allowed between the marker and the first digit, because `x 4` and `ext. 4` are ordinary
  * spellings. After the first digit there are only digits: an extension is a number, and anything else in
  * it is something this module does not understand rather than something to drop.
  *
- * **A marker with nothing after it leaves the number alone.** `+1 212 555 0123#` is the number and a
+ * **A marker with nothing after it leaves the number alone.** `+1 212 555 0123 ext` is the number and a
  * marker introducing nothing, so the number is complete and there is no extension to read. Dropping that
  * marker invents nothing, which is the test every relaxation here has to pass, and it is what the
  * phonenumber library does from the release that fixes aughtone/aughtone-phonenumber#23 and #24. What it
  * gives up is a truncation signal: an extension lost upstream now reads the same as one never written.
+ *
+ * `+1 212 555 0123#` was the example here until aughtone/aughtone-normalize#38, and is now refused:
+ * `#` is a post-dial marker rather than an extension marker, so it never reaches this function. The two
+ * cases look inconsistent and are not - they are different markers meaning different things.
  */
 private fun readExtension(value: String, from: Int): String? {
     val digits = StringBuilder()
@@ -161,6 +250,10 @@ private fun readExtension(value: String, from: Int): String? {
         when {
             digit != null -> digits.append('0' + digit)
             digits.isEmpty() && codePoint.isMarkerSeparator() -> Unit
+            // `x4#5`: an extension marker and then a post-dial one. The second is refused by the name it
+            // has, rather than as an unsupported character, so both entry points say the same thing about
+            // the same character.
+            codePoint.isPostDialMarker() -> throw PhoneNormalizationError.PostDialNotSupported(index, codePoint)
             codePoint.isAsciiLetter() -> throw PhoneNormalizationError.LetterNotSupported(index, codePoint)
             else -> throw PhoneNormalizationError.UnsupportedCharacter(index, codePoint)
         }

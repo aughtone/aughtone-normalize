@@ -17,7 +17,7 @@ description: >-
   io.github.aughtone.normalize.
 license: Apache-2.0
 metadata:
-  version: "0.0.5"
+  version: "0.0.6"
   repository: https://github.com/aughtone/aughtone-normalize
 ---
 

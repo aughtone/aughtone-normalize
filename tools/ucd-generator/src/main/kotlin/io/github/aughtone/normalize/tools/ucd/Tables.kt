@@ -62,10 +62,16 @@ enum class Family(val label: String, val modificationsAllowed: Boolean) {
     Confusables("confusables", modificationsAllowed = true),
 
     /**
-     * Whitespace, control and case data for the configurable text rules. A text policy names the
-     * Unicode release it was frozen against (`text.u17`), so a later release is a new policy with its
-     * own tables and never a changed one. Modifications are reported rather than fatal, because they
-     * change what a *new* release's policy produces, not what an existing one already did.
+     * Whitespace, control, case and General_Category data for the configurable text rules. A text
+     * policy names the Unicode release it was frozen against (`text.u17`), so a later release is a new
+     * policy with its own tables and never a changed one. Modifications are reported rather than fatal,
+     * because they change what a *new* release's policy produces, not what an existing one already did.
+     *
+     * General_Category belongs in this family rather than with the normalization tables for a second
+     * reason: the Unicode stability policy does not freeze it. An existing decomposition can never
+     * change, so a modification there is a hard stop; a code point's category can change between
+     * releases - rarely, and legitimately - so a modification here is news for the policy that names
+     * the release, not a broken assumption. See aughtone/aughtone-normalize#44.
      */
     Text("text", modificationsAllowed = true),
 }
