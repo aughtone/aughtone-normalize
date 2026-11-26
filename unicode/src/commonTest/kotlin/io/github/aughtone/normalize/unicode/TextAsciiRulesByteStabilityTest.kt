@@ -47,6 +47,16 @@ class TextAsciiRulesByteStabilityTest {
             Triple(TextPolicy { ascii { removeSpace() } }, "a b\tc\u00A0d", "abc\u00A0d"),
             Triple(TextPolicy { ascii { lowercase() } }, "\u00C4BC Stra\u00DFe", "\u00C4bc stra\u00DFe"),
             Triple(TextPolicy { ascii { uppercase() } }, "stra\u00DFe \u00E4", "STRA\u00DFE \u00E4"),
+            // The keep-set rules are the one place where an ASCII rule does not leave non-ASCII alone:
+            // they KEEP their character set rather than removing it, so narrowing the set to ASCII drops
+            // every other letter. `J\u00F8rn` becomes `Jrn`, never `Jorn` - see TextKeepSetByteStabilityU17Test.
+            Triple(TextPolicy { ascii { keepAlnum() } }, "Hello, World! 42", "HelloWorld42"),
+            Triple(TextPolicy { ascii { keepAlnum() } }, "J\u00F8rn \u4E2D\u6587", "Jrn"),
+            Triple(TextPolicy { ascii { keepAlnumSpaced() } }, "  Hello, World!  ", "Hello World"),
+            // A non-ASCII code point is deleted rather than spaced: an ASCII rule reads no table, so it
+            // cannot tell a letter from a separator, and only one of the two answers invents a boundary.
+            Triple(TextPolicy { ascii { keepAlnumSpaced() } }, "J\u00F8rn", "Jrn"),
+            Triple(TextPolicy { ascii { keepAlnumSpaced() } }, "a\u00A0b, c", "ab c"),
         )
         for ((policy, input, expected) in cases) {
             assertEquals(expected, canonical(input, policy), "FROZEN: <${policy.id}>")

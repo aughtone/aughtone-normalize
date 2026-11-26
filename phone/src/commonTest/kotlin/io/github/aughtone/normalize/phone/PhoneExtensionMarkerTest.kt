@@ -3,6 +3,7 @@ package io.github.aughtone.normalize.phone
 import io.github.aughtone.phonenumber.PhoneNumberUtil
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -17,27 +18,37 @@ import kotlin.test.assertTrue
  * read their release notes, then either add the spelling to `findMarker` or record why not. The marker set
  * is pinned per release there and a change to it is a called-out byte change.
  *
- * **It detects divergence; it does not prove coverage.** The list below is one we maintain, so a spelling
- * neither side thought of is invisible here - which is exactly how the absence of every localised label
- * went unnoticed while an acceptance criterion claimed one was pinned. Read it as "these agree", never as
- * "nothing is missing". Localised labels are refused deliberately and `PhoneLocalisedLabelTest` says so.
+ * **It detects divergence; it does not prove coverage.** The lists below are ones we maintain, so a
+ * spelling neither side thought of is invisible here - which is exactly how the absence of every localised
+ * label went unnoticed while an acceptance criterion claimed one was pinned. Read it as "these agree",
+ * never as "nothing is missing". Localised labels are refused deliberately and `PhoneLocalisedLabelTest`
+ * says so.
  *
  * Pinned against `io.github.aughtone:phonenumber:0.0.4`.
  */
 class PhoneExtensionMarkerTest {
 
-    /** Every spelling this module treats as an extension marker. */
-    private val markers: List<String> = listOf(
-        "#", ",", ";", ";ext=", "x", "X", " ext", " ext.", " extn", " xtn", " extension",
+    /** Every spelling this module treats as an extension marker, after aughtone/aughtone-normalize#38. */
+    private val extensionMarkers: List<String> = listOf(
+        ";ext=", "x", "X", " ext", " ext.", " extn", " xtn", " extension",
     )
+
+    /**
+     * The post-dial markers, which are **not** extension markers here.
+     *
+     * They were, until #38. RFC 3966 writes an extension as `;ext=` and a post-dial string as `;postd=`,
+     * because what follows one of these is a dialling instruction - a DTMF sequence, an IVR menu path, a
+     * pause - that may or may not also be an extension. Reading one as an extension minted a
+     * `phone.extension` token for something that was not one, with the number correct beside it.
+     */
+    private val postDialMarkers: List<String> = listOf("#", ",", ";")
 
     /**
      * The spellings the dependency reads as an **extension**, as of `phonenumber` 0.0.4.
      *
-     * The rest of [markers] it now reads as a **post-dial string** - a dialling instruction rather than a
-     * place to reach - which is the distinction RFC 3966 draws between `;ext=` and `;postd=`. That split
-     * arrived in its 0.0.4 and this module has not made it yet; aughtone/aughtone-normalize#38 is where it
-     * does, and until then these three are the disagreement rather than an accident.
+     * The rest it reads as a **post-dial string**, which is the same distinction this module now draws.
+     * One disagreement survives, and it is theirs: a single `,` reads as an extension there - see
+     * [aSingleCommaIsTheOddOneOut].
      */
     private val readAsExtension: Set<String> =
         setOf(",", ";ext=", "x", "X", " ext", " ext.", " extn", " xtn", " extension")
@@ -45,8 +56,9 @@ class PhoneExtensionMarkerTest {
     @Test
     fun theDependencyStillSplitsEveryMarkerOffTheNumber() {
         // Whatever it calls what follows, the NUMBER must come back whole. That is the part our own split
-        // has to agree with; what the trailing piece is called is #38's business.
-        for (marker in markers) {
+        // has to agree with, and it holds for a post-dial marker too - which is why handing the whole
+        // input to them would have hidden the mislabelling rather than caused it.
+        for (marker in extensionMarkers + postDialMarkers) {
             val input = "+1 212 555 0123$marker" + "4"
             val parsed = PhoneNumberUtil.parse(input, "US")
             assertEquals(
@@ -60,8 +72,9 @@ class PhoneExtensionMarkerTest {
 
     @Test
     fun theExtensionAndPostDialSplitIsWhereItWasLeft() {
-        // Pinned so their classification moving is visible here rather than in a consumer's tokens.
-        for (marker in markers) {
+        // Pinned so their classification moving is visible here rather than in a consumer's tokens. Both
+        // sides now draw the line in the same place, with the single comma as the one exception.
+        for (marker in extensionMarkers + postDialMarkers) {
             val input = "+1 212 555 0123$marker" + "4"
             val parsed = PhoneNumberUtil.parse(input, "US")
             if (marker in readAsExtension) {
@@ -70,8 +83,8 @@ class PhoneExtensionMarkerTest {
                 assertEquals(
                     null,
                     parsed.extension,
-                    "<$input>: read as POST-DIAL there, not an extension - and still an extension marker " +
-                        "here. That disagreement is aughtone/aughtone-normalize#38; if this fails, their " +
+                    "<$input>: read as POST-DIAL there, not an extension - which is also how this module " +
+                        "reads it since aughtone/aughtone-normalize#38. If this fails, their " +
                         "classification moved again.",
                 )
             }
@@ -83,19 +96,33 @@ class PhoneExtensionMarkerTest {
         // Measured on `phonenumber` 0.0.4 and reported to them: `,` reads as an extension while `,,` and every other
         // post-dial character reads as post-dial. Pinned so we notice whichever way it is settled - it is
         // either deliberate compatibility with upstream's extension pattern, or the one that slipped.
+        //
+        // We refuse it either way. A comma is a pause in every other implementation including the rest of
+        // theirs, and #38's rule is that a marker has to be unable to mean anything else.
         assertEquals("4", PhoneNumberUtil.parse("+1 212 555 0123,4", "US").extension)
         assertEquals(null, PhoneNumberUtil.parse("+1 212 555 0123,,4", "US").extension)
+        assertNull(findMarker("+1 212 555 0123,4"), "a comma is post-dial here, whatever they call it")
     }
 
     @Test
-    fun weRecogniseEveryMarkerTheDependencyReads() {
-        for (marker in markers) {
+    fun weRecogniseEveryExtensionMarkerTheDependencyReads() {
+        for (marker in extensionMarkers) {
             val input = "+1 212 555 0123$marker" + "4"
             assertTrue(
                 findMarker(input) != null,
                 "<$input>: the dependency reads this marker and we do not, so we refuse input it could have " +
                     "split. Add the spelling to findMarker, or record why it stays out.",
             )
+        }
+    }
+
+    @Test
+    fun weRecogniseNoPostDialMarkerAsAnExtensionMarker() {
+        // The input then reaches `normalizePhone` whole and is refused there, rather than being split
+        // into a number and a token claiming to be an extension. See aughtone/aughtone-normalize#38.
+        for (marker in postDialMarkers) {
+            val input = "+1 212 555 0123$marker" + "4"
+            assertNull(findMarker(input), "<$input>: a post-dial marker must not be an extension boundary")
         }
     }
 

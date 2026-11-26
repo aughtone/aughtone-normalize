@@ -26,13 +26,19 @@ import io.github.aughtone.types.outcome.runOutcome
  * cannot be dialled without a keypad mapping, and inventing one would produce a token for a number the
  * caller never typed.
  *
- * ## An extension is refused, never folded in
+ * ## A post-dial string is refused, never folded in
  *
- * E.164 has no room for an extension, and dropping the characters that introduce one would splice its
- * digits onto the subscriber number - `+1 212 555 0123 #4` would become `+121255501234`, a different and
- * entirely plausible number. So `#`, `,` and `;` are refused under every policy, leniency included, and
- * so is the wait-for-dial-tone marker in each of its four spellings - `~`, `⁓`, `∼` and `～`: leniency
- * widens what is accepted and may never invent data.
+ * E.164 has no room for anything after the number, and dropping the characters that introduce it would
+ * splice the digits that follow onto the subscriber number - `+1 212 555 0123 #4` would become
+ * `+121255501234`, a different and entirely plausible number. So `#`, `,` and `;` are refused under every
+ * policy, leniency included, and so is the wait-for-dial-tone marker in each of its four spellings -
+ * `~`, `⁓`, `∼` and `～`: leniency widens what is accepted and may never invent data.
+ *
+ * These are **post-dial markers**, not extension markers. RFC 3966 writes an extension as `;ext=` and a
+ * post-dial string as `;postd=`, because they are different things: what follows one of these characters
+ * is a dialling instruction - a DTMF sequence, an IVR menu path, a pause - which may or may not be an
+ * extension, and nothing in the characters says which. [normalizePhoneWithExtension] reads the extension
+ * markers and refuses these for the same reason this does.
  *
  * The harder half is that an extension is usually written with ordinary formatting. `+43 1 58058-0` is
  * the Durchwahl convention of German-speaking countries, and `-`, `.`, `/`, `(`, `)` and the space all
@@ -79,7 +85,7 @@ fun normalizePhone(value: String, policy: PhonePolicy): Outcome<NormalizedPhone>
                 trailingGroup++
             }
 
-            codePoint.isExtensionMarker() -> throw PhoneNormalizationError.ExtensionNotSupported(index, codePoint)
+            codePoint.isPostDialMarker() -> throw PhoneNormalizationError.PostDialNotSupported(index, codePoint)
 
             // A dash is recorded as THE hyphen, whichever of the family was written, so the guard below
             // reads one separator rather than nine spellings of it.
@@ -243,12 +249,18 @@ private fun Int.isPlus(): Boolean = this == 0x2B || this == 0xFF0B
 internal fun Int.isAsciiLetter(): Boolean = this in 0x41..0x5A || this in 0x61..0x7A
 
 /**
- * `#`, `,`, `;` and the wait-for-dial-tone marker in its four spellings, each of which says that what
- * follows is not part of the number: an extension, a DTMF sequence, or a dialling pause. Refused under
- * every policy, because leniency widens what is accepted and may never invent data - dropping the marker
- * would splice the digits after it onto the subscriber number.
+ * The post-dial markers: `#`, `,`, `;` and the wait-for-dial-tone marker in its four spellings, each of
+ * which says that what follows is not part of the number but a dialling instruction - a DTMF sequence,
+ * an IVR menu path, or a pause. Refused under every policy, because leniency widens what is accepted and
+ * may never invent data - dropping the marker would splice the digits after it onto the subscriber
+ * number.
+ *
+ * **Deliberately not the extension markers.** `x`, `ext` and `;ext=` say that what follows *is* an
+ * extension, and [normalizePhoneWithExtension] reads it. These say only that it is not the number, so
+ * nothing may mint an extension from one: RFC 3966 gives a post-dial string its own parameter, `;postd=`,
+ * for exactly that reason.
  */
-private fun Int.isExtensionMarker(): Boolean =
+internal fun Int.isPostDialMarker(): Boolean =
     this == 0x23 || this == 0x2C || this == 0x3B ||
         // Wait for a dial tone: `~`, and the three characters that are written for it in other scripts.
         // Dropping one and running the digits together folds a wrong number exactly as a comma would, so
@@ -302,13 +314,15 @@ sealed class PhoneNormalizationError(message: String) : Exception(message) {
     class NotValidForRegion : PhoneNormalizationError("phone: not valid for its region")
 
     /**
-     * A marker that introduces something other than the number - `#`, `,`, `;`, or the wait-for-dial-tone
-     * marker in any of its four spellings, `~`, `⁓`, `∼` and `～`. The digits after it are an extension or a
-     * dialling sequence, and E.164 has no room for either, so the input is refused rather than silently
-     * folded into the subscriber number.
+     * A post-dial marker - `#`, `,`, `;`, or the wait-for-dial-tone marker in any of its four spellings,
+     * `~`, `⁓`, `∼` and `～`. What follows one is a dialling instruction rather than part of the number:
+     * RFC 3966 writes it as `;postd=`, separately from the `;ext=` an extension is written with, because a
+     * DTMF sequence, an IVR menu path and a pause are not extensions and the characters do not say which
+     * of them was meant. E.164 has room for none of it, so the input is refused rather than silently
+     * folded into the subscriber number - and no extension is minted from it, by either entry point.
      */
-    class ExtensionNotSupported(val index: Int, val codePoint: Int) :
-        PhoneNormalizationError("phone: extension marker at index $index (U+${codePoint.toHex()})")
+    class PostDialNotSupported(val index: Int, val codePoint: Int) :
+        PhoneNormalizationError("phone: post-dial marker at index $index (U+${codePoint.toHex()})")
 
     /**
      * A trailing group of digits after ordinary formatting, where the number is already valid without it -

@@ -28,7 +28,10 @@ internal enum class TextRule(
     Nfd(4, "nfd", unicodeOnly = true, characterSet = true),
     Nfkc(4, "nfkc", unicodeOnly = true, characterSet = true),
     Nfkd(4, "nfkd", unicodeOnly = true, characterSet = true),
-    NonEmpty(5, "empty.refused", unicodeOnly = false, characterSet = false),
+    RemoveMarks(5, "mark.removed", unicodeOnly = true, characterSet = true),
+    KeepAlnum(6, "alnum.only", unicodeOnly = false, characterSet = true),
+    KeepAlnumSpaced(6, "alnum.only.spaced", unicodeOnly = false, characterSet = true),
+    NonEmpty(7, "empty.refused", unicodeOnly = false, characterSet = false),
     ;
 
     companion object {
@@ -60,8 +63,69 @@ internal data class ConfiguredRule(val rule: TextRule, val ascii: Boolean) {
         TextRule.Nfd -> Normalization.decompose(value, compatibility = false)
         TextRule.Nfkc -> Normalization.compose(value, compatibility = true)
         TextRule.Nfkd -> Normalization.decompose(value, compatibility = true)
+        TextRule.RemoveMarks -> filter(value) { !TextData.isMark(it) }
+        TextRule.KeepAlnum -> keepAlnum(value, spaceTheRest = false)
+        TextRule.KeepAlnumSpaced -> keepAlnum(value, spaceTheRest = true)
         TextRule.NonEmpty -> value.also { if (it.isEmpty()) throw TextNormalizationError.Empty() }
     }
+
+    /**
+     * Keep the letters, decimal digits and combining marks; drop everything else, or stand a single
+     * space where a run of it was.
+     *
+     * The run collapsing is part of this rule rather than left to `space.collapsed`, which has already
+     * run by now: substituting per character would turn `Hello, World!!!` into `hello  world   ` with
+     * nothing left to tidy it. A leading or trailing run therefore produces nothing at all, which is
+     * the same reason - the trim rule is behind us too.
+     *
+     * Some code points are **deleted even by the spacing variant**, and never stand for a run, because
+     * substituting a space for them would invent a word boundary nobody typed. Over Unicode those are
+     * the format characters and the unassigned code points: a zero-width joiner sits inside a word by
+     * design, and a noncharacter is not a separator, it is nothing. Over ASCII they are every non-ASCII
+     * code point, for the same reason one step further out - `ø` in `Jørn` is a letter in the middle of
+     * a word, and an ASCII rule that spaced it would break the word in two. An ASCII rule reads no
+     * frozen table, so it cannot tell a non-ASCII separator from a non-ASCII letter; deleting is the
+     * choice that invents nothing, and a caller who needs `\u00A0` to read as a boundary wants the
+     * Unicode variant.
+     */
+    private fun keepAlnum(value: String, spaceTheRest: Boolean): String {
+        val out = ArrayList<Int>(value.length)
+        var pendingSpace = false
+        for (codePoint in value.toCodePointList()) {
+            if (isKept(codePoint)) {
+                if (pendingSpace && out.isNotEmpty()) out += SPACE
+                pendingSpace = false
+                out += codePoint
+                continue
+            }
+            if (!spaceTheRest) continue
+            if (if (ascii) codePoint > ASCII_MAX else TextData.isFormatOrUnassigned(codePoint)) continue
+            pendingSpace = true
+        }
+        return out.toStringFromCodePoints()
+    }
+
+    /**
+     * What the keep-set rules keep: `A`-`Z`, `a`-`z` and `0`-`9`, or General_Category `L*`, `Nd` and `M*`.
+     *
+     * **The ASCII variant keeps ASCII and drops everything else, including every non-ASCII letter.**
+     * `.ascii` means the rule's character set is ASCII, as it does on every other rule - but a rule that
+     * *keeps* its set and one that *removes* its set behave very differently when it is narrowed, and
+     * this is the one where it matters: `Jørn` becomes `Jrn`, not `Jorn`. `ø` has no canonical
+     * decomposition, so there is no base letter to fold it to and nothing for `mark.removed` to strip.
+     * Dropping it is what an ASCII keep-set does; mapping it to `o` would be transliteration, which is
+     * editorial, language-specific and not something a frozen policy can promise. Keep the Unicode
+     * variant unless every caller of the result is genuinely ASCII-only.
+     *
+     * Case is not this rule's business: `A`-`Z` survives it, and a policy that wants one case enables a
+     * case rule, which runs first.
+     */
+    private fun isKept(codePoint: Int): Boolean =
+        if (ascii) {
+            codePoint in 'a'.code..'z'.code || codePoint in 'A'.code..'Z'.code || codePoint in '0'.code..'9'.code
+        } else {
+            TextData.isLetterDigitOrMark(codePoint)
+        }
 
     /** The six ASCII whitespace characters, or the White_Space property. */
     private fun isSpace(codePoint: Int): Boolean =
@@ -116,6 +180,7 @@ internal data class ConfiguredRule(val rule: TextRule, val ascii: Boolean) {
     private companion object {
         const val SPACE = 0x20
         const val CASE_OFFSET = 0x20
+        const val ASCII_MAX = 0x7F
     }
 }
 

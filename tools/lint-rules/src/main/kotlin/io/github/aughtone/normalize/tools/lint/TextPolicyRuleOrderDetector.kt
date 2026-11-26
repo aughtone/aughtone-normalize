@@ -104,6 +104,9 @@ object TextRuleRanks {
         "nfd" to 4,
         "nfkc" to 4,
         "nfkd" to 4,
-        "nonEmpty" to 5,
+        "removeMarks" to 5,
+        "keepAlnum" to 6,
+        "keepAlnumSpaced" to 6,
+        "nonEmpty" to 7,
     )
 }

@@ -72,6 +72,70 @@ jobs:
           check_name: JUnit Test Report (linuxX64)
           report_paths: '**/build/test-results/**/*.xml'
 
+  linux-arm64-build:
+    # linuxArm64 has no `linuxArm64Test` task at all - Kotlin/Native lists no host
+    # that can run tests for this target, so `check` and `allTests` skip it
+    # entirely and nothing here compiles it. This job cross-compiles and LINKS the
+    # arm64 test executable, which is the strongest check a supported host can do;
+    # linux-arm64-test then runs it on real arm64 hardware.
+    name: Linux arm64 test binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Link linuxArm64 test executables
+        run: ./gradlew linkDebugTestLinuxArm64
+
+      - name: Upload test executables
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-arm64-test-binaries
+          path: '*/build/bin/linuxArm64/debugTest/test.kexe'
+          if-no-files-found: error
+          retention-days: 1
+
+  linux-arm64-test:
+    # The arm64 runner never runs Gradle or the Kotlin compiler - arm64 Linux is
+    # not a supported Kotlin/Native host, so it cannot. It only executes the ELF
+    # binaries built above, which need nothing but glibc. That keeps the byte
+    # stability assertions running on real arm64 rather than under emulation.
+    name: Linux arm64 target tests
+    needs: linux-arm64-build
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+    steps:
+      - name: Download test executables
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-arm64-test-binaries
+
+      - name: Run linuxArm64 tests
+        # upload-artifact does not preserve the executable bit, hence the chmod.
+        # Each binary is run separately so a failure names the module it came from.
+        run: |
+          status=0
+          for exe in */build/bin/linuxArm64/debugTest/test.kexe; do
+            module="${exe%%/*}"
+            echo "::group::$module"
+            chmod +x "$exe"
+            "./$exe" || status=1
+            echo "::endgroup::"
+          done
+          exit $status
+
   docs-links:
     # The knowledge base publishes to the repo wiki, where every relative link is
     # rewritten to a wiki page or a `blob/HEAD` repo URL. Neither rewrite notices

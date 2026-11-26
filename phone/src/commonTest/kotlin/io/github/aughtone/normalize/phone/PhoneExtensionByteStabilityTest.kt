@@ -49,9 +49,9 @@ class PhoneExtensionByteStabilityTest {
     /** Input to the refusal it must produce, under both the strict and the lenient policy. */
     private val refused: List<Pair<String, String>> = listOf(
         // An extension marker says what follows is not the number. Dropping it splices the digits on.
-        "+1 212 555 0123 #4" to "ExtensionNotSupported",
-        "+12125550123,4" to "ExtensionNotSupported",
-        "+12125550123;ext=4" to "ExtensionNotSupported",
+        "+1 212 555 0123 #4" to "PostDialNotSupported",
+        "+12125550123,4" to "PostDialNotSupported",
+        "+12125550123;ext=4" to "PostDialNotSupported",
 
         // The Durchwahl hyphen, with a complete number before it.
         "+49 30 12345678-12" to "AmbiguousTrailingGroup",
