@@ -17,7 +17,7 @@ description: >-
   (io.github.aughtone.normalize:unicode).
 license: Apache-2.0
 metadata:
-  version: "0.0.5"
+  version: "0.0.6"
   repository: https://github.com/aughtone/aughtone-normalize
 ---
 
@@ -92,7 +92,7 @@ normalizePhoneWithExtension("+1 (212) 555-0123", "4", ExtensionPolicy.E164)
 
 ## What moved, and what it used to be called
 
-**`ExtensionNotSupported` is now `PostDialNotSupported`, and `#`, `,` and `;` no longer introduce an extension.** Same characters, same refusal from `normalizePhone` — but the name says post-dial, the message reads `phone: post-dial marker at index 7 (U+0023)`, and `normalizePhoneWithExtension` now refuses them too instead of returning the digits after one as an extension. A `catch`/`is` on the old class name will not compile; a stored `phone.extension` token minted from `+1 212 555 0123,4` was never an extension and cannot be re-derived. A dangling `#` or `,` also refuses again, where `0.0.5` returned the number with a null extension. The two-argument `normalizePhoneWithExtension(number, extension, policy)` arrives in the same change for callers who hold the pieces apart.
+**`ExtensionNotSupported` is now `PostDialNotSupported` in `0.0.6`, and `#`, `,` and `;` no longer introduce an extension.** Same characters, same refusal from `normalizePhone` — but the name says post-dial, the message reads `phone: post-dial marker at index 7 (U+0023)`, and `normalizePhoneWithExtension` now refuses them too instead of returning the digits after one as an extension. A `catch`/`is` on the old class name will not compile; a stored `phone.extension` token minted from `+1 212 555 0123,4` was never an extension and cannot be re-derived. A dangling `#` or `,` also refuses again, where `0.0.5` returned the number with a null extension. The two-argument `normalizePhoneWithExtension(number, extension, policy)` arrives in the same change for callers who hold the pieces apart.
 
 **`ExtensionPolicy.forRegion(region)` writes a different policy id in `0.0.5`, and the compiler cannot show you this one.** Same signature, same canonical extension digits, different identity: it used to carry `ExtensionPolicy.E164`'s id, `phone.extension`, and now carries `phone.extension:region.ca`. Two policies that do not accept the same input shared one `(id, version)` pair, so `resolve("phone.extension", 1)` handed back the policy that refuses national-format input whichever one had produced the value. If you stored `phone.extension` beside an extension read under `forRegion`, that id resolves to `ExtensionPolicy.E164` and always did — the extension's own bytes are unaffected, because the region governs the number beside them, so re-deriving the extension gives what you already stored. There is no lenient extension policy, so `phone.extension:region.ca:lenient` resolves to nothing rather than to something close.
 
